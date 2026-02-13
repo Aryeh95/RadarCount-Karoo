@@ -2,6 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Platform: Karoo](https://img.shields.io/badge/Platform-Karoo%202%2F3-blue.svg)](https://www.hammerhead.io/)
+[![Downloads](https://img.shields.io/github/downloads/yrkan/eiradar/total)](https://github.com/yrkan/eiradar/releases)
 [![Latest Release](https://img.shields.io/github/v/release/yrkan/eiradar)](https://github.com/yrkan/eiradar/releases/latest)
 [![Website](https://img.shields.io/badge/Web-eiradar.com-00E676)](https://eiradar.com)
 
