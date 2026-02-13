@@ -35,6 +35,7 @@ Rear vehicle radar alert extension for Hammerhead Karoo. Reads ANT+ radar data a
 | **Escalation Bypass** | Higher threat levels fire immediately, ignoring cooldown |
 | **FIT Recording** | Threat level, vehicle count, and nearest distance written to ride file at 1Hz |
 | **Ride Statistics** | Per-ride session stats: alert counts, closest approach, max vehicles, threat time |
+| **Quick Mute** | Toggle alerts via physical button/remote — data fields keep updating |
 | **Screen Wake** | Wake Karoo screen on critical threats or any threat |
 | **Imperial/Metric** | Automatic unit detection from Karoo profile |
 | **Fully Offline** | No accounts, no cloud, no internet, no phone pairing |
@@ -107,9 +108,11 @@ Three graphical data types built with Jetpack Glance. Each updates at 1Hz with a
 
 | Data Field | Karoo Name | Content |
 |------------|:----------:|---------|
-| **Compact** | Radar (S) | Vehicle count + threat-colored background |
-| **Standard** | Radar (M) | Vehicle count + nearest distance or status text |
+| **Compact** | Radar (S) | Vehicle count, colored by threat level |
+| **Standard** | Radar (M) | Vehicle count + nearest distance + status label |
 | **Full** | Radar (L) | Threat label + vehicle count + distance + status message |
+
+All widgets feature a colored status bar at the top (green/orange/red) and a rounded dark background. When alerts are muted, the status bar turns grey and the label shows "MUTED" — radar data continues to display normally.
 
 ### Widget States
 
@@ -170,12 +173,21 @@ Alerts follow the threat level hierarchy. When a threat escalates (e.g. Approach
 
 Optional confirmation sound + vibration when all vehicles have passed. Useful as an "all safe" signal before lane changes or turns.
 
+### Quick Mute (BonusAction)
+
+Assign "Toggle Radar Alerts" to a physical button or remote in **Karoo Settings > Controls**. One press mutes all alert channels (sound, vibration, banner). Press again to re-enable. Ideal for group rides where nearby cyclists trigger false alerts.
+
+- Data fields continue showing live radar data with a "MUTED" indicator
+- FIT recording and statistics continue normally
+- **Auto-unmutes when the ride ends** — the next ride always starts with alerts enabled
+
 ### Safety Design
 
 - **Critical alerts always fire** regardless of speed gate or other suppression
 - Haptic vibration works even at high speed where wind drowns out sound
 - Repeat delay prevents alert fatigue without missing genuinely new threats
 - Escalation bypass ensures worsening situations are immediately communicated
+- Quick mute auto-resets on ride end — no risk of starting a ride with alerts off
 
 ---
 
@@ -302,7 +314,7 @@ The Karoo receives ANT+ radar data natively. eiRadar reads it from the Karoo SDK
 
 ```
 io/github/ykn/variaradarpro/
-├── VariaRadarExtension.kt       # KarooExtension entry point, FIT recording
+├── VariaRadarExtension.kt       # KarooExtension entry point, FIT recording, BonusAction
 ├── MainActivity.kt              # Compose UI host (settings, onboarding, dashboard)
 │
 ├── engine/                      # Core logic
@@ -315,7 +327,8 @@ io/github/ykn/variaradarpro/
 │   └── StatisticsCollector.kt   # Per-ride session stats aggregation
 │
 ├── datatypes/glance/            # Karoo data fields (Jetpack Glance)
-│   ├── GlanceDataType.kt        # Base: fresh RemoteViews per 1Hz update cycle
+│   ├── GlanceDataType.kt        # Base: fresh RemoteViews per 1Hz cycle, mute state
+│   ├── GlanceComponents.kt     # Shared: DataFieldContainer, StatusBar, ValueText, LabelText
 │   ├── SmallWidgetGlanceDataType.kt   # Radar (S) — compact
 │   ├── MediumWidgetGlanceDataType.kt  # Radar (M) — count + distance
 │   └── LargeWidgetGlanceDataType.kt   # Radar (L) — full info
