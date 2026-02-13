@@ -29,10 +29,10 @@ class LargeWidgetGlanceDataType(
 ) : GlanceDataType(radarExtension, "radar-large") {
 
     @Composable
-    override fun Content(state: WidgetState, settings: PresetSettings, config: ViewConfig) {
+    override fun Content(state: WidgetState, settings: PresetSettings, config: ViewConfig, muted: Boolean) {
         DataFieldContainer {
             Column(modifier = GlanceModifier.fillMaxSize()) {
-                StatusBar(state, height = 5)
+                StatusBar(state, muted, height = 5)
 
                 Box(
                     modifier = GlanceModifier
@@ -46,7 +46,7 @@ class LargeWidgetGlanceDataType(
                     ) {
                         // Threat level label
                         LabelText(
-                            text = getStatusLabel(state),
+                            text = if (muted) radarExtension.getString(R.string.widget_muted) else getStatusLabel(state),
                             fontSize = 13
                         )
 
@@ -74,7 +74,7 @@ class LargeWidgetGlanceDataType(
 
                         // Status message
                         LabelText(
-                            text = getStatusMessage(state),
+                            text = if (muted) radarExtension.getString(R.string.alerts_muted) else getStatusMessage(state),
                             fontSize = 13
                         )
                     }

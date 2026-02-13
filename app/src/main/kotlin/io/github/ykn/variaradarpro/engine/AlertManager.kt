@@ -171,11 +171,11 @@ class AlertManager(
     }
 
     private fun handleThreat(threat: WidgetState.Threat) {
-        // Record vehicle detection for statistics (always, regardless of speed gate)
+        // Record vehicle detection for statistics (always, regardless of mute/speed gate)
         statisticsCollector.recordVehicleDetection(threat.vehicleCount, threat.nearestDistanceM)
         statisticsCollector.startThreatTracking()
 
-        if (!currentAlertSettings.globalEnabled) {
+        if (!currentAlertSettings.globalEnabled || extension.alertsMuted.value) {
             return
         }
 
@@ -227,8 +227,8 @@ class AlertManager(
     private fun handleClear() {
         statisticsCollector.endThreatTracking()
 
-        // Play clear chime if enabled
-        if (currentSettings.clearChimeEnabled && _lastAlertLevel.value != null) {
+        // Play clear chime if enabled (skip when muted)
+        if (currentSettings.clearChimeEnabled && _lastAlertLevel.value != null && !extension.alertsMuted.value) {
             playClearChime()
         }
 

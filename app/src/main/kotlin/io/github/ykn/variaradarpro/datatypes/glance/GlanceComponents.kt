@@ -76,8 +76,10 @@ fun DataFieldContainer(
 @Composable
 fun StatusBar(
     state: WidgetState,
+    muted: Boolean = false,
     height: Int = 6
 ) {
+    val color = if (muted) GlanceColors.Neutral else GlanceColors.forState(state)
     Box(
         modifier = GlanceModifier
             .fillMaxWidth()
@@ -88,7 +90,7 @@ fun StatusBar(
             modifier = GlanceModifier
                 .fillMaxWidth()
                 .height(height.dp)
-                .background(GlanceColors.forState(state))
+                .background(color)
         ) {}
     }
 }

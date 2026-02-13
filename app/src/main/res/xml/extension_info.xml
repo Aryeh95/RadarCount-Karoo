@@ -30,4 +30,9 @@
         graphical="true"
         icon="@drawable/ic_radar" />
 
+    <!-- Quick mute toggle from ride screen -->
+    <BonusAction
+        actionId="toggle-alerts"
+        displayName="@string/action_toggle_alerts" />
+
 </ExtensionInfo>

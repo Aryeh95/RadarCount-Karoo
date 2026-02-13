@@ -60,7 +60,8 @@ abstract class GlanceDataType(
     protected abstract fun Content(
         state: WidgetState,
         settings: PresetSettings,
-        config: ViewConfig
+        config: ViewConfig,
+        muted: Boolean
     )
 
     /**
@@ -104,7 +105,7 @@ abstract class GlanceDataType(
                 try {
                     val settings = getCurrentSettings()
                     val result = glance.compose(context, DpSize.Unspecified) {
-                        Content(PREVIEW_STATE, settings, config)
+                        Content(PREVIEW_STATE, settings, config, muted = false)
                     }
                     emitter.updateView(result.remoteViews)
                 } catch (e: Exception) {
@@ -120,8 +121,9 @@ abstract class GlanceDataType(
             try {
                 val initialState = radarExtension.radarEngine.widgetState.value
                 val settings = getCurrentSettings()
+                val muted = radarExtension.alertsMuted.value
                 val result = glance.compose(context, DpSize.Unspecified) {
-                    Content(initialState, settings, config)
+                    Content(initialState, settings, config, muted)
                 }
                 emitter.updateView(result.remoteViews)
             } catch (e: Exception) {
@@ -147,8 +149,9 @@ abstract class GlanceDataType(
                 try {
                     val currentState = radarExtension.radarEngine.widgetState.value
                     val settings = getCurrentSettings()
+                    val muted = radarExtension.alertsMuted.value
                     val result = glance.compose(context, DpSize.Unspecified) {
-                        Content(currentState, settings, config)
+                        Content(currentState, settings, config, muted)
                     }
                     emitter.updateView(result.remoteViews)
                 } catch (t: Throwable) {

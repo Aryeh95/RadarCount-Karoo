@@ -18,6 +18,7 @@ import io.hammerhead.karooext.models.DeveloperField
 import io.hammerhead.karooext.models.FieldValue
 import io.hammerhead.karooext.models.FitEffect
 import io.hammerhead.karooext.models.RideState
+import io.hammerhead.karooext.models.InRideAlert
 import io.hammerhead.karooext.models.SystemNotification
 import io.hammerhead.karooext.models.UserProfile
 import io.hammerhead.karooext.models.WriteToRecordMesg
@@ -89,6 +90,10 @@ class VariaRadarExtension : KarooExtension("eiradar", BuildConfig.VERSION_NAME) 
     // Rider's preferred distance unit (metric/imperial)
     private val _useImperial = MutableStateFlow(false)
     val useImperial: StateFlow<Boolean> = _useImperial.asStateFlow()
+
+    // Alert mute state (toggled via BonusAction, resets on ride end)
+    private val _alertsMuted = MutableStateFlow(false)
+    val alertsMuted: StateFlow<Boolean> = _alertsMuted.asStateFlow()
 
     // Consumer IDs for cleanup
     private var rideStateConsumerId: String? = null
@@ -171,6 +176,7 @@ class VariaRadarExtension : KarooExtension("eiradar", BuildConfig.VERSION_NAME) 
                 }
                 is RideState.Idle -> {
                     android.util.Log.i(TAG, "Ride idle")
+                    _alertsMuted.value = false
                     _statisticsCollector?.endSession()
                 }
                 is RideState.Paused -> {
@@ -328,6 +334,31 @@ class VariaRadarExtension : KarooExtension("eiradar", BuildConfig.VERSION_NAME) 
         }
 
         super.onDestroy()
+    }
+
+    override fun onBonusAction(actionId: String) {
+        when (actionId) {
+            "toggle-alerts" -> {
+                val muted = !_alertsMuted.value
+                _alertsMuted.value = muted
+
+                val message = if (muted) getString(R.string.alerts_muted) else getString(R.string.alerts_enabled)
+                val color = if (muted) R.color.alert_background_approaching else R.color.threat_clear
+
+                karooSystem.dispatch(
+                    InRideAlert(
+                        id = "eiradar_mute_toggle",
+                        icon = R.drawable.ic_radar,
+                        title = message,
+                        detail = "",
+                        autoDismissMs = 2000,
+                        backgroundColor = color,
+                        textColor = R.color.alert_text
+                    )
+                )
+                android.util.Log.i(TAG, "Alerts ${if (muted) "muted" else "enabled"} via BonusAction")
+            }
+        }
     }
 
     override val types by lazy {

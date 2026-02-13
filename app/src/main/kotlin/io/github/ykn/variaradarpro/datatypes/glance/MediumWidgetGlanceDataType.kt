@@ -28,10 +28,10 @@ class MediumWidgetGlanceDataType(
 ) : GlanceDataType(radarExtension, "radar-medium") {
 
     @Composable
-    override fun Content(state: WidgetState, settings: PresetSettings, config: ViewConfig) {
+    override fun Content(state: WidgetState, settings: PresetSettings, config: ViewConfig, muted: Boolean) {
         DataFieldContainer {
             Column(modifier = GlanceModifier.fillMaxSize()) {
-                StatusBar(state)
+                StatusBar(state, muted)
 
                 Box(
                     modifier = GlanceModifier
@@ -65,7 +65,7 @@ class MediumWidgetGlanceDataType(
 
                         // Status label
                         LabelText(
-                            text = getLabel(state),
+                            text = if (muted) radarExtension.getString(R.string.widget_muted) else getLabel(state),
                             fontSize = 12
                         )
                     }

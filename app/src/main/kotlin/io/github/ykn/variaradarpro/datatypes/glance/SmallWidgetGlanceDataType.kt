@@ -22,10 +22,10 @@ class SmallWidgetGlanceDataType(
 ) : GlanceDataType(radarExtension, "radar-small") {
 
     @Composable
-    override fun Content(state: WidgetState, settings: PresetSettings, config: ViewConfig) {
+    override fun Content(state: WidgetState, settings: PresetSettings, config: ViewConfig, muted: Boolean) {
         DataFieldContainer {
             Column(modifier = GlanceModifier.fillMaxSize()) {
-                StatusBar(state)
+                StatusBar(state, muted)
 
                 Box(
                     modifier = GlanceModifier.fillMaxSize(),

@@ -95,6 +95,12 @@
     <string name="action_cancel">Cancel</string>
     <string name="action_confirm">Reset</string>
 
+    <!-- Bonus Actions -->
+    <string name="action_toggle_alerts">Toggle Radar Alerts</string>
+    <string name="alerts_muted">Alerts muted</string>
+    <string name="alerts_enabled">Alerts enabled</string>
+    <string name="widget_muted">MUTED</string>
+
     <!-- Onboarding -->
     <string name="onboarding_welcome">Welcome</string>
     <string name="onboarding_welcome_desc">Get vehicle alerts while riding</string>
