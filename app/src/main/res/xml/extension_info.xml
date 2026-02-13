@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ExtensionInfo
+    id="eiradar"
+    displayName="@string/extension_name"
+    icon="@drawable/ic_radar"
+    configurable="true"
+    fitFile="true">
+
+    <!-- Small Widget (1x1): Threat level + vehicle count -->
+    <DataType
+        typeId="radar-small"
+        description="@string/datatype_small_desc"
+        displayName="@string/datatype_small"
+        graphical="true"
+        icon="@drawable/ic_radar" />
+
+    <!-- Medium Widget (2x1): Level + count + distance -->
+    <DataType
+        typeId="radar-medium"
+        description="@string/datatype_medium_desc"
+        displayName="@string/datatype_medium"
+        graphical="true"
+        icon="@drawable/ic_radar" />
+
+    <!-- Large Widget (2x2): Full visualization with vehicle dots -->
+    <DataType
+        typeId="radar-large"
+        description="@string/datatype_large_desc"
+        displayName="@string/datatype_large"
+        graphical="true"
+        icon="@drawable/ic_radar" />
+
+</ExtensionInfo>

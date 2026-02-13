@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Primary colors -->
+    <color name="primary">#1976D2</color>
+    <color name="primary_dark">#1565C0</color>
+    <color name="primary_light">#42A5F5</color>
+
+    <!-- Accent -->
+    <color name="accent">#FF9800</color>
+
+    <!-- Background -->
+    <color name="background">#121212</color>
+    <color name="surface">#1E1E1E</color>
+
+    <!-- Text -->
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#B0B0B0</color>
+
+    <!-- Threat level colors -->
+    <color name="threat_clear">#228B22</color>
+    <color name="threat_approaching">#FFD700</color>
+    <color name="threat_warning">#FF8C00</color>
+    <color name="threat_critical">#DC143C</color>
+
+    <!-- Widget backgrounds -->
+    <color name="widget_not_connected">#444444</color>
+    <color name="widget_connecting">#444444</color>
+    <color name="widget_connection_lost">#444444</color>
+
+    <!-- Alert colors -->
+    <color name="alert_background_critical">#FF0000</color>
+    <color name="alert_background_warning">#FFA500</color>
+    <color name="alert_background_approaching">#E6A800</color>
+    <color name="alert_text">#FFFFFF</color>
+
+    <!-- High contrast variants -->
+    <color name="high_contrast_clear">#00FF00</color>
+    <color name="high_contrast_approaching">#FFFF00</color>
+    <color name="high_contrast_warning">#FF8000</color>
+    <color name="high_contrast_critical">#FF0000</color>
+</resources>
