@@ -1,11 +1,8 @@
 package io.github.ykn.variaradarpro.datatypes.glance
 
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceModifier
-import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.Column
@@ -16,10 +13,6 @@ import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.width
-import androidx.glance.text.FontWeight
-import androidx.glance.text.Text
-import androidx.glance.text.TextStyle
-import androidx.glance.unit.ColorProvider
 import io.github.ykn.variaradarpro.R
 import io.github.ykn.variaradarpro.VariaRadarExtension
 import io.github.ykn.variaradarpro.data.models.PresetSettings
@@ -28,8 +21,8 @@ import io.github.ykn.variaradarpro.data.models.WidgetState
 import io.hammerhead.karooext.models.ViewConfig
 
 /**
- * Large widget (2x2) - Full information display.
- * Status label at top, large vehicle count + distance, status message at bottom.
+ * Large widget — full radar information.
+ * Status bar + threat label + large count/distance + status message.
  */
 class LargeWidgetGlanceDataType(
     radarExtension: VariaRadarExtension
@@ -37,61 +30,55 @@ class LargeWidgetGlanceDataType(
 
     @Composable
     override fun Content(state: WidgetState, settings: PresetSettings, config: ViewConfig) {
-        Box(
-            modifier = GlanceModifier
-                .fillMaxSize()
-                .background(ColorProvider(WidgetColors.forState(state))),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                modifier = GlanceModifier
-                    .padding(16.dp)
-                    .fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = getStatusLabel(state),
-                    style = TextStyle(
-                        color = ColorProvider(Color.White.copy(alpha = 0.85f)),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                )
+        DataFieldContainer {
+            Column(modifier = GlanceModifier.fillMaxSize()) {
+                StatusBar(state, height = 6)
 
-                Spacer(modifier = GlanceModifier.height(8.dp))
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = getMainText(state),
-                        style = TextStyle(
-                            color = ColorProvider(Color.White),
-                            fontSize = 56.sp,
-                            fontWeight = FontWeight.Bold
+                Box(
+                    modifier = GlanceModifier
+                        .fillMaxSize()
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        modifier = GlanceModifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        // Threat level label
+                        LabelText(
+                            text = getStatusLabel(state),
+                            fontSize = 13
                         )
-                    )
 
-                    if (state is WidgetState.Threat && state.nearestDistanceM > 0) {
-                        Spacer(modifier = GlanceModifier.width(16.dp))
-                        Text(
-                            text = formatDistance(state.nearestDistanceM),
-                            style = TextStyle(
-                                color = ColorProvider(Color.White),
-                                fontSize = 28.sp,
-                                fontWeight = FontWeight.Medium
+                        Spacer(modifier = GlanceModifier.height(6.dp))
+
+                        // Main row: vehicle count + distance
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            ValueText(
+                                text = getMainText(state),
+                                color = GlanceColors.forState(state),
+                                fontSize = 48
                             )
+
+                            if (state is WidgetState.Threat && state.nearestDistanceM > 0) {
+                                Spacer(modifier = GlanceModifier.width(14.dp))
+                                ValueText(
+                                    text = formatDistance(state.nearestDistanceM),
+                                    color = GlanceColors.White,
+                                    fontSize = 24
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = GlanceModifier.height(6.dp))
+
+                        // Status message
+                        LabelText(
+                            text = getStatusMessage(state),
+                            fontSize = 13
                         )
                     }
                 }
-
-                Spacer(modifier = GlanceModifier.height(8.dp))
-
-                Text(
-                    text = getStatusMessage(state),
-                    style = TextStyle(
-                        color = ColorProvider(Color.White.copy(alpha = 0.9f)),
-                        fontSize = 16.sp
-                    )
-                )
             }
         }
     }
@@ -110,11 +97,11 @@ class LargeWidgetGlanceDataType(
     }
 
     private fun getMainText(state: WidgetState): String = when (state) {
-        is WidgetState.NotConnected -> "-"
-        is WidgetState.Connecting -> "..."
+        is WidgetState.NotConnected -> "--"
+        is WidgetState.Connecting -> "--"
         is WidgetState.Clear -> "OK"
         is WidgetState.Threat -> state.vehicleCount.toString()
-        is WidgetState.ConnectionLost -> "!"
+        is WidgetState.ConnectionLost -> "--"
     }
 
     private fun getStatusMessage(state: WidgetState): String = when (state) {

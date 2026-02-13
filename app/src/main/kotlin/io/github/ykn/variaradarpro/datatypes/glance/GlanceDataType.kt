@@ -2,7 +2,6 @@ package io.github.ykn.variaradarpro.datatypes.glance
 
 import android.content.Context
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.DpSize
 import androidx.glance.appwidget.ExperimentalGlanceRemoteViewsApi
 import androidx.glance.appwidget.GlanceRemoteViews
@@ -50,31 +49,6 @@ abstract class GlanceDataType(
             vehicleCount = 2,
             nearestDistanceM = 45
         )
-    }
-
-    /**
-     * Shared widget color palette — single source of truth.
-     */
-    object WidgetColors {
-        val SAFE = Color(0xFF00C853)
-        val CAUTION = Color(0xFFFF9100)
-        val DANGER = Color(0xFFFF1744)
-        val NEUTRAL = Color(0xFF424242)
-
-        fun forState(state: WidgetState): Color = when (state) {
-            is WidgetState.NotConnected -> NEUTRAL
-            is WidgetState.Connecting -> NEUTRAL
-            is WidgetState.Clear -> SAFE
-            is WidgetState.Threat -> forThreatLevel(state.level)
-            is WidgetState.ConnectionLost -> NEUTRAL
-        }
-
-        fun forThreatLevel(level: ThreatLevel): Color = when (level) {
-            ThreatLevel.CLEAR -> SAFE
-            ThreatLevel.APPROACHING -> CAUTION
-            ThreatLevel.WARNING -> CAUTION
-            ThreatLevel.CRITICAL -> DANGER
-        }
     }
 
     private val glance = GlanceRemoteViews()
