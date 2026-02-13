@@ -39,7 +39,6 @@ class AlertManager(
     private val preferencesRepository: PreferencesRepository,
     private val nightModeManager: NightModeManager,
     private val soundEngine: SoundEngine,
-    private val hapticEngine: HapticEngine,
     private val statisticsCollector: StatisticsCollector
 ) {
 
@@ -133,8 +132,6 @@ class AlertManager(
                     currentAlertSettings = input.alertSettings
 
                     soundEngine.setSoundSet(input.settings.soundSet)
-                    soundEngine.setVolume(input.settings.soundVolume)
-                    hapticEngine.setEnabled(input.alertSettings.hapticAlert)
 
                     processWidgetState(input.widgetState)
                 }
@@ -249,11 +246,6 @@ class AlertManager(
             soundEngine.playAlert(level)
         }
 
-        // Haptic alert
-        if (currentAlertSettings.hapticAlert) {
-            hapticEngine.vibrate(level)
-        }
-
         // Screen wake
         handleScreenWake(level)
     }
@@ -289,9 +281,6 @@ class AlertManager(
     private fun playClearChime() {
         if (currentAlertSettings.soundAlert && currentSettings.soundEnabled) {
             soundEngine.playClearChime()
-        }
-        if (currentAlertSettings.hapticAlert) {
-            hapticEngine.vibrateClear()
         }
     }
 
@@ -354,7 +343,6 @@ class AlertManager(
      */
     fun destroy() {
         stopMonitoring()
-        hapticEngine.cancel()
         alertScope.cancel()
     }
 }

@@ -6,7 +6,6 @@ import io.github.ykn.variaradarpro.datatypes.glance.LargeWidgetGlanceDataType
 import io.github.ykn.variaradarpro.datatypes.glance.MediumWidgetGlanceDataType
 import io.github.ykn.variaradarpro.datatypes.glance.SmallWidgetGlanceDataType
 import io.github.ykn.variaradarpro.engine.AlertManager
-import io.github.ykn.variaradarpro.engine.HapticEngine
 import io.github.ykn.variaradarpro.engine.NightModeManager
 import io.github.ykn.variaradarpro.engine.RadarEngine
 import io.github.ykn.variaradarpro.engine.SoundEngine
@@ -81,10 +80,6 @@ class VariaRadarExtension : KarooExtension("eiradar", BuildConfig.VERSION_NAME) 
     val soundEngine: SoundEngine
         get() = _soundEngine ?: throw IllegalStateException("SoundEngine not initialized")
 
-    private var _hapticEngine: HapticEngine? = null
-    val hapticEngine: HapticEngine
-        get() = _hapticEngine ?: throw IllegalStateException("HapticEngine not initialized")
-
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     // Rider's preferred distance unit (metric/imperial)
@@ -122,9 +117,8 @@ class VariaRadarExtension : KarooExtension("eiradar", BuildConfig.VERSION_NAME) 
         val database = VariaRadarDatabase.getInstance(this)
         _statisticsCollector = StatisticsCollector(database.rideStatisticsDao())
 
-        // Initialize sound and haptic engines
+        // Initialize sound engine
         _soundEngine = SoundEngine(karooSystem)
-        _hapticEngine = HapticEngine(this)
 
         // Initialize alert manager
         _alertManager = AlertManager(
@@ -133,7 +127,6 @@ class VariaRadarExtension : KarooExtension("eiradar", BuildConfig.VERSION_NAME) 
             preferencesRepository = preferencesRepository,
             nightModeManager = nightModeManager,
             soundEngine = soundEngine,
-            hapticEngine = hapticEngine,
             statisticsCollector = statisticsCollector
         )
 
@@ -309,9 +302,6 @@ class VariaRadarExtension : KarooExtension("eiradar", BuildConfig.VERSION_NAME) 
         _alertManager?.destroy()
         _alertManager = null
 
-        _hapticEngine?.cancel()
-        _hapticEngine = null
-
         _soundEngine = null
 
         _nightModeManager?.destroy()
@@ -321,6 +311,7 @@ class VariaRadarExtension : KarooExtension("eiradar", BuildConfig.VERSION_NAME) 
         _radarEngine = null
 
         _statisticsCollector?.endSession()
+        _statisticsCollector?.destroy()
         _statisticsCollector = null
 
         _preferencesRepository = null

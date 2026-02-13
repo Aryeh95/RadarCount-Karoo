@@ -22,7 +22,6 @@ data class PresetSettings(
 
     // Sound
     val soundEnabled: Boolean = true,
-    val soundVolume: Float = 0.7f,
     val soundSet: BuiltInSoundSet = BuiltInSoundSet.CLASSIC,
 
     // Visual

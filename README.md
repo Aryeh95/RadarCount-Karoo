@@ -6,7 +6,7 @@
 [![Release](https://img.shields.io/github/v/release/yrkan/eiradar?style=flat-square&color=0d1117&logo=github&logoColor=white)](https://github.com/yrkan/eiradar/releases/latest)
 [![Website](https://img.shields.io/badge/Web-eiradar.com-0d1117?style=flat-square&logo=google-chrome&logoColor=00E676)](https://eiradar.com)
 
-Rear vehicle radar alert extension for Hammerhead Karoo. Reads ANT+ radar data and delivers real-time visual, sound, and haptic alerts — designed to keep your eyes on the road, not the screen.
+Rear vehicle radar alert extension for Hammerhead Karoo. Reads ANT+ radar data and delivers real-time visual and sound alerts — designed to keep your eyes on the road, not the screen.
 
 <p align="center">
   <a href="#features">Features</a> &bull;
@@ -27,7 +27,7 @@ Rear vehicle radar alert extension for Hammerhead Karoo. Reads ANT+ radar data a
 | Feature | Description |
 |---------|-------------|
 | **3 Data Fields** | Compact, Standard, Full — graphical widgets for any ride screen layout |
-| **Multi-channel Alerts** | Visual banner, escalating sound patterns, haptic vibration |
+| **Multi-channel Alerts** | Visual banner + escalating sound patterns via Karoo speaker |
 | **4 Sound Sets** | Classic, Subtle, Urgent, Bike Bell — choose what fits your riding style |
 | **Threat Levels** | Approaching, Warning, Critical — color-coded with configurable distance thresholds |
 | **Night Mode** | Automatic threshold increase after sunset (GPS-based detection) |
@@ -138,7 +138,7 @@ All widgets feature a colored status bar at the top (green/orange/red) and a rou
 
 ## Alerts
 
-Three independent alert channels. Each can be enabled or disabled separately with a master switch to control all at once.
+Two independent alert channels. Each can be enabled or disabled separately with a master switch to control all at once.
 
 ### Channels
 
@@ -146,7 +146,6 @@ Three independent alert channels. Each can be enabled or disabled separately wit
 |---------|-------------|:-------:|
 | **Banner** | Karoo in-ride visual alert overlay with auto-dismiss | On |
 | **Sound** | Beep patterns via Karoo speaker (4 sound sets) | On |
-| **Vibration** | Haptic feedback patterns per threat level | On |
 
 ### Sound Sets
 
@@ -172,11 +171,11 @@ Alerts follow the threat level hierarchy. When a threat escalates (e.g. Approach
 
 ### All-Clear Chime
 
-Optional confirmation sound + vibration when all vehicles have passed. Useful as an "all safe" signal before lane changes or turns.
+Optional confirmation sound when all vehicles have passed. Useful as an "all safe" signal before lane changes or turns.
 
 ### Quick Mute (BonusAction)
 
-Assign "Toggle Radar Alerts" to a physical button or remote in **Karoo Settings > Controls**. One press mutes all alert channels (sound, vibration, banner). Press again to re-enable. Ideal for group rides where nearby cyclists trigger false alerts.
+Assign "Toggle Radar Alerts" to a physical button or remote in **Karoo Settings > Controls**. One press mutes all alert channels (sound, banner). Press again to re-enable. Ideal for group rides where nearby cyclists trigger false alerts.
 
 - Data fields continue showing live radar data with a "MUTED" indicator
 - FIT recording and statistics continue normally
@@ -185,7 +184,6 @@ Assign "Toggle Radar Alerts" to a physical button or remote in **Karoo Settings 
 ### Safety Design
 
 - **Critical alerts always fire** regardless of speed gate or other suppression
-- Haptic vibration works even at high speed where wind drowns out sound
 - Repeat delay prevents alert fatigue without missing genuinely new threats
 - Escalation bypass ensures worsening situations are immediately communicated
 - Quick mute auto-resets on ride end — no risk of starting a ride with alerts off
@@ -203,7 +201,6 @@ All settings are accessible from the eiRadar app on Karoo. Tap any value to cycl
 | Enable alerts | On / Off | On |
 | Banner | On / Off | On |
 | Sound | On / Off | On |
-| Vibration | On / Off | On |
 | Sound set | Classic / Subtle / Urgent / Bell | Classic |
 | All-clear sound | On / Off | On |
 
@@ -323,7 +320,6 @@ io/github/ykn/variaradarpro/
 │   ├── AlertManager.kt          # Threat evaluation + alert dispatch + night mode
 │   ├── AlertThrottler.kt        # Per-level cooldown with escalation bypass
 │   ├── SoundEngine.kt           # Karoo PlayBeepPattern integration (4 sound sets)
-│   ├── HapticEngine.kt          # Android Vibrator patterns per threat level
 │   ├── NightModeManager.kt      # Sunrise/sunset detection via Karoo GPS data
 │   └── StatisticsCollector.kt   # Per-ride session stats aggregation
 │

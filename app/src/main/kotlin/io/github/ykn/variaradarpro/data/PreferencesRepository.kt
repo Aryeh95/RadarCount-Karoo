@@ -5,7 +5,6 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -47,7 +46,6 @@ class PreferencesRepository private constructor(private val context: Context) {
 
         // Sound
         private val KEY_SOUND_ENABLED = booleanPreferencesKey("sound_enabled")
-        private val KEY_SOUND_VOLUME = floatPreferencesKey("sound_volume")
         private val KEY_SOUND_SET = stringPreferencesKey("sound_set")
 
         // Visual
@@ -58,7 +56,6 @@ class PreferencesRepository private constructor(private val context: Context) {
         private val KEY_ALERTS_GLOBAL_ENABLED = booleanPreferencesKey("alerts_global_enabled")
         private val KEY_VISUAL_ALERT = booleanPreferencesKey("visual_alert")
         private val KEY_SOUND_ALERT = booleanPreferencesKey("sound_alert")
-        private val KEY_HAPTIC_ALERT = booleanPreferencesKey("haptic_alert")
 
         // Onboarding
         private val KEY_HAS_SEEN_ONBOARDING = booleanPreferencesKey("has_seen_onboarding")
@@ -79,7 +76,6 @@ class PreferencesRepository private constructor(private val context: Context) {
                 alertCooldownMs = prefs[KEY_ALERT_COOLDOWN] ?: 5000L,
                 speedGateKmh = prefs[KEY_SPEED_GATE_KMH] ?: 0,
                 soundEnabled = prefs[KEY_SOUND_ENABLED] ?: true,
-                soundVolume = prefs[KEY_SOUND_VOLUME] ?: 0.7f,
                 soundSet = parseEnum(prefs[KEY_SOUND_SET], BuiltInSoundSet.CLASSIC),
                 screenWakePolicy = parseEnum(prefs[KEY_SCREEN_WAKE_POLICY], ScreenWakePolicy.CRITICAL_ONLY),
                 clearChimeEnabled = prefs[KEY_CLEAR_CHIME] ?: true
@@ -95,8 +91,7 @@ class PreferencesRepository private constructor(private val context: Context) {
             AlertSettings(
                 globalEnabled = prefs[KEY_ALERTS_GLOBAL_ENABLED] ?: true,
                 visualAlert = prefs[KEY_VISUAL_ALERT] ?: true,
-                soundAlert = prefs[KEY_SOUND_ALERT] ?: true,
-                hapticAlert = prefs[KEY_HAPTIC_ALERT] ?: true
+                soundAlert = prefs[KEY_SOUND_ALERT] ?: true
             )
         }
         .distinctUntilChanged()
@@ -123,12 +118,6 @@ class PreferencesRepository private constructor(private val context: Context) {
         }
     }
 
-    suspend fun updateSoundVolume(volume: Float) {
-        context.dataStore.edit { prefs ->
-            prefs[KEY_SOUND_VOLUME] = volume.coerceIn(0f, 1f)
-        }
-    }
-
     suspend fun updateGlobalAlertsEnabled(enabled: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[KEY_ALERTS_GLOBAL_ENABLED] = enabled
@@ -152,7 +141,6 @@ class PreferencesRepository private constructor(private val context: Context) {
             prefs[KEY_ALERT_COOLDOWN] = settings.alertCooldownMs
             prefs[KEY_SPEED_GATE_KMH] = settings.speedGateKmh
             prefs[KEY_SOUND_ENABLED] = settings.soundEnabled
-            prefs[KEY_SOUND_VOLUME] = settings.soundVolume
             prefs[KEY_SOUND_SET] = settings.soundSet.name
             prefs[KEY_SCREEN_WAKE_POLICY] = settings.screenWakePolicy.name
             prefs[KEY_CLEAR_CHIME] = settings.clearChimeEnabled
@@ -167,7 +155,6 @@ class PreferencesRepository private constructor(private val context: Context) {
             prefs[KEY_ALERTS_GLOBAL_ENABLED] = alertSettings.globalEnabled
             prefs[KEY_VISUAL_ALERT] = alertSettings.visualAlert
             prefs[KEY_SOUND_ALERT] = alertSettings.soundAlert
-            prefs[KEY_HAPTIC_ALERT] = alertSettings.hapticAlert
         }
     }
 

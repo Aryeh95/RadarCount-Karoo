@@ -6,6 +6,7 @@ import io.github.ykn.variaradarpro.data.models.ThreatLevel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -189,6 +190,13 @@ class StatisticsCollector(
             maxVehicleCount = maxVehicleCount.get(),
             closestApproachM = if (closest == Int.MAX_VALUE) null else closest
         )
+    }
+
+    /**
+     * Cancel the coroutine scope.
+     */
+    fun destroy() {
+        scope.cancel()
     }
 
     /**

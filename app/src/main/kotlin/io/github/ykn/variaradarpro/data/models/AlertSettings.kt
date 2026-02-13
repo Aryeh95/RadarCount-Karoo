@@ -14,8 +14,5 @@ data class AlertSettings(
     val visualAlert: Boolean = true,
 
     /** Sound alerts (PlayBeepPattern) */
-    val soundAlert: Boolean = true,
-
-    /** Haptic alerts (Vibration) — most reliable for cycling (wind can't drown it out) */
-    val hapticAlert: Boolean = true
+    val soundAlert: Boolean = true
 )

@@ -155,16 +155,6 @@ fun SettingsScreen(
                     )
 
                     SettingsSwitch(
-                        title = stringResource(R.string.settings_haptic_alert),
-                        checked = alertSettings.hapticAlert,
-                        onCheckedChange = {
-                            scope.launch {
-                                preferencesRepository.updateAlertSettings(alertSettings.copy(hapticAlert = it))
-                            }
-                        }
-                    )
-
-                    SettingsSwitch(
                         title = stringResource(R.string.settings_clear_chime),
                         checked = settings.clearChimeEnabled,
                         onCheckedChange = { enabled ->

@@ -57,7 +57,6 @@
     <string name="settings_master_enable">Enable alerts</string>
     <string name="settings_visual_alert">Banner</string>
     <string name="settings_sound_alert">Sound</string>
-    <string name="settings_haptic_alert">Vibration</string>
 
     <!-- Settings - Sound -->
     <string name="sound_set_classic">Classic</string>

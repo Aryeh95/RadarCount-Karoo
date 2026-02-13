@@ -51,12 +51,6 @@ class DefaultSettingsTest {
         }
 
         @Test
-        @DisplayName("sound volume is 0.7")
-        fun soundVolume() {
-            assertThat(defaults.soundVolume).isWithin(0.001f).of(0.7f)
-        }
-
-        @Test
         @DisplayName("sound set is CLASSIC")
         fun soundSet() {
             assertThat(defaults.soundSet).isEqualTo(BuiltInSoundSet.CLASSIC)
@@ -87,7 +81,6 @@ class DefaultSettingsTest {
             assertThat(defaults.globalEnabled).isTrue()
             assertThat(defaults.visualAlert).isTrue()
             assertThat(defaults.soundAlert).isTrue()
-            assertThat(defaults.hapticAlert).isTrue()
         }
     }
 

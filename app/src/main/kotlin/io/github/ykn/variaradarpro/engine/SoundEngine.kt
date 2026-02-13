@@ -25,7 +25,6 @@ class SoundEngine(private val karooSystem: KarooSystemService) {
     }
 
     private var currentSoundSet: BuiltInSoundSet = BuiltInSoundSet.CLASSIC
-    private var volume: Float = 0.7f
 
     /**
      * Set the active sound set.
@@ -33,15 +32,6 @@ class SoundEngine(private val karooSystem: KarooSystemService) {
     fun setSoundSet(soundSet: BuiltInSoundSet) {
         currentSoundSet = soundSet
         android.util.Log.d(TAG, "Sound set changed to: $soundSet")
-    }
-
-    /**
-     * Set the volume level (0.0 to 1.0).
-     * Note: Karoo doesn't support volume control via SDK,
-     * this is for future compatibility.
-     */
-    fun setVolume(volume: Float) {
-        this.volume = volume.coerceIn(0f, 1f)
     }
 
     /**
