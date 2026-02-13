@@ -1,10 +1,10 @@
 # eiRadar
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Platform: Karoo](https://img.shields.io/badge/Platform-Karoo%202%2F3-blue.svg)](https://www.hammerhead.io/)
-[![Downloads](https://img.shields.io/github/downloads/yrkan/eiradar/total)](https://github.com/yrkan/eiradar/releases)
-[![Latest Release](https://img.shields.io/github/v/release/yrkan/eiradar)](https://github.com/yrkan/eiradar/releases/latest)
-[![Website](https://img.shields.io/badge/Web-eiradar.com-00E676)](https://eiradar.com)
+[![License](https://img.shields.io/badge/License-MIT-0d1117?style=flat-square&logo=opensourceinitiative&logoColor=white)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-Karoo%202%2F3-0d1117?style=flat-square&logo=android&logoColor=white)](https://www.hammerhead.io/)
+[![Downloads](https://img.shields.io/github/downloads/yrkan/eiradar/total?style=flat-square&color=0d1117&logo=github&logoColor=white)](https://github.com/yrkan/eiradar/releases)
+[![Release](https://img.shields.io/github/v/release/yrkan/eiradar?style=flat-square&color=0d1117&logo=github&logoColor=white)](https://github.com/yrkan/eiradar/releases/latest)
+[![Website](https://img.shields.io/badge/Web-eiradar.com-0d1117?style=flat-square&logo=google-chrome&logoColor=00E676)](https://eiradar.com)
 
 Rear vehicle radar alert extension for Hammerhead Karoo. Reads ANT+ radar data and delivers real-time visual, sound, and haptic alerts — designed to keep your eyes on the road, not the screen.
 
