@@ -73,16 +73,16 @@ class PreferencesRepository private constructor(private val context: Context) {
     val settingsFlow: Flow<PresetSettings> = context.dataStore.data
         .map { prefs ->
             PresetSettings(
-                approachingDistanceM = prefs[KEY_APPROACHING_DISTANCE] ?: 150,
+                approachingDistanceM = prefs[KEY_APPROACHING_DISTANCE] ?: 100,
                 warningDistanceM = prefs[KEY_WARNING_DISTANCE] ?: 50,
                 criticalDistanceM = prefs[KEY_CRITICAL_DISTANCE] ?: 20,
                 alertCooldownMs = prefs[KEY_ALERT_COOLDOWN] ?: 5000L,
-                speedGateKmh = prefs[KEY_SPEED_GATE_KMH] ?: 5,
+                speedGateKmh = prefs[KEY_SPEED_GATE_KMH] ?: 0,
                 soundEnabled = prefs[KEY_SOUND_ENABLED] ?: true,
                 soundVolume = prefs[KEY_SOUND_VOLUME] ?: 0.7f,
                 soundSet = parseEnum(prefs[KEY_SOUND_SET], BuiltInSoundSet.CLASSIC),
                 screenWakePolicy = parseEnum(prefs[KEY_SCREEN_WAKE_POLICY], ScreenWakePolicy.CRITICAL_ONLY),
-                clearChimeEnabled = prefs[KEY_CLEAR_CHIME] ?: false
+                clearChimeEnabled = prefs[KEY_CLEAR_CHIME] ?: true
             )
         }
         .distinctUntilChanged()
@@ -96,7 +96,7 @@ class PreferencesRepository private constructor(private val context: Context) {
                 globalEnabled = prefs[KEY_ALERTS_GLOBAL_ENABLED] ?: true,
                 visualAlert = prefs[KEY_VISUAL_ALERT] ?: true,
                 soundAlert = prefs[KEY_SOUND_ALERT] ?: true,
-                hapticAlert = prefs[KEY_HAPTIC_ALERT] ?: false
+                hapticAlert = prefs[KEY_HAPTIC_ALERT] ?: true
             )
         }
         .distinctUntilChanged()
