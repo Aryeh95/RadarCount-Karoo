@@ -32,7 +32,7 @@ class LargeWidgetGlanceDataType(
     override fun Content(state: WidgetState, settings: PresetSettings, config: ViewConfig) {
         DataFieldContainer {
             Column(modifier = GlanceModifier.fillMaxSize()) {
-                StatusBar(state, height = 6)
+                StatusBar(state, height = 5)
 
                 Box(
                     modifier = GlanceModifier

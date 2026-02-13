@@ -28,9 +28,7 @@ class SmallWidgetGlanceDataType(
                 StatusBar(state)
 
                 Box(
-                    modifier = GlanceModifier
-                        .fillMaxSize()
-                        .padding(4.dp),
+                    modifier = GlanceModifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     ValueText(

@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceModifier
+import androidx.glance.ImageProvider
 import androidx.glance.background
 import androidx.glance.layout.Box
 import androidx.glance.layout.fillMaxSize
@@ -16,6 +17,7 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
+import io.github.ykn.variaradarpro.R
 import io.github.ykn.variaradarpro.data.models.ThreatLevel
 import io.github.ykn.variaradarpro.data.models.WidgetState
 
@@ -31,7 +33,6 @@ object GlanceColors {
     val Label = Color(0xFFAAAAAA)       // Light gray for labels
     val Neutral = Color(0xFF555555)     // Medium gray for disconnected
     val Background = Color(0xFF000000)  // Black content area
-    val Frame = Color(0xFF1A1A1A)       // Subtle border between cells
 
     fun forState(state: WidgetState): Color = when (state) {
         is WidgetState.NotConnected -> Neutral
@@ -51,8 +52,7 @@ object GlanceColors {
 
 /**
  * Standard container for all data fields.
- * Frame color creates subtle border between adjacent cells.
- * Prevents background color from reaching widget corners.
+ * Uses a rounded shape drawable so corners match Karoo's visual style.
  */
 @Composable
 fun DataFieldContainer(
@@ -62,34 +62,35 @@ fun DataFieldContainer(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(GlanceColors.Frame)
-            .padding(1.dp)
+            .background(ImageProvider(R.drawable.widget_background))
+            .padding(2.dp)
     ) {
-        Box(
-            modifier = GlanceModifier
-                .fillMaxSize()
-                .background(GlanceColors.Background)
-        ) {
-            content()
-        }
+        content()
     }
 }
 
 /**
  * Colored status bar indicating threat level.
- * Placed at the top of every widget for immediate visual feedback.
+ * Horizontal padding keeps it away from rounded corners.
  */
 @Composable
 fun StatusBar(
     state: WidgetState,
-    height: Int = 5
+    height: Int = 6
 ) {
     Box(
         modifier = GlanceModifier
             .fillMaxWidth()
             .height(height.dp)
-            .background(GlanceColors.forState(state))
-    ) {}
+            .padding(horizontal = 4.dp)
+    ) {
+        Box(
+            modifier = GlanceModifier
+                .fillMaxWidth()
+                .height(height.dp)
+                .background(GlanceColors.forState(state))
+        ) {}
+    }
 }
 
 /**
