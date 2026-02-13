@@ -2,152 +2,54 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Platform: Karoo](https://img.shields.io/badge/Platform-Karoo%202%2F3-blue.svg)](https://www.hammerhead.io/)
-[![Kotlin](https://img.shields.io/badge/Kotlin-2.1.0-7F52FF.svg)](https://kotlinlang.org/)
-[![AGP](https://img.shields.io/badge/AGP-8.7.3-3DDC84.svg)](https://developer.android.com/build)
+[![Latest Release](https://img.shields.io/github/v/release/yrkan/eiradar)](https://github.com/yrkan/eiradar/releases/latest)
+[![Website](https://img.shields.io/badge/Web-eiradar.com-00E676)](https://eiradar.com)
 
-Rear radar alert extension for Hammerhead Karoo 2/3. Displays vehicle proximity data from Garmin Varia radar with real-time visual, sound, and haptic alerts.
+Rear vehicle radar alert extension for Hammerhead Karoo. Reads ANT+ radar data and delivers real-time visual, sound, and haptic alerts — designed to keep your eyes on the road, not the screen.
 
 <p align="center">
+  <a href="#features">Features</a> &bull;
   <a href="#installation">Installation</a> &bull;
   <a href="#quick-start">Quick Start</a> &bull;
   <a href="#data-fields">Data Fields</a> &bull;
   <a href="#alerts">Alerts</a> &bull;
   <a href="#settings">Settings</a> &bull;
+  <a href="#night-mode">Night Mode</a> &bull;
+  <a href="#fit-recording">FIT Recording</a> &bull;
   <a href="#development">Development</a>
 </p>
 
 ---
 
-## Overview
-
-eiRadar provides safety-focused rear vehicle alerts on Karoo ride screens. The extension processes ANT+ radar data and delivers immediate feedback through configurable alert channels — designed to keep your eyes on the road, not the screen.
-
-### Key Features
+## Features
 
 | Feature | Description |
 |---------|-------------|
-| **3 Data Layouts** | Small (1x1), Medium (2x1), Large (2x2) with adaptive content |
-| **Multi-channel Alerts** | Visual banner, sound patterns, haptic vibration |
-| **Threat Levels** | Approaching, Warning, Critical — color-coded |
-| **Speed Gate** | Suppress minor alerts below minimum speed (critical alerts always fire) |
+| **3 Data Fields** | Compact, Standard, Full — graphical widgets for any ride screen layout |
+| **Multi-channel Alerts** | Visual banner, escalating sound patterns, haptic vibration |
+| **4 Sound Sets** | Classic, Subtle, Urgent, Bike Bell — choose what fits your riding style |
+| **Threat Levels** | Approaching, Warning, Critical — color-coded with configurable distance thresholds |
+| **Night Mode** | Automatic threshold increase after sunset (GPS-based detection) |
+| **Speed Gate** | Suppress minor alerts when stopped or slow — critical alerts always fire |
+| **Alert Cooldown** | Smart repeat delay prevents alert fatigue without missing new threats |
+| **Escalation Bypass** | Higher threat levels fire immediately, ignoring cooldown |
+| **FIT Recording** | Threat level, vehicle count, and nearest distance written to ride file at 1Hz |
+| **Ride Statistics** | Per-ride session stats: alert counts, closest approach, max vehicles, threat time |
+| **Screen Wake** | Wake Karoo screen on critical threats or any threat |
 | **Imperial/Metric** | Automatic unit detection from Karoo profile |
-| **Fully Offline** | No accounts, no cloud, no internet required |
-
----
-
-## Quick Start
-
-### 1. Pair Radar
-
-Connect your Garmin Varia radar in Karoo **Settings > Sensors**.
-
-### 2. Add Data Field
-
-1. Open **Profiles** on Karoo
-2. Edit your profile > Add data page
-3. Select **More Data** > **eiRadar**
-4. Choose a layout size
-
-### 3. Ride
-
-Alerts fire automatically when vehicles are detected behind you.
-
----
-
-## Data Fields
-
-Three layout sizes built with Jetpack Glance for stable, crash-free 1Hz updates:
-
-| Layout | Size | Content |
-|--------|:----:|---------|
-| **Radar (S)** | 1x1 | Vehicle count, background color indicates threat level |
-| **Radar (M)** | 2x1 | Vehicle count + distance or status text |
-| **Radar (L)** | 2x2 | Threat label + vehicle count + distance + status message |
-
-### Threat Colors
-
-| Color | Level | Meaning |
-|:-----:|-------|---------|
-| Grey | Not connected | No radar paired or connection lost |
-| Green | Clear | Road is clear |
-| Orange | Approaching / Warning | Vehicle detected, closing distance |
-| Red | Critical | Vehicle very close — take action |
-
----
-
-## Alerts
-
-Three independent alert channels, all configurable:
-
-| Channel | Description | Default |
-|---------|-------------|:-------:|
-| **Banner** | Karoo in-ride visual alert with auto-dismiss | On |
-| **Sound** | Beep patterns (4 sound sets: Classic, Subtle, Urgent, Bell) | On |
-| **Vibration** | Haptic feedback — most reliable while riding | On |
-
-### Safety Design
-
-- **Critical alerts always fire** regardless of speed gate setting
-- Haptic alerts enabled by default — vibration works even at high speed and wind noise
-- All-clear sound confirms when the road is clear again
-- Repeat delay prevents alert fatigue (configurable: 3s / 5s / 8s / 12s)
-
----
-
-## Settings
-
-Tap any value to cycle through options. Settings are accessible from the eiRadar app.
-
-### Alert Channels
-
-| Setting | Options | Default |
-|---------|---------|:-------:|
-| Enable alerts | On / Off | On |
-| Banner | On / Off | On |
-| Sound | On / Off + sound set | On, Classic |
-| Vibration | On / Off | On |
-| All-clear sound | On / Off | On |
-
-### Detection Thresholds
-
-| Setting | Options | Default |
-|---------|---------|:-------:|
-| Approaching | 100 / 125 / 150 / 175 / 200m | 100m |
-| Warning | 30 / 40 / 50 / 60 / 70m | 50m |
-| Critical | 10 / 15 / 20 / 25 / 30m | 20m |
-
-### Behavior
-
-| Setting | Options | Default |
-|---------|---------|:-------:|
-| Repeat delay | 3s / 5s / 8s / 12s | 5s |
-| Min speed | Off / 3 / 5 / 8 km/h | Off |
-| Wake screen | Never / Critical only / Always | Critical only |
-
-> **Note:** Min speed only suppresses Approaching alerts. Warning and Critical alerts always fire — a stopped cyclist at a traffic light is the most vulnerable target.
-
----
-
-## Compatible Radars
-
-Any ANT+ cycling radar paired through Karoo sensor settings:
-
-| Radar | Type |
-|-------|------|
-| Garmin Varia RTL515 | Tail light + radar |
-| Garmin Varia RTL516 | Tail light + radar |
-| Garmin Varia RVR315 | Radar only |
-| Bryton Gardia R300L | Tail light + radar |
-| Magene L508 | Tail light + radar |
+| **Fully Offline** | No accounts, no cloud, no internet, no phone pairing |
+| **Open Source** | MIT licensed, free forever |
 
 ---
 
 ## Installation
 
-### From APK
+### Download APK
+
+Get the latest release from [GitHub Releases](https://github.com/yrkan/eiradar/releases/latest) or [eiradar.com](https://eiradar.com).
 
 ```bash
-# ADB
+# Install via ADB
 adb install eiradar.apk
 
 # Or via Hammerhead Companion app:
@@ -180,37 +82,252 @@ Output: `app/build/outputs/apk/release/eiradar.apk`
 
 ---
 
+## Quick Start
+
+### 1. Pair Radar
+
+Connect your ANT+ radar in Karoo **Settings > Sensors**.
+
+### 2. Add Data Field
+
+1. Open **Profiles** on Karoo
+2. Edit a profile > Add data page
+3. Select **More Data** > **eiRadar**
+4. Choose a layout: Radar (S), Radar (M), or Radar (L)
+
+### 3. Ride
+
+Alerts fire automatically when vehicles approach from behind. The first launch shows a quick onboarding guide.
+
+---
+
+## Data Fields
+
+Three graphical data types built with Jetpack Glance. Each updates at 1Hz with a fresh RemoteViews render per cycle.
+
+| Data Field | Karoo Name | Content |
+|------------|:----------:|---------|
+| **Compact** | Radar (S) | Vehicle count + threat-colored background |
+| **Standard** | Radar (M) | Vehicle count + nearest distance or status text |
+| **Full** | Radar (L) | Threat label + vehicle count + distance + status message |
+
+### Widget States
+
+| State | S display | M/L display |
+|-------|:---------:|-------------|
+| Not connected | `—` grey | "No radar" |
+| Connecting | `...` grey | "Connecting" |
+| Clear | `OK` green | "All clear" / "Road is clear" |
+| Threat | count, colored | count + distance in meters/feet |
+| Connection lost | `!` grey | "Connection lost" |
+
+### Threat Colors
+
+| Color | Level | Meaning |
+|:-----:|-------|---------|
+| Grey | Disconnected | Radar not paired, connecting, or connection lost |
+| Green | Clear | No vehicles detected |
+| Orange | Approaching / Warning | Vehicle detected, closing distance |
+| Red | Critical | Vehicle very close |
+
+---
+
+## Alerts
+
+Three independent alert channels. Each can be enabled or disabled separately with a master switch to control all at once.
+
+### Channels
+
+| Channel | What it does | Default |
+|---------|-------------|:-------:|
+| **Banner** | Karoo in-ride visual alert overlay with auto-dismiss | On |
+| **Sound** | Beep patterns via Karoo speaker (4 sound sets) | On |
+| **Vibration** | Haptic feedback patterns per threat level | On |
+
+### Sound Sets
+
+| Set | Character |
+|-----|-----------|
+| **Classic** | Traditional beep patterns — single, double, triple |
+| **Subtle** | Quieter, gentler tones for less intrusive alerts |
+| **Urgent** | Loud, rapid patterns that demand attention |
+| **Bike Bell** | Musical tones using note frequencies |
+
+### Alert Escalation
+
+Alerts follow the threat level hierarchy. When a threat escalates (e.g. Approaching to Warning, or Warning to Critical), the new alert fires immediately — cooldown is bypassed. De-escalation respects the normal cooldown.
+
+### Auto-Dismiss Timing
+
+| Level | Banner duration |
+|-------|:--------------:|
+| Critical | 5 seconds |
+| Warning | 4 seconds |
+| Approaching | 2 seconds |
+| Clear | 1.5 seconds |
+
+### All-Clear Chime
+
+Optional confirmation sound + vibration when all vehicles have passed. Useful as an "all safe" signal before lane changes or turns.
+
+### Safety Design
+
+- **Critical alerts always fire** regardless of speed gate or other suppression
+- Haptic vibration works even at high speed where wind drowns out sound
+- Repeat delay prevents alert fatigue without missing genuinely new threats
+- Escalation bypass ensures worsening situations are immediately communicated
+
+---
+
+## Settings
+
+All settings are accessible from the eiRadar app on Karoo. Tap any value to cycle through options.
+
+### Alert Channels
+
+| Setting | Options | Default |
+|---------|---------|:-------:|
+| Enable alerts | On / Off | On |
+| Banner | On / Off | On |
+| Sound | On / Off | On |
+| Vibration | On / Off | On |
+| Sound set | Classic / Subtle / Urgent / Bell | Classic |
+| All-clear sound | On / Off | On |
+
+### Detection Thresholds
+
+| Setting | Options | Default |
+|---------|---------|:-------:|
+| Approaching | 100 / 125 / 150 / 175 / 200m | 100m |
+| Warning | 30 / 40 / 50 / 60 / 70m | 50m |
+| Critical | 10 / 15 / 20 / 25 / 30m | 20m |
+
+The radar detects vehicles up to ~140m. The default 100m approaching threshold leaves a 40m "silent awareness" zone where the widget updates but no alert fires — this reduces alert fatigue on busy roads.
+
+### Behavior
+
+| Setting | Options | Default |
+|---------|---------|:-------:|
+| Repeat delay | 3s / 5s / 8s / 12s | 5s |
+| Min speed | Off / 3 / 5 / 8 km/h | Off |
+| Wake screen | Never / Critical only / Always | Critical only |
+
+> **Min speed (speed gate):** Only suppresses Approaching alerts below the set speed. Warning and Critical alerts always fire — a stopped cyclist at a traffic light is the most vulnerable.
+
+### Reset to Defaults
+
+Available in the settings screen. Clears all preferences and restores factory settings with a confirmation dialog.
+
+---
+
+## Night Mode
+
+eiRadar automatically detects sunset and sunrise using Karoo's GPS-based time data. No manual configuration needed.
+
+When night mode is active, all distance thresholds are increased by **33%** to provide earlier warnings in low-visibility conditions:
+
+| Threshold | Day | Night (+33%) |
+|-----------|:---:|:------------:|
+| Approaching | 100m | 133m |
+| Warning | 50m | 66m |
+| Critical | 20m | 26m |
+
+Night mode status is visible on the dashboard screen. The multiplier applies automatically — no settings to change.
+
+---
+
+## FIT Recording
+
+eiRadar writes radar data to the Karoo ride FIT file at 1Hz using developer fields. This data appears alongside your standard ride metrics in any FIT-compatible analysis tool.
+
+| Developer Field | Type | Description |
+|----------------|:----:|-------------|
+| `radar_threat_level` | uint8 | 0=Clear, 1=Approaching, 2=Warning, 3=Critical |
+| `radar_vehicle_count` | uint8 | Number of vehicles currently detected (0–8) |
+| `radar_nearest_distance` | uint16 | Distance to nearest vehicle in meters |
+
+Recording starts and stops automatically with ride recording.
+
+---
+
+## Ride Statistics
+
+eiRadar tracks per-ride session statistics, stored locally in a Room database:
+
+| Metric | Description |
+|--------|-------------|
+| Session duration | Total ride time |
+| Total alerts | Number of alerts fired across all levels |
+| Approaching alerts | Count of approaching-level alerts |
+| Warning alerts | Count of warning-level alerts |
+| Critical alerts | Count of critical-level alerts |
+| Max vehicles | Peak simultaneous vehicle count during the ride |
+| Closest approach | Nearest vehicle distance recorded (meters) |
+| Threat time | Cumulative time spent under any threat level |
+
+Statistics are shown after ride completion (configurable). All data stays on-device.
+
+---
+
+## Compatible Radars
+
+Any ANT+ cycling radar paired through Karoo sensor settings:
+
+| Radar | Type |
+|-------|------|
+| Garmin Varia RTL515 | Tail light + radar |
+| Garmin Varia RTL516 | Tail light + radar |
+| Garmin Varia RVR315 | Radar only |
+| Bryton Gardia R300L | Tail light + radar |
+| Magene L508 | Tail light + radar |
+
+The Karoo receives ANT+ radar data natively. eiRadar reads it from the Karoo SDK's sensor stream — up to 8 vehicles tracked simultaneously with per-vehicle distance data.
+
+---
+
+## Requirements
+
+| Requirement | Details |
+|-------------|---------|
+| **Device** | Hammerhead Karoo 2 or Karoo 3 |
+| **Radar** | ANT+ compatible cycling radar |
+| **Internet** | Not required |
+| **Account** | Not required |
+
+---
+
 ## Development
 
 ### Architecture
 
 ```
 io/github/ykn/variaradarpro/
-├── VariaRadarExtension.kt       # KarooExtension entry point
-├── MainActivity.kt              # Compose UI (settings, onboarding, dashboard)
+├── VariaRadarExtension.kt       # KarooExtension entry point, FIT recording
+├── MainActivity.kt              # Compose UI host (settings, onboarding, dashboard)
 │
 ├── engine/                      # Core logic
 │   ├── RadarEngine.kt           # ANT+ radar data → StateFlow<WidgetState>
-│   ├── AlertManager.kt          # Threat evaluation + alert dispatch
-│   ├── AlertThrottler.kt        # Per-level cooldown management
-│   ├── SoundEngine.kt           # Karoo PlayBeepPattern integration
-│   ├── HapticEngine.kt          # Android Vibrator patterns
-│   ├── NightModeManager.kt      # Day/night detection
-│   └── StatisticsCollector.kt   # Ride statistics aggregation
+│   ├── AlertManager.kt          # Threat evaluation + alert dispatch + night mode
+│   ├── AlertThrottler.kt        # Per-level cooldown with escalation bypass
+│   ├── SoundEngine.kt           # Karoo PlayBeepPattern integration (4 sound sets)
+│   ├── HapticEngine.kt          # Android Vibrator patterns per threat level
+│   ├── NightModeManager.kt      # Sunrise/sunset detection via Karoo GPS data
+│   └── StatisticsCollector.kt   # Per-ride session stats aggregation
 │
 ├── datatypes/glance/            # Karoo data fields (Jetpack Glance)
-│   ├── GlanceDataType.kt        # Base: fresh RemoteViews per update
-│   ├── SmallWidgetGlanceDataType.kt
-│   ├── MediumWidgetGlanceDataType.kt
-│   └── LargeWidgetGlanceDataType.kt
+│   ├── GlanceDataType.kt        # Base: fresh RemoteViews per 1Hz update cycle
+│   ├── SmallWidgetGlanceDataType.kt   # Radar (S) — compact
+│   ├── MediumWidgetGlanceDataType.kt  # Radar (M) — count + distance
+│   └── LargeWidgetGlanceDataType.kt   # Radar (L) — full info
 │
 ├── data/                        # Persistence
-│   ├── PreferencesRepository.kt # DataStore settings
-│   ├── models/                  # AlertSettings, PresetSettings, ThreatLevel, WidgetState
-│   └── database/                # Room (ride statistics)
+│   ├── PreferencesRepository.kt # DataStore settings (singleton)
+│   ├── models/                  # PresetSettings, AlertSettings, ThreatLevel,
+│   │                            # WidgetState, BuiltInSoundSet, ScreenWakePolicy
+│   └── database/                # Room database (ride statistics)
 │
 └── ui/                          # Jetpack Compose
-    ├── screens/                 # Dashboard, Settings, Onboarding
+    ├── screens/                 # DashboardScreen, SettingsScreen, OnboardingScreen
     ├── components/              # SettingsSection, SettingsSwitch, SettingsItem
     └── theme/                   # Dark theme, radar color palette
 ```
@@ -233,20 +350,24 @@ io/github/ykn/variaradarpro/
 
 ```bash
 ./gradlew assembleDebug         # Debug APK
-./gradlew assembleRelease       # Release APK (R8 minified)
-./gradlew test                  # Unit tests
+./gradlew assembleRelease       # Release APK (R8 minified + shrunk)
+./gradlew test                  # Unit tests (JUnit 5)
 ./gradlew compileDebugKotlin    # Fast compile check
+```
+
+### Testing
+
+Tests use JUnit 5 with `@DisplayName`, `@Nested`, and `@ParameterizedTest` patterns. Assertions use [Google Truth](https://truth.dev/). Mocking with [MockK](https://mockk.io/). Coroutine testing with [Turbine](https://github.com/cashapp/turbine).
+
+```bash
+./gradlew test
 ```
 
 ---
 
-## Requirements
+## Privacy
 
-| Requirement | Specification |
-|-------------|---------------|
-| **Device** | Hammerhead Karoo 2 or Karoo 3 |
-| **Android** | API 26+ |
-| **Radar** | ANT+ compatible cycling radar |
+eiRadar does not collect, store, or transmit any personal data. Everything runs on-device. Full [privacy policy](https://eiradar.com/privacy.html).
 
 ---
 
