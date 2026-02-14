@@ -6,7 +6,7 @@
 [![Release](https://img.shields.io/github/v/release/yrkan/eiradar?style=flat-square&color=0d1117&logo=github&logoColor=white)](https://github.com/yrkan/eiradar/releases/latest)
 [![Website](https://img.shields.io/badge/Web-eiradar.com-0d1117?style=flat-square&logo=google-chrome&logoColor=00E676)](https://eiradar.com)
 
-Rear vehicle radar alert extension for Hammerhead Karoo. Reads ANT+ radar data and delivers real-time visual and sound alerts — designed to keep your eyes on the road, not the screen.
+Rear vehicle radar extension for Hammerhead Karoo. Reads ANT+ radar data and delivers real-time visual and sound alerts — designed to keep your eyes on the road, not the screen.
 
 <p align="center">
   <a href="#features">Features</a> &bull;
@@ -17,6 +17,8 @@ Rear vehicle radar alert extension for Hammerhead Karoo. Reads ANT+ radar data a
   <a href="#settings">Settings</a> &bull;
   <a href="#night-mode">Night Mode</a> &bull;
   <a href="#fit-recording">FIT Recording</a> &bull;
+  <a href="#ride-statistics">Statistics</a> &bull;
+  <a href="#compatible-radars">Radars</a> &bull;
   <a href="#development">Development</a>
 </p>
 
@@ -26,7 +28,7 @@ Rear vehicle radar alert extension for Hammerhead Karoo. Reads ANT+ radar data a
 
 | Feature | Description |
 |---------|-------------|
-| **3 Data Fields** | Compact, Standard, Full — graphical widgets for any ride screen layout |
+| **3 Data Fields** | Compact, Standard, Full — graphical Glance widgets for any ride screen layout |
 | **Multi-channel Alerts** | Visual banner + escalating sound patterns via Karoo speaker |
 | **4 Sound Sets** | Classic, Subtle, Urgent, Bike Bell — choose what fits your riding style |
 | **Threat Levels** | Approaching, Warning, Critical — color-coded with configurable distance thresholds |
@@ -34,11 +36,11 @@ Rear vehicle radar alert extension for Hammerhead Karoo. Reads ANT+ radar data a
 | **Speed Gate** | Suppress minor alerts when stopped or slow — critical alerts always fire |
 | **Alert Cooldown** | Smart repeat delay prevents alert fatigue without missing new threats |
 | **Escalation Bypass** | Higher threat levels fire immediately, ignoring cooldown |
-| **FIT Recording** | Threat level, vehicle count, and nearest distance written to ride file at 1Hz |
-| **Ride Statistics** | Per-ride session stats: alert counts, closest approach, max vehicles, threat time |
-| **Quick Mute** | Toggle alerts via physical button/remote — data fields keep updating |
+| **FIT Recording** | Threat level, vehicle count, and nearest distance written to ride file at 1 Hz |
+| **Ride Statistics** | Per-ride stats: alert counts, closest approach, max vehicles, threat time |
+| **Quick Mute** | Toggle alerts via physical button or remote — data fields keep updating |
 | **Screen Wake** | Wake Karoo screen on critical threats or any threat |
-| **Imperial/Metric** | Automatic unit detection from Karoo profile |
+| **Imperial / Metric** | Automatic unit detection from Karoo profile |
 | **Fully Offline** | No accounts, no cloud, no internet, no phone pairing |
 | **Open Source** | MIT licensed, free forever |
 
@@ -105,7 +107,7 @@ Alerts fire automatically when vehicles approach from behind. The first launch s
 
 ## Data Fields
 
-Three graphical data types built with Jetpack Glance. Each updates at 1Hz with a fresh RemoteViews render per cycle.
+Three graphical data types built with Jetpack Glance. Each renders fresh RemoteViews every 1 Hz cycle.
 
 | Data Field | Karoo Name | Content |
 |------------|:----------:|---------|
@@ -113,16 +115,16 @@ Three graphical data types built with Jetpack Glance. Each updates at 1Hz with a
 | **Standard** | Radar (M) | Vehicle count + nearest distance + status label |
 | **Full** | Radar (L) | Threat label + vehicle count + distance + status message |
 
-All widgets feature a colored status bar at the top (green/orange/red) and a rounded dark background. When alerts are muted, the status bar turns grey and the label shows "MUTED" — radar data continues to display normally.
+All widgets feature a colored status bar at the top (green / orange / red) and a rounded dark background. When alerts are muted, the status bar turns grey and the label shows "MUTED" — radar data continues to display normally.
 
 ### Widget States
 
-| State | S display | M/L display |
+| State | S display | M / L display |
 |-------|:---------:|-------------|
 | Not connected | `—` grey | "No radar" |
 | Connecting | `...` grey | "Connecting" |
 | Clear | `OK` green | "All clear" / "Road is clear" |
-| Threat | count, colored | count + distance in meters/feet |
+| Threat | count, colored | count + distance in meters / feet |
 | Connection lost | `!` grey | "Connection lost" |
 
 ### Threat Colors
@@ -158,28 +160,28 @@ Two independent alert channels. Each can be enabled or disabled separately with 
 
 ### Alert Escalation
 
-Alerts follow the threat level hierarchy. When a threat escalates (e.g. Approaching to Warning, or Warning to Critical), the new alert fires immediately — cooldown is bypassed. De-escalation respects the normal cooldown.
+Alerts follow the threat level hierarchy. When a threat escalates (e.g. Approaching → Warning → Critical), the new alert fires immediately — cooldown is bypassed. De-escalation respects the normal cooldown.
 
 ### Auto-Dismiss Timing
 
 | Level | Banner duration |
 |-------|:--------------:|
-| Critical | 5 seconds |
-| Warning | 4 seconds |
-| Approaching | 2 seconds |
-| Clear | 1.5 seconds |
+| Critical | 5 s |
+| Warning | 4 s |
+| Approaching | 2 s |
+| Clear | 1.5 s |
 
 ### All-Clear Chime
 
 Optional confirmation sound when all vehicles have passed. Useful as an "all safe" signal before lane changes or turns.
 
-### Quick Mute (BonusAction)
+### Quick Mute
 
-Assign "Toggle Radar Alerts" to a physical button or remote in **Karoo Settings > Controls**. One press mutes all alert channels (sound, banner). Press again to re-enable. Ideal for group rides where nearby cyclists trigger false alerts.
+Assign **Toggle Radar Alerts** to a physical button or remote in **Karoo Settings > Controls**. One press mutes all alert channels (sound, banner). Press again to re-enable. Ideal for group rides where nearby cyclists trigger false alerts.
 
 - Data fields continue showing live radar data with a "MUTED" indicator
 - FIT recording and statistics continue normally
-- **Auto-unmutes when the ride ends** — the next ride always starts with alerts enabled
+- Auto-unmutes when the ride ends — the next ride always starts with alerts enabled
 
 ### Safety Design
 
@@ -208,17 +210,17 @@ All settings are accessible from the eiRadar app on Karoo. Tap any value to cycl
 
 | Setting | Options | Default |
 |---------|---------|:-------:|
-| Approaching | 100 / 125 / 150 / 175 / 200m | 100m |
-| Warning | 30 / 40 / 50 / 60 / 70m | 50m |
-| Critical | 10 / 15 / 20 / 25 / 30m | 20m |
+| Approaching | 100 / 125 / 150 / 175 / 200 m | 100 m |
+| Warning | 30 / 40 / 50 / 60 / 70 m | 50 m |
+| Critical | 10 / 15 / 20 / 25 / 30 m | 20 m |
 
-The radar detects vehicles up to ~140m. The default 100m approaching threshold leaves a 40m "silent awareness" zone where the widget updates but no alert fires — this reduces alert fatigue on busy roads.
+The radar detects vehicles up to ~140 m. The default 100 m approaching threshold leaves a 40 m "silent awareness" zone where the widget updates but no alert fires — this reduces alert fatigue on busy roads.
 
 ### Behavior
 
 | Setting | Options | Default |
 |---------|---------|:-------:|
-| Repeat delay | 3s / 5s / 8s / 12s | 5s |
+| Repeat delay | 3 s / 5 s / 8 s / 12 s | 5 s |
 | Min speed | Off / 3 / 5 / 8 km/h | Off |
 | Wake screen | Never / Critical only / Always | Critical only |
 
@@ -234,13 +236,13 @@ Available in the settings screen. Clears all preferences and restores factory se
 
 eiRadar automatically detects sunset and sunrise using Karoo's GPS-based time data. No manual configuration needed.
 
-When night mode is active, all distance thresholds are increased by **33%** to provide earlier warnings in low-visibility conditions:
+When night mode is active, all distance thresholds are increased by **33 %** to provide earlier warnings in low-visibility conditions:
 
-| Threshold | Day | Night (+33%) |
-|-----------|:---:|:------------:|
-| Approaching | 100m | 133m |
-| Warning | 50m | 66m |
-| Critical | 20m | 26m |
+| Threshold | Day | Night (+33 %) |
+|-----------|:---:|:-------------:|
+| Approaching | 100 m | 133 m |
+| Warning | 50 m | 66 m |
+| Critical | 20 m | 26 m |
 
 Night mode status is visible on the dashboard screen. The multiplier applies automatically — no settings to change.
 
@@ -248,11 +250,11 @@ Night mode status is visible on the dashboard screen. The multiplier applies aut
 
 ## FIT Recording
 
-eiRadar writes radar data to the Karoo ride FIT file at 1Hz using developer fields. This data appears alongside your standard ride metrics in any FIT-compatible analysis tool.
+eiRadar writes radar data to the Karoo ride FIT file at 1 Hz using developer fields. This data appears alongside your standard ride metrics in any FIT-compatible analysis tool.
 
 | Developer Field | Type | Description |
 |----------------|:----:|-------------|
-| `radar_threat_level` | uint8 | 0=Clear, 1=Approaching, 2=Warning, 3=Critical |
+| `radar_threat_level` | uint8 | 0 = Clear, 1 = Approaching, 2 = Warning, 3 = Critical |
 | `radar_vehicle_count` | uint8 | Number of vehicles currently detected (0–8) |
 | `radar_nearest_distance` | uint16 | Distance to nearest vehicle in meters |
 
@@ -275,7 +277,7 @@ eiRadar tracks per-ride session statistics, stored locally in a Room database:
 | Closest approach | Nearest vehicle distance recorded (meters) |
 | Threat time | Cumulative time spent under any threat level |
 
-Statistics are shown after ride completion (configurable). All data stays on-device.
+Statistics are shown after ride completion. All data stays on-device.
 
 ---
 
@@ -324,8 +326,8 @@ io/github/ykn/variaradarpro/
 │   └── StatisticsCollector.kt   # Per-ride session stats aggregation
 │
 ├── datatypes/glance/            # Karoo data fields (Jetpack Glance)
-│   ├── GlanceDataType.kt        # Base: fresh RemoteViews per 1Hz cycle, mute state
-│   ├── GlanceComponents.kt     # Shared: DataFieldContainer, StatusBar, ValueText, LabelText
+│   ├── GlanceDataType.kt        # Base: fresh RemoteViews per 1 Hz cycle, mute state
+│   ├── GlanceComponents.kt      # Shared: DataFieldContainer, StatusBar, ValueText, LabelText
 │   ├── SmallWidgetGlanceDataType.kt   # Radar (S) — compact
 │   ├── MediumWidgetGlanceDataType.kt  # Radar (M) — count + distance
 │   └── LargeWidgetGlanceDataType.kt   # Radar (L) — full info
@@ -367,7 +369,7 @@ io/github/ykn/variaradarpro/
 
 ### Testing
 
-Tests use JUnit 5 with `@DisplayName`, `@Nested`, and `@ParameterizedTest` patterns. Assertions use [Google Truth](https://truth.dev/). Mocking with [MockK](https://mockk.io/). Coroutine testing with [Turbine](https://github.com/cashapp/turbine).
+Tests use JUnit 5 with `@DisplayName`, `@Nested`, and `@ParameterizedTest` patterns. Assertions with [Google Truth](https://truth.dev/), mocking with [MockK](https://mockk.io/), coroutine testing with [Turbine](https://github.com/cashapp/turbine).
 
 ```bash
 ./gradlew test
