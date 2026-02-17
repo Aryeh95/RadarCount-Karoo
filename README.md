@@ -33,6 +33,8 @@ Rear vehicle radar extension for Hammerhead Karoo. Reads ANT+ radar data and del
 | **4 Sound Sets** | Classic, Subtle, Urgent, Bike Bell — choose what fits your riding style |
 | **Threat Levels** | Approaching, Warning, Critical — color-coded with configurable distance thresholds |
 | **Night Mode** | Automatic threshold increase after sunset (GPS-based detection) |
+| **Closing Speed Detection** | Fast-closing vehicles auto-escalate; holding/receding vehicles suppressed |
+| **Traffic Density Adaptation** | Sustained heavy traffic silences minor alerts; dangerous vehicles still break through |
 | **Speed Gate** | Suppress minor alerts when stopped or slow — critical alerts always fire |
 | **Alert Cooldown** | Smart repeat delay prevents alert fatigue without missing new threats |
 | **Escalation Bypass** | Higher threat levels fire immediately, ignoring cooldown |
@@ -183,9 +185,25 @@ Assign **Toggle Radar Alerts** to a physical button or remote in **Karoo Setting
 - FIT recording and statistics continue normally
 - Auto-unmutes when the ride ends — the next ride always starts with alerts enabled
 
+### Smart Suppression
+
+eiRadar uses closing speed and traffic density to keep the system quiet in normal traffic and loud when actually dangerous. All fully automatic — no settings required.
+
+**Closing speed** — Smoothed from the last 3 nearest-distance samples at 1 Hz:
+- Vehicle closing at ≥36 km/h differential → alert escalated one level (Approaching→Warning, Warning→Critical)
+- Vehicle holding distance or receding (≤7 km/h differential) → Approaching alert suppressed
+- Large distance jumps (>30 m) reset tracking — different vehicle, fresh calculation
+
+**Traffic density** — Rolling 30-second average of vehicle count:
+- Average ≥2 vehicles sustained for 10+ seconds → Approaching alerts suppressed
+- Fast-closing vehicles are escalated to Warning/Critical first, so they bypass density suppression
+- Zero-vehicle periods naturally decay the average — alerts return when traffic clears
+
+On a busy road: normal traffic is silent. A fast-closing vehicle gets escalated to Warning → bypasses density suppression AND triggers throttler escalation bypass → immediate alert.
+
 ### Safety Design
 
-- **Critical alerts always fire** regardless of speed gate or other suppression
+- **Critical alerts always fire** regardless of speed gate, traffic density, or other suppression
 - Repeat delay prevents alert fatigue without missing genuinely new threats
 - Escalation bypass ensures worsening situations are immediately communicated
 - Quick mute auto-resets on ride end — no risk of starting a ride with alerts off
@@ -321,6 +339,8 @@ io/github/ykn/variaradarpro/
 │   ├── RadarEngine.kt           # ANT+ radar data → StateFlow<WidgetState>
 │   ├── AlertManager.kt          # Threat evaluation + alert dispatch + night mode
 │   ├── AlertThrottler.kt        # Per-level cooldown with escalation bypass
+│   ├── ClosingSpeedTracker.kt   # Smoothed closing speed → escalation / suppression
+│   ├── TrafficDensityTracker.kt # Rolling density window → APPROACHING suppression
 │   ├── SoundEngine.kt           # Karoo PlayBeepPattern integration (4 sound sets)
 │   ├── NightModeManager.kt      # Sunrise/sunset detection via Karoo GPS data
 │   └── StatisticsCollector.kt   # Per-ride session stats aggregation

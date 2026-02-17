@@ -74,6 +74,8 @@ class AlertManager(
 
     private val alertScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val throttler = AlertThrottler()
+    private val closingSpeedTracker = ClosingSpeedTracker()
+    private val trafficDensityTracker = TrafficDensityTracker()
 
     // Current cached settings
     private var currentSettings: PresetSettings = PresetSettings()
@@ -151,19 +153,32 @@ class AlertManager(
         monitoringJob = null
         speedConsumerId.getAndSet(null)?.let { extension.karooSystem.removeConsumer(it) }
         throttler.reset()
+        closingSpeedTracker.reset()
+        trafficDensityTracker.reset()
     }
 
     private fun processWidgetState(state: WidgetState) {
+        // Feed trackers on every state update
         when (state) {
             is WidgetState.Threat -> {
-                handleThreat(state)
+                closingSpeedTracker.addSample(state.nearestDistanceM)
+                trafficDensityTracker.addSample(state.vehicleCount)
             }
             is WidgetState.Clear -> {
-                handleClear()
+                closingSpeedTracker.reset()
+                trafficDensityTracker.addSample(0)
             }
             else -> {
-                // No alerts for other states
+                closingSpeedTracker.reset()
+                trafficDensityTracker.reset()
             }
+        }
+
+        // Handle state
+        when (state) {
+            is WidgetState.Threat -> handleThreat(state)
+            is WidgetState.Clear -> handleClear()
+            else -> { }
         }
     }
 
@@ -193,9 +208,24 @@ class AlertManager(
         )
 
         // Use the more severe level
-        val effectiveLevel = maxOf(threat.level, calculatedLevel, compareBy { it.ordinal })
+        var effectiveLevel = maxOf(threat.level, calculatedLevel, compareBy { it.ordinal })
 
         if (effectiveLevel == ThreatLevel.CLEAR) {
+            return
+        }
+
+        // Closing speed escalation: fast-closing vehicle gets bumped up one level
+        if (closingSpeedTracker.isFastApproach()) {
+            effectiveLevel = when (effectiveLevel) {
+                ThreatLevel.APPROACHING -> ThreatLevel.WARNING
+                ThreatLevel.WARNING -> ThreatLevel.CRITICAL
+                else -> effectiveLevel
+            }
+        }
+
+        // Holding/receding suppression: vehicle not actually approaching
+        if (closingSpeedTracker.isHoldingOrReceding()
+            && effectiveLevel == ThreatLevel.APPROACHING) {
             return
         }
 
@@ -204,6 +234,12 @@ class AlertManager(
         // vulnerable target (e.g. traffic light, intersection).
         val speedGate = currentSettings.speedGateKmh
         if (speedGate > 0 && currentSpeedKmh.value < speedGate
+            && effectiveLevel == ThreatLevel.APPROACHING) {
+            return
+        }
+
+        // Traffic density suppression: suppress APPROACHING in sustained heavy traffic
+        if (trafficDensityTracker.isDenseTraffic()
             && effectiveLevel == ThreatLevel.APPROACHING) {
             return
         }
