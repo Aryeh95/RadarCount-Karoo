@@ -13,8 +13,8 @@ android {
         applicationId = "io.github.aryeh95.radarcount"
         minSdk = 26
         targetSdk = 35
-        versionCode = 5
-        versionName = "0.1.5"
+        versionCode = 6
+        versionName = "0.2.0"
     }
 
     buildTypes {
@@ -75,6 +75,9 @@ dependencies {
 
     // Glance for Karoo DataType widgets
     implementation("androidx.glance:glance-appwidget:1.1.1")
+
+    // DataStore for settings
+    implementation("androidx.datastore:datastore-preferences:1.1.2")
 
 
     // Debug

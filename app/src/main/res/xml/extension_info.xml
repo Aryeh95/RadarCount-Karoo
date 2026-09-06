@@ -7,6 +7,13 @@
     fitFile="true">
 
     <DataType
+        typeId="radar-combo"
+        description="@string/datatype_combo_desc"
+        displayName="@string/datatype_combo"
+        graphical="true"
+        icon="@drawable/ic_radar" />
+
+    <DataType
         typeId="vehicle-count"
         description="@string/datatype_count_desc"
         displayName="@string/datatype_count"

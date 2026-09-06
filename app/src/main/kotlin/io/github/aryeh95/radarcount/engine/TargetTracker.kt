@@ -25,8 +25,8 @@ import kotlin.math.abs
  * Not thread-safe: call from a single thread.
  */
 class TargetTracker(
-    private val closeThresholdM: Int = 20,
-    private val closingThresholdM: Int = 60,
+    @Volatile var closeThresholdM: Int = 20,
+    @Volatile var closingThresholdM: Int = 60,
     private val minSamples: Int = 2,
     private val lostMs: Long = 1_800L,
     private val minSpeedSpanMs: Long = 1_500L,

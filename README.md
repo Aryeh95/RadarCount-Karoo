@@ -6,7 +6,7 @@ to the ride FIT file using the same developer fields as the Garmin
 [My Bike Radar Traffic](https://github.com/kartoone/mybiketraffic) Connect IQ
 field, so rides can be uploaded to [mybiketraffic.com](https://www.mybiketraffic.com/rides/import).
 
-No alerts, no sounds, no settings. The radar plumbing started from [eiRadar](https://github.com/yrkan/eiradar)
+No alerts and no sounds. The radar plumbing started from [eiRadar](https://github.com/yrkan/eiradar)
 with everything except counting and recording removed.
 
 RadarCount is an independent project. It is not affiliated with or endorsed by
@@ -18,11 +18,27 @@ Add any of these to a ride page from the Karoo's data field picker under **Radar
 
 | Data Field | Shows |
 |------------|-------|
+| **Radar Combo** | Pass count, approach speed and closest distance in one field. The layout adapts to the field size: one row when small, count beside speed and distance at half height, everything including lap and status at full height |
 | **Vehicle Count** | Vehicles that have passed you this ride, with the current lap count underneath |
 | **Approach Speed** | Relative speed of the nearest vehicle, with its absolute speed (relative + your speed) underneath |
 | **Closest Vehicle** | Distance to the nearest vehicle, with how many vehicles are behind you |
 
-Units follow your Karoo profile (km/h and metres, or mph and feet).
+Fields draw no background of their own, so they match the Karoo's light or dark
+theme like the built-in fields. Text colour follows the device theme
+automatically and can be forced in settings.
+
+## Settings
+
+Open the RadarCount app on the Karoo and tap Settings.
+
+| Setting | Options |
+|---------|---------|
+| Units | Karoo profile (default), Metric, Imperial |
+| Field colours | Match device (default), Light, Dark |
+| Count sensitivity | Strict (12 m / 40 m), Normal (20 m / 60 m), Relaxed (30 m / 90 m). The first number is how close a car must come to count outright; the second is how close a car that was still closing in may drop off the radar and still count. |
+| Reset count when a ride starts | On by default. Off keeps a running total across rides; use Reset count on the status screen to clear it. |
+| Reset lap count on each lap | On by default |
+| Show lap count on fields | On by default |
 
 The extension is idle at boot. It only opens the radar and speed streams while
 a ride is recording, one of its data fields is on screen, or its status screen

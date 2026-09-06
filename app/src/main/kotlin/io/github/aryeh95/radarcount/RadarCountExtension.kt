@@ -1,6 +1,10 @@
 package io.github.aryeh95.radarcount
 
+import io.github.aryeh95.radarcount.data.Settings
+import io.github.aryeh95.radarcount.data.SettingsRepository
+import io.github.aryeh95.radarcount.data.UnitsSetting
 import io.github.aryeh95.radarcount.datatypes.glance.ApproachSpeedGlanceDataType
+import io.github.aryeh95.radarcount.datatypes.glance.ComboGlanceDataType
 import io.github.aryeh95.radarcount.datatypes.glance.ClosestDistanceGlanceDataType
 import io.github.aryeh95.radarcount.datatypes.glance.VehicleCountGlanceDataType
 import io.github.aryeh95.radarcount.engine.RadarEngine
@@ -24,8 +28,11 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -78,11 +85,21 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
     val radarEngine: RadarEngine
         get() = _radarEngine ?: throw IllegalStateException("RadarEngine not initialized")
 
+    private var _settingsRepository: SettingsRepository? = null
+    val settingsRepository: SettingsRepository
+        get() = _settingsRepository ?: throw IllegalStateException("SettingsRepository not initialized")
+
+    val settings: StateFlow<Settings>
+        get() = settingsRepository.settings
+
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
-    // Rider's preferred distance unit (metric/imperial)
-    private val _useImperial = MutableStateFlow(false)
-    val useImperial: StateFlow<Boolean> = _useImperial.asStateFlow()
+    // Rider's preferred distance unit from the Karoo profile (metric/imperial)
+    private val _profileImperial = MutableStateFlow(false)
+
+    /** Effective unit: the settings override, or the Karoo profile when AUTO. */
+    lateinit var useImperial: StateFlow<Boolean>
+        private set
 
     // Rider ground speed in m/s from the Karoo SPEED stream
     private val _riderSpeedMps = MutableStateFlow(0.0)
@@ -112,6 +129,21 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
 
         karooSystem = KarooSystemService(this)
         _radarEngine = RadarEngine(karooSystem)
+        _settingsRepository = SettingsRepository.getInstance(this)
+
+        useImperial = combine(_profileImperial, settingsRepository.settings) { profile, s ->
+            when (s.units) {
+                UnitsSetting.AUTO -> profile
+                UnitsSetting.METRIC -> false
+                UnitsSetting.IMPERIAL -> true
+            }
+        }.stateIn(serviceScope, SharingStarted.Eagerly, false)
+
+        serviceScope.launch {
+            settingsRepository.settings.collect { s ->
+                _radarEngine?.setSensitivity(s.sensitivity.closeThresholdM, s.sensitivity.closingThresholdM)
+            }
+        }
 
         karooSystem.connect { connected ->
             _isConnected.value = connected
@@ -181,7 +213,7 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
                     if (!rideRecording) {
                         android.util.Log.i(TAG, "Ride recording started")
                         rideRecording = true
-                        _radarEngine?.resetPassCounts()
+                        if (settings.value.resetOnRideStart) _radarEngine?.resetPassCounts()
                         acquireRadar()
                     }
                 }
@@ -210,7 +242,7 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
     private fun startLapTracking() {
         lapConsumerId = karooSystem.addConsumer(Lap.Params) { lap: Lap ->
             android.util.Log.d(TAG, "Lap ${lap.number} (${lap.trigger})")
-            _radarEngine?.resetLapPassCount()
+            if (settings.value.resetLapOnLap) _radarEngine?.resetLapPassCount()
         }
     }
 
@@ -225,7 +257,7 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
     private fun startUserProfileTracking() {
         userProfileConsumerId = karooSystem.addConsumer(UserProfile.Params) { event: UserProfile ->
             val isImperial = event.preferredUnit.distance == UserProfile.PreferredUnit.UnitType.IMPERIAL
-            _useImperial.value = isImperial
+            _profileImperial.value = isImperial
             android.util.Log.i(TAG, "User unit preference: ${if (isImperial) "Imperial" else "Metric"}")
         }
     }
@@ -307,7 +339,7 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
                     val nearestM = engine.nearestDistanceM.value
                     val passTotal = engine.passCount.value
                     val closingMps = engine.closingSpeedMps.value
-                    val imperial = _useImperial.value
+                    val imperial = useImperial.value
 
                     val values = ArrayList<FieldValue>(12)
 
@@ -401,6 +433,7 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
 
     override val types by lazy {
         listOf(
+            ComboGlanceDataType(this),
             VehicleCountGlanceDataType(this),
             ApproachSpeedGlanceDataType(this),
             ClosestDistanceGlanceDataType(this)
