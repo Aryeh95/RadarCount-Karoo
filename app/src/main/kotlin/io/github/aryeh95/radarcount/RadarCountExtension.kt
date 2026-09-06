@@ -284,6 +284,10 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
         val vehicleCountField = DeveloperField(8, FIT_BASE_TYPE_UINT8, "radar_vehicle_count", "")
         val nearestDistanceField = DeveloperField(9, FIT_BASE_TYPE_UINT16, "radar_nearest_distance", "m")
         // Ranges of the 2nd-4th targets, for tuning the pass counter offline
+        // Experiment: does the Karoo write an array if the same developer
+        // field is given several values in one record? If it does, this
+        // field will show up as an 8-element array like the Garmin one.
+        val arrayProbeField = DeveloperField(13, FIT_BASE_TYPE_SINT16, "radar_ranges_probe", "")
         val extraRangeFields = listOf(
             DeveloperField(10, FIT_BASE_TYPE_UINT16, "radar_range_2", "m"),
             DeveloperField(11, FIT_BASE_TYPE_UINT16, "radar_range_3", "m"),
@@ -293,6 +297,7 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
         val fitScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         fitScope.launch {
             var lastSessionTotal = -1
+            var lastRecordTotal = -1
             while (isActive) {
                 delay(FIT_WRITE_INTERVAL_MS)
                 try {
@@ -306,8 +311,15 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
 
                     val values = ArrayList<FieldValue>(12)
 
+                    // Mimic the Garmin field: on the record where a vehicle is
+                    // counted, slot 0 of the ranges reads 0 even if another
+                    // vehicle is already being tracked. mybiketraffic.com uses
+                    // that gap to separate consecutive cars.
+                    val justPassed = lastRecordTotal in 0 until passTotal
+                    lastRecordTotal = passTotal
+
                     if (connected) {
-                        val tracked = vehicleCount > 0
+                        val tracked = vehicleCount > 0 && !justPassed
                         val passingSpeed = if (tracked) toUserSpeedUnits(closingMps, imperial) else 0
                         val passingSpeedAbs = if (passingSpeed > 0) {
                             passingSpeed + toUserSpeedUnits(_riderSpeedMps.value, imperial)
@@ -327,6 +339,9 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
                             val sorted = engine.targetDistances.value.sorted()
                             for ((i, field) in extraRangeFields.withIndex()) {
                                 sorted.getOrNull(i + 1)?.let { values.add(FieldValue(field, it.toDouble())) }
+                            }
+                            for (i in 0 until 8) {
+                                values.add(FieldValue(arrayProbeField, (sorted.getOrNull(i) ?: 0).toDouble()))
                             }
                         }
                     } else {

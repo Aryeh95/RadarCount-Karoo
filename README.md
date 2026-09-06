@@ -50,6 +50,11 @@ Written at 1 Hz while a ride is recording.
 | 8 | `radar_vehicle_count` | record | uint8 | Vehicles currently detected |
 | 9 | `radar_nearest_distance` | record | uint16 | Nearest vehicle in metres (omitted when none) |
 | 10-12 | `radar_range_2` .. `radar_range_4` | record | uint16 | Ranges of the next three targets, when present |
+| 13 | `radar_ranges_probe` | record | sint16 | Experiment: all eight ranges written to one field to test whether the Karoo records arrays |
+
+On the record where a vehicle is counted, `radar_ranges` and `radar_speeds` read 0
+even if another vehicle is already in view. The Garmin field behaves the same way
+and mybiketraffic.com relies on that gap to separate consecutive cars.
 
 Two differences from the Garmin file, both imposed by the Karoo SDK:
 
