@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">MyBikeTraffic</string>
-    <string name="extension_name">MyBikeTraffic</string>
+    <string name="app_name">RadarCount</string>
+    <string name="extension_name">RadarCount</string>
 
     <!-- Data types -->
     <string name="datatype_count">Vehicle Count</string>
@@ -31,5 +31,5 @@
     <string name="dashboard_searching">Searching…</string>
     <string name="dashboard_clear">Clear</string>
     <string name="dashboard_connection_lost">Radar lost</string>
-    <string name="dashboard_hint">Add the Vehicle Count, Approach Speed or Closest Vehicle data fields to a ride page. Rides record MyBikeTraffic-compatible FIT fields automatically.</string>
+    <string name="dashboard_hint">Add the Vehicle Count, Approach Speed or Closest Vehicle data fields to a ride page. Rides record FIT fields compatible with mybiketraffic.com automatically.</string>
 </resources>

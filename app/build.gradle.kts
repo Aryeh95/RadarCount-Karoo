@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "io.github.aryeh95.mybiketraffic"
+    namespace = "io.github.aryeh95.radarcount"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "io.github.aryeh95.mybiketraffic"
+        applicationId = "io.github.aryeh95.radarcount"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
@@ -32,7 +32,7 @@ android {
     applicationVariants.all {
         outputs.all {
             val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-            output.outputFileName = "mybiketraffic-karoo.apk"
+            output.outputFileName = "radarcount-karoo.apk"
         }
     }
 

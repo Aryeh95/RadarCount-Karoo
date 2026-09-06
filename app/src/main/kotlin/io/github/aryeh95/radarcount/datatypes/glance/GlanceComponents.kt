@@ -1,4 +1,4 @@
-package io.github.aryeh95.mybiketraffic.datatypes.glance
+package io.github.aryeh95.radarcount.datatypes.glance
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
@@ -17,9 +17,9 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
-import io.github.aryeh95.mybiketraffic.R
-import io.github.aryeh95.mybiketraffic.data.models.ThreatLevel
-import io.github.aryeh95.mybiketraffic.data.models.WidgetState
+import io.github.aryeh95.radarcount.R
+import io.github.aryeh95.radarcount.data.models.ThreatLevel
+import io.github.aryeh95.radarcount.data.models.WidgetState
 
 /**
  * Color definitions for Glance widgets.

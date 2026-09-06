@@ -1,7 +1,7 @@
-package io.github.aryeh95.mybiketraffic.engine
+package io.github.aryeh95.radarcount.engine
 
-import io.github.aryeh95.mybiketraffic.data.models.ThreatLevel
-import io.github.aryeh95.mybiketraffic.data.models.WidgetState
+import io.github.aryeh95.radarcount.data.models.ThreatLevel
+import io.github.aryeh95.radarcount.data.models.WidgetState
 import io.hammerhead.karooext.KarooSystemService
 import io.hammerhead.karooext.models.DataType
 import io.hammerhead.karooext.models.OnStreamState

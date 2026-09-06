@@ -1,13 +1,13 @@
-package io.github.aryeh95.mybiketraffic.datatypes.glance
+package io.github.aryeh95.radarcount.datatypes.glance
 
 import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.DpSize
 import androidx.glance.appwidget.ExperimentalGlanceRemoteViewsApi
 import androidx.glance.appwidget.GlanceRemoteViews
-import io.github.aryeh95.mybiketraffic.MyBikeTrafficExtension
-import io.github.aryeh95.mybiketraffic.data.models.ThreatLevel
-import io.github.aryeh95.mybiketraffic.data.models.WidgetState
+import io.github.aryeh95.radarcount.RadarCountExtension
+import io.github.aryeh95.radarcount.data.models.ThreatLevel
+import io.github.aryeh95.radarcount.data.models.WidgetState
 import io.hammerhead.karooext.extension.DataTypeImpl
 import io.hammerhead.karooext.internal.Emitter
 import io.hammerhead.karooext.internal.ViewEmitter
@@ -35,9 +35,9 @@ import kotlinx.coroutines.launch
  */
 @OptIn(ExperimentalGlanceRemoteViewsApi::class, FlowPreview::class)
 abstract class GlanceDataType(
-    protected val radarExtension: MyBikeTrafficExtension,
+    protected val radarExtension: RadarCountExtension,
     typeId: String
-) : DataTypeImpl(MyBikeTrafficExtension.EXTENSION_ID, typeId) {
+) : DataTypeImpl(RadarCountExtension.EXTENSION_ID, typeId) {
 
     companion object {
         private const val TAG = "GlanceDataType"

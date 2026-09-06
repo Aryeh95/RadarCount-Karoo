@@ -1,7 +1,7 @@
-package io.github.aryeh95.mybiketraffic.engine
+package io.github.aryeh95.radarcount.engine
 
 import com.google.common.truth.Truth.assertThat
-import io.github.aryeh95.mybiketraffic.data.models.ThreatLevel
+import io.github.aryeh95.radarcount.data.models.ThreatLevel
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 

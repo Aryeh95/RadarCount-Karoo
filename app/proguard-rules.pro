@@ -1,9 +1,9 @@
-# MyBikeTraffic for Karoo ProGuard rules
+# RadarCount for Karoo ProGuard rules
 
 # Karoo extension entry point and data types are referenced from the manifest
 # / extension_info and must keep their names.
--keep class io.github.aryeh95.mybiketraffic.MyBikeTrafficExtension { *; }
--keep class io.github.aryeh95.mybiketraffic.datatypes.** { *; }
+-keep class io.github.aryeh95.radarcount.RadarCountExtension { *; }
+-keep class io.github.aryeh95.radarcount.datatypes.** { *; }
 
 # Karoo SDK models are serialized across the process boundary.
 -keep class io.hammerhead.karooext.** { *; }

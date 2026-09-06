@@ -1,4 +1,4 @@
-package io.github.aryeh95.mybiketraffic.datatypes.glance
+package io.github.aryeh95.radarcount.datatypes.glance
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
@@ -11,10 +11,10 @@ import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
-import io.github.aryeh95.mybiketraffic.R
-import io.github.aryeh95.mybiketraffic.MyBikeTrafficExtension
-import io.github.aryeh95.mybiketraffic.data.models.WidgetState
-import io.github.aryeh95.mybiketraffic.engine.Units
+import io.github.aryeh95.radarcount.R
+import io.github.aryeh95.radarcount.RadarCountExtension
+import io.github.aryeh95.radarcount.data.models.WidgetState
+import io.github.aryeh95.radarcount.engine.Units
 import io.hammerhead.karooext.models.ViewConfig
 
 /** Shared layout: status bar, small label, big value, small footer. */
@@ -49,7 +49,7 @@ private fun LabelValueFooter(
  * Vehicles that have passed the rider this ride, with the lap count below.
  */
 class VehicleCountGlanceDataType(
-    radarExtension: MyBikeTrafficExtension
+    radarExtension: RadarCountExtension
 ) : GlanceDataType(radarExtension, "vehicle-count") {
 
     @Composable
@@ -69,15 +69,15 @@ class VehicleCountGlanceDataType(
  * speed (relative + rider speed) below. Both in the rider's units.
  */
 class ApproachSpeedGlanceDataType(
-    radarExtension: MyBikeTrafficExtension
+    radarExtension: RadarCountExtension
 ) : GlanceDataType(radarExtension, "approach-speed") {
 
     @Composable
     override fun Content(input: RenderInput, config: ViewConfig) {
         val tracked = input.state is WidgetState.Threat
-        val relative = MyBikeTrafficExtension.toUserSpeedUnits(input.closingSpeedMps, input.useImperial)
+        val relative = RadarCountExtension.toUserSpeedUnits(input.closingSpeedMps, input.useImperial)
         val absolute = if (relative > 0) {
-            relative + MyBikeTrafficExtension.toUserSpeedUnits(input.riderSpeedMps, input.useImperial)
+            relative + RadarCountExtension.toUserSpeedUnits(input.riderSpeedMps, input.useImperial)
         } else {
             0
         }
@@ -100,7 +100,7 @@ class ApproachSpeedGlanceDataType(
  * Distance to the closest vehicle, with the number of vehicles behind below.
  */
 class ClosestDistanceGlanceDataType(
-    radarExtension: MyBikeTrafficExtension
+    radarExtension: RadarCountExtension
 ) : GlanceDataType(radarExtension, "closest-distance") {
 
     @Composable

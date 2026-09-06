@@ -1,4 +1,4 @@
-package io.github.aryeh95.mybiketraffic.ui.theme
+package io.github.aryeh95.radarcount.ui.theme
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
@@ -176,7 +176,7 @@ private val KarooTypography = Typography(
 // ============================================
 
 @Composable
-fun MyBikeTrafficTheme(
+fun RadarCountTheme(
     content: @Composable () -> Unit
 ) {
     // Always dark theme for cycling computer
