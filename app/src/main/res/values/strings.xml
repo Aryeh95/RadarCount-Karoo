@@ -10,6 +10,10 @@
     <string name="datatype_speed_desc">Relative and absolute speed of nearest vehicle</string>
     <string name="datatype_distance">Closest Vehicle</string>
     <string name="datatype_distance_desc">Distance to nearest vehicle</string>
+    <string name="datatype_combo">Radar Combo</string>
+    <string name="datatype_combo_desc">Count, approach speed and distance in one field</string>
+    <string name="combo_count">COUNT</string>
+    <string name="combo_dist">DIST</string>
 
     <!-- Widget text -->
     <string name="widget_count_label">PASSED</string>
@@ -31,5 +35,26 @@
     <string name="dashboard_searching">Searching…</string>
     <string name="dashboard_clear">Clear</string>
     <string name="dashboard_connection_lost">Radar lost</string>
-    <string name="dashboard_hint">Add the Vehicle Count, Approach Speed or Closest Vehicle data fields to a ride page. Rides record FIT fields compatible with mybiketraffic.com automatically.</string>
+    <string name="dashboard_hint">Add the Radar Combo, Vehicle Count, Approach Speed or Closest Vehicle data fields to a ride page. Rides record FIT fields compatible with mybiketraffic.com automatically.</string>
+    <string name="dashboard_reset_count">Reset count</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_units">Units</string>
+    <string name="settings_units_auto">Karoo profile</string>
+    <string name="settings_units_metric">Metric</string>
+    <string name="settings_units_imperial">Imperial</string>
+    <string name="settings_theme">Field colours</string>
+    <string name="settings_theme_auto">Match device</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_sensitivity">Count sensitivity</string>
+    <string name="settings_sensitivity_strict">Strict</string>
+    <string name="settings_sensitivity_normal">Normal</string>
+    <string name="settings_sensitivity_relaxed">Relaxed</string>
+    <string name="settings_sensitivity_hint">Strict counts only cars that get very close. Relaxed also counts cars that were closing in but dropped off the radar early.</string>
+    <string name="settings_reset_on_ride_start">Reset count when a ride starts</string>
+    <string name="settings_reset_lap">Reset lap count on each lap</string>
+    <string name="settings_show_lap">Show lap count on fields</string>
+    <string name="settings_reset_defaults">Restore defaults</string>
+    <string name="settings_back">Back</string>
+    <string name="settings_version">Version %s</string>
 </resources>

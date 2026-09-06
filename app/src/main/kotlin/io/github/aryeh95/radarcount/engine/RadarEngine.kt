@@ -213,6 +213,12 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
         _packets.tryEmit(state)
     }
 
+    /** Change how eager the pass counter is. Takes effect on the next packet. */
+    fun setSensitivity(closeThresholdM: Int, closingThresholdM: Int) {
+        targetTracker.closeThresholdM = closeThresholdM
+        targetTracker.closingThresholdM = closingThresholdM
+    }
+
     /** Reset ride and lap pass counts (start of a new ride). */
     fun resetPassCounts() {
         synchronized(lock) {

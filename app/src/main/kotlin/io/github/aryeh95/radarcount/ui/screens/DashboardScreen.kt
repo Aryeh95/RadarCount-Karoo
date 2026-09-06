@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
@@ -34,7 +35,7 @@ import io.github.aryeh95.radarcount.ui.theme.RadarColors
  * There are no settings; everything is driven by the Karoo profile.
  */
 @Composable
-fun DashboardScreen(extension: RadarCountExtension?) {
+fun DashboardScreen(extension: RadarCountExtension?, onSettingsClick: () -> Unit, onResetCount: () -> Unit) {
     val state = extension?.radarEngine?.widgetState?.collectAsState()?.value ?: WidgetState.NotConnected
     val passCount = extension?.radarEngine?.passCount?.collectAsState()?.value ?: 0
     val lapCount = extension?.radarEngine?.lapPassCount?.collectAsState()?.value ?: 0
@@ -75,11 +76,20 @@ fun DashboardScreen(extension: RadarCountExtension?) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(
-            text = stringResource(R.string.app_name),
-            style = MaterialTheme.typography.titleMedium,
-            color = RadarColors.textSecondary
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(R.string.app_name),
+                style = MaterialTheme.typography.titleMedium,
+                color = RadarColors.textSecondary
+            )
+            TextButton(onClick = onSettingsClick) {
+                Text(stringResource(R.string.settings_title), color = RadarColors.accent)
+            }
+        }
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = statusText,
@@ -97,7 +107,11 @@ fun DashboardScreen(extension: RadarCountExtension?) {
                 if (state is WidgetState.Threat) stringResource(R.string.widget_absolute_label, absolute, unit) else ""
             )
         }
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(12.dp))
+        TextButton(onClick = onResetCount) {
+            Text(stringResource(R.string.dashboard_reset_count), color = RadarColors.accent)
+        }
+        Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = stringResource(R.string.dashboard_hint),
             style = MaterialTheme.typography.bodyMedium,

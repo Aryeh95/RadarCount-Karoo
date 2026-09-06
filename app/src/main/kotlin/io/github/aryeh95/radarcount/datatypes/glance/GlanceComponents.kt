@@ -5,7 +5,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceModifier
-import androidx.glance.ImageProvider
+import androidx.glance.color.ColorProvider as DayNightColorProvider
 import androidx.glance.background
 import androidx.glance.layout.Box
 import androidx.glance.layout.fillMaxSize
@@ -17,22 +17,28 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
-import io.github.aryeh95.radarcount.R
+import io.github.aryeh95.radarcount.data.ThemeSetting
 import io.github.aryeh95.radarcount.data.models.ThreatLevel
 import io.github.aryeh95.radarcount.data.models.WidgetState
 
 /**
- * Color definitions for Glance widgets.
- * Optimized for outdoor readability on Karoo display.
+ * Colours for the data fields. No background is drawn: the Karoo paints the
+ * field cell in its own theme, and text follows the device's light/dark
+ * mode unless overridden in settings.
  */
 object GlanceColors {
-    val White = Color(0xFFFFFFFF)
-    val Safe = Color(0xFF00C853)        // Green
-    val Caution = Color(0xFFFF9100)     // Orange
-    val Danger = Color(0xFFFF1744)      // Red
-    val Label = Color(0xFFAAAAAA)       // Light gray for labels
-    val Neutral = Color(0xFF555555)     // Medium gray for disconnected
-    val Background = Color(0xFF000000)  // Black content area
+    val Safe = Color(0xFF00A844)        // Green, readable on white and black
+    val Caution = Color(0xFFF08A00)     // Orange
+    val Danger = Color(0xFFE5173F)      // Red
+    val Neutral = Color(0xFF8A8A8A)     // Grey for disconnected
+
+    private val TextDay = Color(0xFF000000)
+    private val TextNight = Color(0xFFFFFFFF)
+    private val LabelDay = Color(0xFF555555)
+    private val LabelNight = Color(0xFFBBBBBB)
+
+    fun text(theme: ThemeSetting): ColorProvider = themed(theme, TextDay, TextNight)
+    fun label(theme: ThemeSetting): ColorProvider = themed(theme, LabelDay, LabelNight)
 
     fun forState(state: WidgetState): Color = when (state) {
         is WidgetState.NotConnected -> Neutral
@@ -48,38 +54,33 @@ object GlanceColors {
         ThreatLevel.WARNING -> Caution
         ThreatLevel.CRITICAL -> Danger
     }
+
+    private fun themed(theme: ThemeSetting, day: Color, night: Color): ColorProvider = when (theme) {
+        ThemeSetting.AUTO -> DayNightColorProvider(day = day, night = night)
+        ThemeSetting.LIGHT -> ColorProvider(day)
+        ThemeSetting.DARK -> ColorProvider(night)
+    }
 }
 
 /**
- * Standard container for all data fields.
- * Uses a rounded shape drawable so corners match Karoo's visual style.
+ * Transparent container so the field matches the Karoo's own fields.
  */
 @Composable
 fun DataFieldContainer(
     modifier: GlanceModifier = GlanceModifier,
     content: @Composable () -> Unit
 ) {
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(ImageProvider(R.drawable.widget_background))
-            .padding(2.dp)
-    ) {
+    Box(modifier = modifier.fillMaxSize().padding(2.dp)) {
         content()
     }
 }
 
 /**
- * Colored status bar indicating threat level.
- * Horizontal padding keeps it away from rounded corners.
+ * Thin coloured bar indicating radar state (green clear, orange/red threat,
+ * grey disconnected).
  */
 @Composable
-fun StatusBar(
-    state: WidgetState,
-    muted: Boolean = false,
-    height: Int = 6
-) {
-    val color = if (muted) GlanceColors.Neutral else GlanceColors.forState(state)
+fun StatusBar(state: WidgetState, height: Int = 5) {
     Box(
         modifier = GlanceModifier
             .fillMaxWidth()
@@ -90,19 +91,19 @@ fun StatusBar(
             modifier = GlanceModifier
                 .fillMaxWidth()
                 .height(height.dp)
-                .background(color)
+                .background(GlanceColors.forState(state))
         ) {}
     }
 }
 
 /**
- * Large bold value text (vehicle count, status indicator).
+ * Large bold value text.
  */
 @Composable
 fun ValueText(
     text: String,
-    color: Color = GlanceColors.White,
-    fontSize: Int = 18,
+    color: ColorProvider,
+    fontSize: Int,
     modifier: GlanceModifier = GlanceModifier
 ) {
     Text(
@@ -111,7 +112,7 @@ fun ValueText(
         style = TextStyle(
             fontSize = fontSize.sp,
             fontWeight = FontWeight.Bold,
-            color = ColorProvider(color),
+            color = color,
             textAlign = TextAlign.Center
         ),
         maxLines = 1
@@ -119,21 +120,21 @@ fun ValueText(
 }
 
 /**
- * Small label text (status messages, labels).
+ * Small label text.
  */
 @Composable
 fun LabelText(
     text: String,
-    modifier: GlanceModifier = GlanceModifier,
-    fontSize: Int = 12,
-    color: Color = GlanceColors.Label
+    color: ColorProvider,
+    fontSize: Int,
+    modifier: GlanceModifier = GlanceModifier
 ) {
     Text(
         text = text,
         modifier = modifier,
         style = TextStyle(
             fontSize = fontSize.sp,
-            color = ColorProvider(color),
+            color = color,
             textAlign = TextAlign.Center
         ),
         maxLines = 1

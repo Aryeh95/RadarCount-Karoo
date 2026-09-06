@@ -6,6 +6,7 @@ import androidx.compose.ui.unit.DpSize
 import androidx.glance.appwidget.ExperimentalGlanceRemoteViewsApi
 import androidx.glance.appwidget.GlanceRemoteViews
 import io.github.aryeh95.radarcount.RadarCountExtension
+import io.github.aryeh95.radarcount.data.Settings
 import io.github.aryeh95.radarcount.data.models.ThreatLevel
 import io.github.aryeh95.radarcount.data.models.WidgetState
 import io.hammerhead.karooext.extension.DataTypeImpl
@@ -51,7 +52,8 @@ abstract class GlanceDataType(
             lapPassCount = 4,
             closingSpeedMps = 8.0,
             riderSpeedMps = 7.0,
-            useImperial = false
+            useImperial = false,
+            settings = Settings()
         )
     }
 
@@ -62,7 +64,8 @@ abstract class GlanceDataType(
         val lapPassCount: Int,
         val closingSpeedMps: Double,
         val riderSpeedMps: Double,
-        val useImperial: Boolean
+        val useImperial: Boolean,
+        val settings: Settings
     ) {
         val connected: Boolean
             get() = state is WidgetState.Clear || state is WidgetState.Threat
@@ -87,7 +90,8 @@ abstract class GlanceDataType(
             engine.lapPassCount,
             engine.closingSpeedMps,
             radarExtension.riderSpeedMps,
-            radarExtension.useImperial
+            radarExtension.useImperial,
+            radarExtension.settings
         ) { values ->
             RenderInput(
                 state = values[0] as WidgetState,
@@ -95,7 +99,8 @@ abstract class GlanceDataType(
                 lapPassCount = values[2] as Int,
                 closingSpeedMps = values[3] as Double,
                 riderSpeedMps = values[4] as Double,
-                useImperial = values[5] as Boolean
+                useImperial = values[5] as Boolean,
+                settings = values[6] as Settings
             )
         }.distinctUntilChanged()
     }
@@ -103,7 +108,7 @@ abstract class GlanceDataType(
     override fun startView(context: Context, config: ViewConfig, emitter: ViewEmitter) {
         emitter.onNext(UpdateGraphicConfig(showHeader = false))
 
-        android.util.Log.d(TAG, "[$dataTypeId] Starting view: grid=${config.gridSize}, preview=${config.preview}")
+        android.util.Log.d(TAG, "[$dataTypeId] Starting view: grid=${config.gridSize}, size=${config.viewSize}, preview=${config.preview}")
 
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -120,7 +125,9 @@ abstract class GlanceDataType(
         }
 
         if (config.preview) {
-            scope.launch { render(PREVIEW_INPUT) }
+            scope.launch {
+                render(PREVIEW_INPUT.copy(settings = radarExtension.settings.value, useImperial = radarExtension.useImperial.value))
+            }
             emitter.setCancellable { scope.cancel() }
             return
         }
