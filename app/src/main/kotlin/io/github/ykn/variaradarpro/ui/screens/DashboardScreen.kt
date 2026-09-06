@@ -1,9 +1,7 @@
 package io.github.ykn.variaradarpro.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,265 +9,115 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DirectionsCar
-import androidx.compose.material.icons.filled.LinkOff
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Sensors
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.ykn.variaradarpro.BuildConfig
 import io.github.ykn.variaradarpro.R
+import io.github.ykn.variaradarpro.VariaRadarExtension
 import io.github.ykn.variaradarpro.data.models.ThreatLevel
 import io.github.ykn.variaradarpro.data.models.WidgetState
 import io.github.ykn.variaradarpro.engine.Units
 import io.github.ykn.variaradarpro.ui.theme.RadarColors
-import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Clean dashboard optimized for cycling.
- * Shows radar status at a glance - big, bold, readable while riding.
+ * Status screen: radar state, vehicles passed, approach speed.
+ * There are no settings; everything is driven by the Karoo profile.
  */
 @Composable
-fun DashboardScreen(
-    widgetStateFlow: StateFlow<WidgetState>?,
-    isNightModeFlow: StateFlow<Boolean>?,
-    useImperialFlow: StateFlow<Boolean>?,
-    onSettingsClick: () -> Unit
-) {
-    val widgetState = widgetStateFlow?.collectAsState()?.value ?: WidgetState.NotConnected
-    val useImperial = useImperialFlow?.collectAsState()?.value ?: false
+fun DashboardScreen(extension: VariaRadarExtension?) {
+    val state = extension?.radarEngine?.widgetState?.collectAsState()?.value ?: WidgetState.NotConnected
+    val passCount = extension?.radarEngine?.passCount?.collectAsState()?.value ?: 0
+    val lapCount = extension?.radarEngine?.lapPassCount?.collectAsState()?.value ?: 0
+    val closing = extension?.radarEngine?.closingSpeedMps?.collectAsState()?.value ?: 0.0
+    val rider = extension?.riderSpeedMps?.collectAsState()?.value ?: 0.0
+    val imperial = extension?.useImperial?.collectAsState()?.value ?: false
 
-    Box(
+    val statusColor = when (state) {
+        is WidgetState.Clear -> RadarColors.safe
+        is WidgetState.Threat -> when (state.level) {
+            ThreatLevel.CRITICAL -> RadarColors.danger
+            ThreatLevel.CLEAR -> RadarColors.safe
+            else -> RadarColors.caution
+        }
+        else -> RadarColors.neutral
+    }
+    val statusText = when (state) {
+        is WidgetState.NotConnected -> stringResource(R.string.dashboard_not_connected)
+        is WidgetState.Connecting -> stringResource(R.string.dashboard_searching)
+        is WidgetState.Clear -> stringResource(R.string.dashboard_clear)
+        is WidgetState.Threat -> if (state.nearestDistanceM > 0) {
+            Units.formatDistance(state.nearestDistanceM, imperial)
+        } else {
+            stringResource(R.string.widget_behind)
+        }
+        is WidgetState.ConnectionLost -> stringResource(R.string.dashboard_connection_lost)
+    }
+
+    val relative = VariaRadarExtension.toUserSpeedUnits(closing, imperial)
+    val absolute = if (relative > 0) relative + VariaRadarExtension.toUserSpeedUnits(rider, imperial) else 0
+    val unit = Units.speedUnitLabel(imperial)
+
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .background(RadarColors.background)
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        // Top bar: Settings
-        TopBar(onSettingsClick = onSettingsClick)
-
-        // Main status - centered
-        StatusContent(
-            widgetState = widgetState,
-            useImperial = useImperial,
-            modifier = Modifier.align(Alignment.Center)
-        )
-    }
-}
-
-@Composable
-private fun TopBar(
-    onSettingsClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Settings icon
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(CircleShape)
-                .background(RadarColors.surface)
-                .clickable(onClick = onSettingsClick),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.Settings,
-                contentDescription = stringResource(R.string.settings_title),
-                tint = RadarColors.textSecondary,
-                modifier = Modifier.size(22.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun StatusContent(
-    widgetState: WidgetState,
-    useImperial: Boolean,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        when (widgetState) {
-            is WidgetState.NotConnected -> DisconnectedStatus()
-            is WidgetState.Connecting -> ConnectingStatus()
-            is WidgetState.Clear -> ClearStatus()
-            is WidgetState.Threat -> ThreatStatus(
-                vehicleCount = widgetState.vehicleCount,
-                distanceM = widgetState.nearestDistanceM,
-                level = widgetState.level,
-                useImperial = useImperial
-            )
-            is WidgetState.ConnectionLost -> ConnectionLostStatus()
-        }
-    }
-}
-
-@Composable
-private fun DisconnectedStatus() {
-    StatusIcon(
-        icon = Icons.Default.LinkOff,
-        color = RadarColors.neutral,
-        size = 64
-    )
-    Spacer(modifier = Modifier.height(16.dp))
-    Text(
-        text = stringResource(R.string.dashboard_not_connected),
-        style = MaterialTheme.typography.headlineMedium,
-        color = RadarColors.neutral,
-        textAlign = TextAlign.Center
-    )
-    Spacer(modifier = Modifier.height(8.dp))
-    Text(
-        text = stringResource(R.string.dashboard_connect_radar),
-        style = MaterialTheme.typography.bodyLarge,
-        color = RadarColors.textSecondary,
-        textAlign = TextAlign.Center
-    )
-}
-
-@Composable
-private fun ConnectingStatus() {
-    StatusIcon(
-        icon = Icons.Default.Sensors,
-        color = RadarColors.accent,
-        size = 64
-    )
-    Spacer(modifier = Modifier.height(16.dp))
-    Text(
-        text = stringResource(R.string.dashboard_searching),
-        style = MaterialTheme.typography.headlineMedium,
-        color = RadarColors.accent,
-        textAlign = TextAlign.Center
-    )
-}
-
-@Composable
-private fun ClearStatus() {
-    StatusIcon(
-        icon = Icons.Outlined.CheckCircle,
-        color = RadarColors.safe,
-        size = 80
-    )
-    Spacer(modifier = Modifier.height(16.dp))
-    Text(
-        text = stringResource(R.string.dashboard_clear),
-        style = MaterialTheme.typography.headlineLarge,
-        fontWeight = FontWeight.Bold,
-        color = RadarColors.safe,
-        textAlign = TextAlign.Center
-    )
-}
-
-@Composable
-private fun ThreatStatus(
-    vehicleCount: Int,
-    distanceM: Int,
-    level: ThreatLevel,
-    useImperial: Boolean
-) {
-    val threatColor = when (level) {
-        ThreatLevel.CRITICAL -> RadarColors.danger
-        ThreatLevel.WARNING -> RadarColors.caution
-        ThreatLevel.APPROACHING -> RadarColors.caution
-        ThreatLevel.CLEAR -> RadarColors.safe
-    }
-
-    // Car icon
-    StatusIcon(
-        icon = Icons.Default.DirectionsCar,
-        color = threatColor,
-        size = 56
-    )
-
-    Spacer(modifier = Modifier.height(12.dp))
-
-    // Big vehicle count
-    Text(
-        text = vehicleCount.toString(),
-        fontSize = 72.sp,
-        fontWeight = FontWeight.Bold,
-        color = threatColor,
-        textAlign = TextAlign.Center
-    )
-
-    // Distance
-    if (distanceM > 0) {
-        val distanceText = Units.formatDistance(distanceM, useImperial)
         Text(
-            text = distanceText,
-            style = MaterialTheme.typography.headlineMedium,
+            text = stringResource(R.string.app_name),
+            style = MaterialTheme.typography.titleMedium,
+            color = RadarColors.textSecondary
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = statusText,
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Bold,
+            color = statusColor,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(20.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            Stat(stringResource(R.string.widget_count_label), passCount.toString(), stringResource(R.string.widget_lap_label, lapCount))
+            Stat(
+                stringResource(R.string.widget_approach_label, unit),
+                if (state is WidgetState.Threat) relative.toString() else "--",
+                if (state is WidgetState.Threat) stringResource(R.string.widget_absolute_label, absolute, unit) else ""
+            )
+        }
+        Spacer(modifier = Modifier.height(20.dp))
+        Text(
+            text = stringResource(R.string.dashboard_hint),
+            style = MaterialTheme.typography.bodyMedium,
             color = RadarColors.textSecondary,
             textAlign = TextAlign.Center
         )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "v${BuildConfig.VERSION_NAME}",
+            style = MaterialTheme.typography.bodySmall,
+            color = RadarColors.neutral
+        )
     }
 }
 
 @Composable
-private fun ConnectionLostStatus() {
-    StatusIcon(
-        icon = Icons.Default.LinkOff,
-        color = RadarColors.danger,
-        size = 64
-    )
-    Spacer(modifier = Modifier.height(16.dp))
-    Text(
-        text = stringResource(R.string.dashboard_connection_lost),
-        style = MaterialTheme.typography.headlineMedium,
-        color = RadarColors.danger,
-        textAlign = TextAlign.Center
-    )
-    Spacer(modifier = Modifier.height(8.dp))
-    Text(
-        text = stringResource(R.string.dashboard_reconnecting),
-        style = MaterialTheme.typography.bodyLarge,
-        color = RadarColors.textSecondary,
-        textAlign = TextAlign.Center
-    )
-}
-
-@Composable
-private fun StatusIcon(
-    icon: ImageVector,
-    color: Color,
-    size: Int
-) {
-    Box(
-        modifier = Modifier
-            .size((size + 32).dp)
-            .clip(CircleShape)
-            .background(color.copy(alpha = 0.12f)),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = color,
-            modifier = Modifier.size(size.dp)
-        )
+private fun Stat(label: String, value: String, footer: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(text = label, style = MaterialTheme.typography.labelMedium, color = RadarColors.textSecondary)
+        Text(text = value, fontSize = 48.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        Text(text = footer, style = MaterialTheme.typography.labelMedium, color = RadarColors.textSecondary)
     }
 }

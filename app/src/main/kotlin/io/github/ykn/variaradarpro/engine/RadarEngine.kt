@@ -46,20 +46,6 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
             DataType.Field.RADAR_TARGET_8_RANGE,
         )
 
-        internal fun calculateThreatLevel(
-            distanceM: Int,
-            approachingThreshold: Int,
-            warningThreshold: Int,
-            criticalThreshold: Int
-        ): ThreatLevel {
-            return when {
-                distanceM <= criticalThreshold -> ThreatLevel.CRITICAL
-                distanceM <= warningThreshold -> ThreatLevel.WARNING
-                distanceM <= approachingThreshold -> ThreatLevel.APPROACHING
-                else -> ThreatLevel.CLEAR
-            }
-        }
-
         internal fun toWidgetState(snapshot: RadarSnapshot): WidgetState {
             return if (snapshot.vehicleCount > 0) {
                 WidgetState.Threat(
