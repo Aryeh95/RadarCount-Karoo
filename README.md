@@ -28,9 +28,11 @@ The extension is idle at boot. It only opens the radar and speed streams while
 a ride is recording, one of its data fields is on screen, or its status screen
 is open, and closes them again afterwards.
 
-A vehicle is counted when it drops off the radar after having come within 20 m,
-the same rule the Garmin field uses. The ride count resets when a ride starts
-recording; the lap count resets on every Karoo lap.
+A vehicle is counted when it drops off the radar after either coming within
+20 m, or closing in and being last seen within 60 m. This is the Garmin field's
+rule loosened for the Karoo's roughly one-sample-per-second radar feed, which
+can lose a fast car between 40 m and gone in a single step. The ride count
+resets when a ride starts recording; the lap count resets on every Karoo lap.
 
 ## FIT recording
 
