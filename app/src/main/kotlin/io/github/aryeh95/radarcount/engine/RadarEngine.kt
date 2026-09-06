@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicReference
  *
  * Streams radar data from KarooSystemService using DataType.Type.RADAR
  * and transforms it into [WidgetState] for UI consumption. Also counts
- * vehicles that pass the rider (see [VehiclePassCounter]).
+ * vehicles that pass the rider (see [TargetTracker]).
  *
  * Karoo SDK provides a single RADAR data type with fields:
  * - Field.RADAR_THREAT_LEVEL (required)
@@ -74,8 +74,9 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
         targetRangeFields = TARGET_RANGE_FIELDS
     )
 
-    private val passCounter = VehiclePassCounter()
-    private val closingSpeedTracker = ClosingSpeedTracker()
+    private val targetTracker = TargetTracker()
+    private var passTotal = 0
+    private var passLap = 0
     private val lock = Any()
 
     // Consumer ID for cleanup
@@ -159,8 +160,7 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
         radarConsumerId.getAndSet(null)?.let { karooSystem.removeConsumer(it) }
         synchronized(lock) {
             _isRadarConnected.value = false
-            passCounter.clearTracking()
-            closingSpeedTracker.reset()
+            targetTracker.clear()
             _closingSpeedMps.value = 0.0
             _widgetState.value = WidgetState.NotConnected
         }
@@ -171,8 +171,7 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
             is RadarParseResult.Error -> {
                 android.util.Log.w(TAG, "Radar error reported: ${result.code}")
                 _isRadarConnected.value = false
-                passCounter.clearTracking()
-                closingSpeedTracker.reset()
+                targetTracker.clear()
                 _closingSpeedMps.value = 0.0
                 _widgetState.value = WidgetState.ConnectionLost
                 _packets.tryEmit(WidgetState.ConnectionLost)
@@ -188,18 +187,15 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
 
         val widgetState = toWidgetState(snapshot)
 
-        closingSpeedTracker.addSample(snapshot.nearestDistanceM)
-        _closingSpeedMps.value = (closingSpeedTracker.closingSpeedMps() ?: 0.0).coerceAtLeast(0.0)
-
-        // Count passes using the effective tracked count (the widget state
-        // treats a threat with no ranges as one vehicle).
-        val trackedCount = (widgetState as? WidgetState.Threat)?.vehicleCount ?: 0
-        val passed = passCounter.update(trackedCount, snapshot.nearestDistanceM)
+        val passed = targetTracker.update(snapshot.targetDistancesM, System.currentTimeMillis())
         if (passed > 0) {
-            android.util.Log.d(TAG, "$passed vehicle(s) passed, total=${passCounter.total}")
-            _passCount.value = passCounter.total
-            _lapPassCount.value = passCounter.lap
+            passTotal += passed
+            passLap += passed
+            android.util.Log.d(TAG, "$passed vehicle(s) passed, total=$passTotal")
+            _passCount.value = passTotal
+            _lapPassCount.value = passLap
         }
+        _closingSpeedMps.value = targetTracker.nearestClosingSpeedMps()
 
         _isRadarConnected.value = true
         wasEverConnected = true
@@ -210,8 +206,7 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
 
     private fun handleDisconnection() {
         _isRadarConnected.value = false
-        passCounter.clearTracking()
-        closingSpeedTracker.reset()
+        targetTracker.clear()
         _closingSpeedMps.value = 0.0
         val state = if (wasEverConnected) WidgetState.ConnectionLost else WidgetState.NotConnected
         _widgetState.value = state
@@ -221,7 +216,9 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
     /** Reset ride and lap pass counts (start of a new ride). */
     fun resetPassCounts() {
         synchronized(lock) {
-            passCounter.reset()
+            targetTracker.clear()
+            passTotal = 0
+            passLap = 0
             _passCount.value = 0
             _lapPassCount.value = 0
         }
@@ -230,7 +227,7 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
     /** Reset the lap pass count (lap button pressed / auto lap). */
     fun resetLapPassCount() {
         synchronized(lock) {
-            passCounter.resetLap()
+            passLap = 0
             _lapPassCount.value = 0
         }
     }

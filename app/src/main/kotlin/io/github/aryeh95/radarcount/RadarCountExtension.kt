@@ -264,8 +264,9 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
      * is not written). Like the Garmin field, radar-off is encoded as
      * range -1 / speed 255 so "no radar" differs from "radar saw nothing".
      *
-     * Three extra fields (7-9) record threat level, simultaneous vehicle
-     * count and nearest distance for other analysis tools.
+     * Extra fields (7-12) record threat level, simultaneous vehicle count,
+     * nearest distance and the next three target ranges for analysis and
+     * for tuning the pass counter.
      */
     override fun startFit(emitter: Emitter<FitEffect>) {
         android.util.Log.i(TAG, "Starting FIT file recording for radar data")
@@ -282,6 +283,12 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
         val threatField = DeveloperField(7, FIT_BASE_TYPE_ENUM, "radar_threat_level", "")
         val vehicleCountField = DeveloperField(8, FIT_BASE_TYPE_UINT8, "radar_vehicle_count", "")
         val nearestDistanceField = DeveloperField(9, FIT_BASE_TYPE_UINT16, "radar_nearest_distance", "m")
+        // Ranges of the 2nd-4th targets, for tuning the pass counter offline
+        val extraRangeFields = listOf(
+            DeveloperField(10, FIT_BASE_TYPE_UINT16, "radar_range_2", "m"),
+            DeveloperField(11, FIT_BASE_TYPE_UINT16, "radar_range_3", "m"),
+            DeveloperField(12, FIT_BASE_TYPE_UINT16, "radar_range_4", "m")
+        )
 
         val fitScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         fitScope.launch {
@@ -297,7 +304,7 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
                     val closingMps = engine.closingSpeedMps.value
                     val imperial = _useImperial.value
 
-                    val values = ArrayList<FieldValue>(9)
+                    val values = ArrayList<FieldValue>(12)
 
                     if (connected) {
                         val tracked = vehicleCount > 0
@@ -317,6 +324,10 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
                         values.add(FieldValue(vehicleCountField, vehicleCount.toDouble()))
                         if (tracked) {
                             values.add(FieldValue(nearestDistanceField, nearestM.toDouble()))
+                            val sorted = engine.targetDistances.value.sorted()
+                            for ((i, field) in extraRangeFields.withIndex()) {
+                                sorted.getOrNull(i + 1)?.let { values.add(FieldValue(field, it.toDouble())) }
+                            }
                         }
                     } else {
                         values.add(FieldValue(mbtRangesField, MBT_RANGE_RADAR_OFF))
