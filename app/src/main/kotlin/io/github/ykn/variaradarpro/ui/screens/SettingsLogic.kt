@@ -2,6 +2,7 @@ package io.github.ykn.variaradarpro.ui.screens
 
 import io.github.ykn.variaradarpro.data.models.BuiltInSoundSet
 import io.github.ykn.variaradarpro.data.models.ScreenWakePolicy
+import io.github.ykn.variaradarpro.engine.Units
 
 internal object SettingsLogic {
 
@@ -30,23 +31,15 @@ internal object SettingsLogic {
         ScreenWakePolicy.ALWAYS -> ScreenWakePolicy.NEVER
     }
 
-    fun formatDistance(meters: Int, useImperial: Boolean): String {
-        return if (useImperial) {
-            "${(meters * 3.281).toInt()}ft"
-        } else {
-            "${meters}m"
-        }
-    }
+    fun formatDistance(meters: Int, useImperial: Boolean): String =
+        Units.formatDistance(meters, useImperial)
 
     fun formatCooldown(ms: Long): String = "${ms / 1000}s"
 
-    fun formatSpeedGate(kmh: Int, useImperial: Boolean): String {
-        if (kmh == 0) return "Off"
-        return if (useImperial) {
-            "${(kmh * 0.621).toInt()} mph"
-        } else {
-            "$kmh km/h"
-        }
+    /** Returns null when the speed gate is off; caller supplies the localized "Off". */
+    fun formatSpeedGate(kmh: Int, useImperial: Boolean): String? {
+        if (kmh == 0) return null
+        return Units.formatSpeed(kmh, useImperial)
     }
 
     private fun <T> cycleNext(values: List<T>, current: T): T {

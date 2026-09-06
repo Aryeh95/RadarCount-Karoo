@@ -8,8 +8,8 @@ import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.padding
+import io.github.ykn.variaradarpro.R
 import io.github.ykn.variaradarpro.VariaRadarExtension
-import io.github.ykn.variaradarpro.data.models.PresetSettings
 import io.github.ykn.variaradarpro.data.models.WidgetState
 import io.hammerhead.karooext.models.ViewConfig
 
@@ -22,7 +22,9 @@ class SmallWidgetGlanceDataType(
 ) : GlanceDataType(radarExtension, "radar-small") {
 
     @Composable
-    override fun Content(state: WidgetState, settings: PresetSettings, config: ViewConfig, muted: Boolean) {
+    override fun Content(input: RenderInput, config: ViewConfig) {
+        val state = input.state
+        val muted = input.muted
         DataFieldContainer {
             Column(modifier = GlanceModifier.fillMaxSize()) {
                 StatusBar(state, muted)
@@ -44,7 +46,7 @@ class SmallWidgetGlanceDataType(
     private fun getDisplayText(state: WidgetState): String = when (state) {
         is WidgetState.NotConnected -> "--"
         is WidgetState.Connecting -> "--"
-        is WidgetState.Clear -> "OK"
+        is WidgetState.Clear -> radarExtension.getString(R.string.widget_ok)
         is WidgetState.Threat -> state.vehicleCount.toString()
         is WidgetState.ConnectionLost -> "--"
     }

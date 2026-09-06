@@ -141,7 +141,7 @@ class SettingsLogicTest {
         }
 
         @ParameterizedTest(name = "{0}m imperial → {1}")
-        @CsvSource("100,328ft", "50,164ft", "20,65ft")
+        @CsvSource("100,328ft", "50,164ft", "20,66ft")
         @DisplayName("imperial format")
         fun imperialFormat(meters: Int, expected: String) {
             assertThat(SettingsLogic.formatDistance(meters, useImperial = true)).isEqualTo(expected)
@@ -165,10 +165,10 @@ class SettingsLogicTest {
     inner class FormatSpeedGate {
 
         @Test
-        @DisplayName("zero returns Off")
-        fun zeroReturnsOff() {
-            assertThat(SettingsLogic.formatSpeedGate(0, useImperial = false)).isEqualTo("Off")
-            assertThat(SettingsLogic.formatSpeedGate(0, useImperial = true)).isEqualTo("Off")
+        @DisplayName("zero returns null so the caller can localize Off")
+        fun zeroReturnsNull() {
+            assertThat(SettingsLogic.formatSpeedGate(0, useImperial = false)).isNull()
+            assertThat(SettingsLogic.formatSpeedGate(0, useImperial = true)).isNull()
         }
 
         @ParameterizedTest(name = "{0} km/h metric → {1}")
@@ -179,7 +179,7 @@ class SettingsLogicTest {
         }
 
         @ParameterizedTest(name = "{0} km/h imperial → {1}")
-        @CsvSource("5,3 mph", "8,4 mph")
+        @CsvSource("5,3 mph", "8,5 mph")
         @DisplayName("imperial format")
         fun imperialFormat(kmh: Int, expected: String) {
             assertThat(SettingsLogic.formatSpeedGate(kmh, useImperial = true)).isEqualTo(expected)

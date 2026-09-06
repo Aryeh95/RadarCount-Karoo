@@ -66,7 +66,7 @@ class MainActivity : ComponentActivity() {
                         showSettings -> {
                             // Show settings screen
                             val extension = VariaRadarExtension.instance
-                            val isImperial = extension?.useImperial?.value ?: false
+                            val isImperial = extension?.useImperial?.collectAsState()?.value ?: false
                             SettingsScreen(
                                 preferencesRepository = preferencesRepository,
                                 statisticsCollector = extension?.statisticsCollector,

@@ -13,9 +13,15 @@ import io.github.ykn.variaradarpro.data.models.AlertSettings
 import io.github.ykn.variaradarpro.data.models.BuiltInSoundSet
 import io.github.ykn.variaradarpro.data.models.PresetSettings
 import io.github.ykn.variaradarpro.data.models.ScreenWakePolicy
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "varia_radar_settings")
 
@@ -59,10 +65,10 @@ class PreferencesRepository private constructor(private val context: Context) {
 
         // Onboarding
         private val KEY_HAS_SEEN_ONBOARDING = booleanPreferencesKey("has_seen_onboarding")
-
-        // Statistics
-        private val KEY_SHOW_STATS_AFTER_RIDE = booleanPreferencesKey("show_stats_after_ride")
     }
+
+    // Lives as long as the process; the repository is a process-wide singleton.
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /**
      * Flow of effective settings.
@@ -84,6 +90,13 @@ class PreferencesRepository private constructor(private val context: Context) {
         .distinctUntilChanged()
 
     /**
+     * Hot, cached view of [settingsFlow]. Read `.value` from hot paths
+     * (widget rendering) instead of hitting DataStore each time.
+     */
+    val settingsState: StateFlow<PresetSettings> = settingsFlow
+        .stateIn(scope, SharingStarted.Eagerly, PresetSettings())
+
+    /**
      * Flow of alert settings.
      */
     val alertSettingsFlow: Flow<AlertSettings> = context.dataStore.data
@@ -101,13 +114,6 @@ class PreferencesRepository private constructor(private val context: Context) {
      */
     val hasSeenOnboardingFlow: Flow<Boolean> = context.dataStore.data
         .map { prefs -> prefs[KEY_HAS_SEEN_ONBOARDING] ?: false }
-        .distinctUntilChanged()
-
-    /**
-     * Flow for showing stats after ride.
-     */
-    val showStatsAfterRideFlow: Flow<Boolean> = context.dataStore.data
-        .map { prefs -> prefs[KEY_SHOW_STATS_AFTER_RIDE] ?: true }
         .distinctUntilChanged()
 
     // === Update methods ===

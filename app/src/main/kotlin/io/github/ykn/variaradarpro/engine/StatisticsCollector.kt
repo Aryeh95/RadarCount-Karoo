@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
@@ -41,15 +42,21 @@ class StatisticsCollector(
     private val closestApproachM = AtomicInteger(Int.MAX_VALUE)
     private val threatTimeMs = AtomicLong(0L)
     private val lastThreatStartTime = AtomicLong(0L)
+    private val vehiclesPassed = AtomicInteger(0)
 
     // Observable state
     private val _currentStats = MutableStateFlow(SessionStats())
     val currentStats: StateFlow<SessionStats> = _currentStats.asStateFlow()
 
     /**
-     * Start a new session.
+     * Start a new session. No-op if a session is already active, so a
+     * pause/resume (which re-emits RideState.Recording) does not wipe stats.
      */
     fun startSession() {
+        if (isSessionActive()) {
+            android.util.Log.d(TAG, "Session already active, ignoring start")
+            return
+        }
         android.util.Log.i(TAG, "Starting new statistics session")
         sessionStartTime.set(System.currentTimeMillis())
         resetCounters()
@@ -58,9 +65,12 @@ class StatisticsCollector(
 
     /**
      * End current session and return final stats.
-     * Persists to database if DAO is available.
+     * Persists to database if a session was active and any vehicle was seen.
      */
     fun endSession(): SessionStats {
+        if (!isSessionActive()) {
+            return buildCurrentStats()
+        }
         android.util.Log.i(TAG, "Ending statistics session")
 
         // End any ongoing threat time tracking
@@ -70,7 +80,7 @@ class StatisticsCollector(
         val startTime = sessionStartTime.get()
 
         // Persist to database
-        if (dao != null && startTime > 0 && stats.totalAlerts > 0) {
+        if (dao != null && stats.hasVehicleData()) {
             val entity = RideStatisticsEntity(
                 rideId = UUID.randomUUID().toString(),
                 startTime = startTime,
@@ -82,7 +92,8 @@ class StatisticsCollector(
                 criticalAlerts = stats.criticalAlerts,
                 maxVehicleCount = stats.maxVehicleCount,
                 closestApproachM = stats.closestApproachM,
-                threatTimeMs = threatTimeMs.get()
+                threatTimeMs = threatTimeMs.get(),
+                vehiclesPassed = stats.vehiclesPassed
             )
             scope.launch {
                 try {
@@ -94,6 +105,7 @@ class StatisticsCollector(
             }
         }
 
+        sessionStartTime.set(0L)
         resetCounters()
         return stats
     }
@@ -102,10 +114,7 @@ class StatisticsCollector(
      * Start tracking threat presence time.
      */
     fun startThreatTracking() {
-        val current = lastThreatStartTime.get()
-        if (current == 0L) {
-            lastThreatStartTime.set(System.currentTimeMillis())
-        }
+        lastThreatStartTime.compareAndSet(0L, System.currentTimeMillis())
     }
 
     /**
@@ -156,6 +165,14 @@ class StatisticsCollector(
         updateState()
     }
 
+    /**
+     * Record the running total of vehicles that have passed this ride.
+     */
+    fun recordVehiclesPassed(total: Int) {
+        vehiclesPassed.set(total)
+        updateState()
+    }
+
     private fun resetCounters() {
         totalAlerts.set(0)
         approachingAlerts.set(0)
@@ -165,6 +182,7 @@ class StatisticsCollector(
         closestApproachM.set(Int.MAX_VALUE)
         threatTimeMs.set(0L)
         lastThreatStartTime.set(0L)
+        vehiclesPassed.set(0)
     }
 
     private fun updateState() {
@@ -188,7 +206,8 @@ class StatisticsCollector(
             warningAlerts = warningAlerts.get(),
             criticalAlerts = criticalAlerts.get(),
             maxVehicleCount = maxVehicleCount.get(),
-            closestApproachM = if (closest == Int.MAX_VALUE) null else closest
+            closestApproachM = if (closest == Int.MAX_VALUE) null else closest,
+            vehiclesPassed = vehiclesPassed.get()
         )
     }
 
@@ -215,7 +234,8 @@ data class SessionStats(
     val warningAlerts: Int = 0,
     val criticalAlerts: Int = 0,
     val maxVehicleCount: Int = 0,
-    val closestApproachM: Int? = null
+    val closestApproachM: Int? = null,
+    val vehiclesPassed: Int = 0
 ) {
     /**
      * Format duration as HH:MM:SS.
@@ -224,11 +244,16 @@ data class SessionStats(
         val seconds = (sessionDurationMs / 1000) % 60
         val minutes = (sessionDurationMs / (1000 * 60)) % 60
         val hours = sessionDurationMs / (1000 * 60 * 60)
-        return String.format("%02d:%02d:%02d", hours, minutes, seconds)
+        return String.format(Locale.US, "%02d:%02d:%02d", hours, minutes, seconds)
     }
 
     /**
      * Check if any alerts were recorded.
      */
     fun hasAlerts(): Boolean = totalAlerts > 0
+
+    /**
+     * Check if the radar saw any vehicle at all during the session.
+     */
+    fun hasVehicleData(): Boolean = maxVehicleCount > 0 || vehiclesPassed > 0 || totalAlerts > 0
 }

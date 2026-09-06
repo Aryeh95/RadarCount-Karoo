@@ -30,6 +30,14 @@
         graphical="true"
         icon="@drawable/ic_radar" />
 
+    <!-- Vehicles passed this ride / lap -->
+    <DataType
+        typeId="radar-passed"
+        description="@string/datatype_passed_desc"
+        displayName="@string/datatype_passed"
+        graphical="true"
+        icon="@drawable/ic_car" />
+
     <!-- Quick mute toggle from ride screen -->
     <BonusAction
         actionId="toggle-alerts"

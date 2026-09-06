@@ -98,7 +98,7 @@ class ThreatLevelCalculationTest {
         )
         @DisplayName("valid Karoo levels")
         fun validKarooLevels(karooLevel: Int, expected: ThreatLevel) {
-            assertThat(RadarEngine.mapThreatLevel(karooLevel)).isEqualTo(expected)
+            assertThat(RadarParser.mapThreatLevel(karooLevel)).isEqualTo(expected)
         }
 
         @ParameterizedTest(name = "karoo level {0} → CLEAR")
@@ -110,7 +110,7 @@ class ThreatLevelCalculationTest {
         )
         @DisplayName("out-of-range values default to CLEAR")
         fun outOfRangeDefaultsToClear(karooLevel: Int) {
-            assertThat(RadarEngine.mapThreatLevel(karooLevel)).isEqualTo(ThreatLevel.CLEAR)
+            assertThat(RadarParser.mapThreatLevel(karooLevel)).isEqualTo(ThreatLevel.CLEAR)
         }
     }
 }

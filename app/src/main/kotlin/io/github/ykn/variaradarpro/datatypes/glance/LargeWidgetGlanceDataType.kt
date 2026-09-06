@@ -15,7 +15,6 @@ import androidx.glance.layout.padding
 import androidx.glance.layout.width
 import io.github.ykn.variaradarpro.R
 import io.github.ykn.variaradarpro.VariaRadarExtension
-import io.github.ykn.variaradarpro.data.models.PresetSettings
 import io.github.ykn.variaradarpro.data.models.ThreatLevel
 import io.github.ykn.variaradarpro.data.models.WidgetState
 import io.hammerhead.karooext.models.ViewConfig
@@ -29,7 +28,9 @@ class LargeWidgetGlanceDataType(
 ) : GlanceDataType(radarExtension, "radar-large") {
 
     @Composable
-    override fun Content(state: WidgetState, settings: PresetSettings, config: ViewConfig, muted: Boolean) {
+    override fun Content(input: RenderInput, config: ViewConfig) {
+        val state = input.state
+        val muted = input.muted
         DataFieldContainer {
             Column(modifier = GlanceModifier.fillMaxSize()) {
                 StatusBar(state, muted, height = 5)
@@ -63,7 +64,7 @@ class LargeWidgetGlanceDataType(
                             if (state is WidgetState.Threat && state.nearestDistanceM > 0) {
                                 Spacer(modifier = GlanceModifier.width(14.dp))
                                 ValueText(
-                                    text = formatDistance(state.nearestDistanceM),
+                                    text = formatDistance(state.nearestDistanceM, input.useImperial),
                                     color = GlanceColors.White,
                                     fontSize = 24
                                 )
@@ -74,7 +75,7 @@ class LargeWidgetGlanceDataType(
 
                         // Status message
                         LabelText(
-                            text = if (muted) radarExtension.getString(R.string.alerts_muted) else getStatusMessage(state),
+                            text = if (muted) radarExtension.getString(R.string.alerts_muted) else getStatusMessage(state, input.useImperial),
                             fontSize = 13
                         )
                     }
@@ -84,8 +85,8 @@ class LargeWidgetGlanceDataType(
     }
 
     private fun getStatusLabel(state: WidgetState): String = when (state) {
-        is WidgetState.NotConnected -> "RADAR"
-        is WidgetState.Connecting -> "RADAR"
+        is WidgetState.NotConnected -> radarExtension.getString(R.string.widget_radar)
+        is WidgetState.Connecting -> radarExtension.getString(R.string.widget_radar)
         is WidgetState.Clear -> radarExtension.getString(R.string.state_clear).uppercase()
         is WidgetState.Threat -> when (state.level) {
             ThreatLevel.APPROACHING -> radarExtension.getString(R.string.threat_approaching).uppercase()
@@ -93,18 +94,18 @@ class LargeWidgetGlanceDataType(
             ThreatLevel.CRITICAL -> radarExtension.getString(R.string.threat_critical).uppercase()
             ThreatLevel.CLEAR -> radarExtension.getString(R.string.state_clear).uppercase()
         }
-        is WidgetState.ConnectionLost -> "RADAR"
+        is WidgetState.ConnectionLost -> radarExtension.getString(R.string.widget_radar)
     }
 
     private fun getMainText(state: WidgetState): String = when (state) {
         is WidgetState.NotConnected -> "--"
         is WidgetState.Connecting -> "--"
-        is WidgetState.Clear -> "OK"
+        is WidgetState.Clear -> radarExtension.getString(R.string.widget_ok)
         is WidgetState.Threat -> state.vehicleCount.toString()
         is WidgetState.ConnectionLost -> "--"
     }
 
-    private fun getStatusMessage(state: WidgetState): String = when (state) {
+    private fun getStatusMessage(state: WidgetState, useImperial: Boolean): String = when (state) {
         is WidgetState.NotConnected -> radarExtension.getString(R.string.widget_connect_radar)
         is WidgetState.Connecting -> radarExtension.getString(R.string.widget_searching)
         is WidgetState.Clear -> radarExtension.getString(R.string.widget_road_clear)
@@ -115,7 +116,7 @@ class LargeWidgetGlanceDataType(
                 radarExtension.getString(R.string.vehicle_word_plural)
             }
             if (state.nearestDistanceM > 0) {
-                "${formatDistance(state.nearestDistanceM)} — $word"
+                "${formatDistance(state.nearestDistanceM, useImperial)} — $word"
             } else {
                 "${state.vehicleCount} $word ${radarExtension.getString(R.string.vehicles_behind_simple)}"
             }

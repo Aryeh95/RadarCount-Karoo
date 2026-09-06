@@ -9,6 +9,7 @@ import io.github.ykn.variaradarpro.VariaRadarExtension
 import io.github.ykn.variaradarpro.data.models.PresetSettings
 import io.github.ykn.variaradarpro.data.models.ThreatLevel
 import io.github.ykn.variaradarpro.data.models.WidgetState
+import io.github.ykn.variaradarpro.engine.Units
 import io.hammerhead.karooext.extension.DataTypeImpl
 import io.hammerhead.karooext.internal.Emitter
 import io.hammerhead.karooext.internal.ViewEmitter
@@ -18,11 +19,14 @@ import io.hammerhead.karooext.models.UpdateGraphicConfig
 import io.hammerhead.karooext.models.ViewConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
 
 /**
@@ -30,8 +34,11 @@ import kotlinx.coroutines.launch
  *
  * Uses Glance RemoteViews to avoid action accumulation memory issues
  * that occur with traditional RemoteViews in Karoo SDK.
+ *
+ * Views re-render only when their inputs change, rate-limited to the
+ * Karoo's 1 Hz view update limit, instead of on a fixed timer.
  */
-@OptIn(ExperimentalGlanceRemoteViewsApi::class)
+@OptIn(ExperimentalGlanceRemoteViewsApi::class, FlowPreview::class)
 abstract class GlanceDataType(
     protected val radarExtension: VariaRadarExtension,
     typeId: String
@@ -49,7 +56,18 @@ abstract class GlanceDataType(
             vehicleCount = 2,
             nearestDistanceM = 45
         )
+        const val PREVIEW_PASS_COUNT = 12
     }
+
+    /** Everything a widget render depends on. */
+    protected data class RenderInput(
+        val state: WidgetState,
+        val settings: PresetSettings,
+        val muted: Boolean,
+        val passCount: Int,
+        val lapPassCount: Int,
+        val useImperial: Boolean
+    )
 
     private val glance = GlanceRemoteViews()
 
@@ -57,39 +75,49 @@ abstract class GlanceDataType(
      * Render the widget content using Glance composables.
      */
     @Composable
-    protected abstract fun Content(
-        state: WidgetState,
-        settings: PresetSettings,
-        config: ViewConfig,
-        muted: Boolean
-    )
-
-    /**
-     * Get current settings asynchronously within a coroutine.
-     */
-    protected suspend fun getCurrentSettings(): PresetSettings {
-        return try {
-            radarExtension.preferencesRepository.settingsFlow.first()
-        } catch (e: Exception) {
-            PresetSettings()
-        }
-    }
+    protected abstract fun Content(input: RenderInput, config: ViewConfig)
 
     /**
      * Format distance respecting user's unit preference.
      */
-    protected fun formatDistance(meters: Int): String {
-        return if (radarExtension.useImperial.value) {
-            "${(meters * 3.281).toInt()}ft"
-        } else {
-            "${meters}m"
-        }
-    }
+    protected fun formatDistance(meters: Int, useImperial: Boolean): String =
+        Units.formatDistance(meters, useImperial)
 
     override fun startStream(emitter: Emitter<StreamState>) {
         emitter.onNext(StreamState.Streaming(
             DataPoint(dataTypeId = dataTypeId, values = emptyMap())
         ))
+    }
+
+    private fun previewInput(): RenderInput = RenderInput(
+        state = PREVIEW_STATE,
+        settings = radarExtension.preferencesRepository.settingsState.value,
+        muted = false,
+        passCount = PREVIEW_PASS_COUNT,
+        lapPassCount = PREVIEW_PASS_COUNT / 2,
+        useImperial = radarExtension.useImperial.value
+    )
+
+    private fun liveInputs(): Flow<RenderInput> {
+        val engine = radarExtension.radarEngine
+        return combine(
+            engine.widgetState,
+            radarExtension.preferencesRepository.settingsState,
+            radarExtension.alertsMuted,
+            engine.passCount,
+            engine.lapPassCount,
+            radarExtension.useImperial
+        ) { values ->
+            @Suppress("UNCHECKED_CAST")
+            RenderInput(
+                state = values[0] as WidgetState,
+                settings = values[1] as PresetSettings,
+                muted = values[2] as Boolean,
+                passCount = values[3] as Int,
+                lapPassCount = values[4] as Int,
+                useImperial = values[5] as Boolean
+            )
+        }.distinctUntilChanged()
     }
 
     override fun startView(context: Context, config: ViewConfig, emitter: ViewEmitter) {
@@ -99,66 +127,30 @@ abstract class GlanceDataType(
 
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
-        // Preview mode
-        if (config.preview) {
-            scope.launch {
-                try {
-                    val settings = getCurrentSettings()
-                    val result = glance.compose(context, DpSize.Unspecified) {
-                        Content(PREVIEW_STATE, settings, config, muted = false)
-                    }
-                    emitter.updateView(result.remoteViews)
-                } catch (e: Exception) {
-                    android.util.Log.e(TAG, "[$dataTypeId] Preview error: ${e.message}", e)
+        suspend fun render(input: RenderInput) {
+            try {
+                val result = glance.compose(context, DpSize.Unspecified) {
+                    Content(input, config)
                 }
+                emitter.updateView(result.remoteViews)
+            } catch (t: Throwable) {
+                if (t is kotlinx.coroutines.CancellationException) throw t
+                android.util.Log.w(TAG, "[$dataTypeId] Render error: ${t.javaClass.simpleName}: ${t.message}")
             }
+        }
+
+        if (config.preview) {
+            scope.launch { render(previewInput()) }
             emitter.setCancellable { scope.cancel() }
             return
         }
 
-        // Live mode — initial render
         scope.launch {
-            try {
-                val initialState = radarExtension.radarEngine.widgetState.value
-                val settings = getCurrentSettings()
-                val muted = radarExtension.alertsMuted.value
-                val result = glance.compose(context, DpSize.Unspecified) {
-                    Content(initialState, settings, config, muted)
-                }
-                emitter.updateView(result.remoteViews)
-            } catch (e: Exception) {
-                android.util.Log.e(TAG, "[$dataTypeId] Initial render failed: ${e.message}", e)
-            }
-        }
-
-        // Fixed-rate updates at 1Hz
-        scope.launch {
-            var nextUpdateTime = System.currentTimeMillis() + VIEW_UPDATE_INTERVAL_MS
-            while (isActive) {
-                val now = System.currentTimeMillis()
-                val delayMs = nextUpdateTime - now
-                if (delayMs > 0) delay(delayMs)
-
-                nextUpdateTime += VIEW_UPDATE_INTERVAL_MS
-
-                val currentTime = System.currentTimeMillis()
-                if (nextUpdateTime < currentTime) {
-                    nextUpdateTime = currentTime + VIEW_UPDATE_INTERVAL_MS
-                }
-
-                try {
-                    val currentState = radarExtension.radarEngine.widgetState.value
-                    val settings = getCurrentSettings()
-                    val muted = radarExtension.alertsMuted.value
-                    val result = glance.compose(context, DpSize.Unspecified) {
-                        Content(currentState, settings, config, muted)
-                    }
-                    emitter.updateView(result.remoteViews)
-                } catch (t: Throwable) {
-                    if (t is kotlinx.coroutines.CancellationException) throw t
-                    android.util.Log.w(TAG, "[$dataTypeId] Update error: ${t.javaClass.simpleName}: ${t.message}")
-                }
-            }
+            val inputs = liveInputs()
+            // Render the current state immediately, then only on change,
+            // never faster than the Karoo's 1 Hz limit.
+            render(inputs.first())
+            inputs.sample(VIEW_UPDATE_INTERVAL_MS).collect { render(it) }
         }
 
         emitter.setCancellable {

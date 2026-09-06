@@ -1,5 +1,6 @@
 package io.github.ykn.variaradarpro.data.database
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -39,5 +40,9 @@ data class RideStatisticsEntity(
     val closestApproachM: Int?,
 
     /** Total time with threats present in milliseconds */
-    val threatTimeMs: Long
+    val threatTimeMs: Long,
+
+    /** Number of vehicles that passed the rider during the ride */
+    @ColumnInfo(defaultValue = "0")
+    val vehiclesPassed: Int = 0
 )
