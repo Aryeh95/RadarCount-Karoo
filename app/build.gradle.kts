@@ -3,7 +3,6 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.serialization")
     id("org.jetbrains.kotlin.plugin.compose")
-    id("com.google.devtools.ksp")
 }
 
 android {
@@ -11,11 +10,11 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "io.github.ykn.variaradarpro"
+        applicationId = "io.github.aryeh95.mybiketraffic"
         minSdk = 26
         targetSdk = 35
-        versionCode = 8
-        versionName = "1.0.7"
+        versionCode = 1
+        versionName = "0.1.0"
     }
 
     buildTypes {
@@ -33,7 +32,7 @@ android {
     applicationVariants.all {
         outputs.all {
             val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-            output.outputFileName = "eiradar.apk"
+            output.outputFileName = "mybiketraffic-karoo.apk"
         }
     }
 
@@ -54,7 +53,7 @@ android {
 
 dependencies {
     // Karoo Extension SDK
-    implementation("io.hammerhead:karoo-ext:1.1.7")
+    implementation("io.hammerhead:karoo-ext:1.1.9")
 
     // Kotlin
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
@@ -73,19 +72,10 @@ dependencies {
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.material:material-icons-extended")
 
     // Glance for Karoo DataType widgets
     implementation("androidx.glance:glance-appwidget:1.1.1")
 
-    // DataStore for preferences
-    implementation("androidx.datastore:datastore-preferences:1.1.2")
-
-    // Room database (for statistics history)
-    val roomVersion = "2.7.0"
-    implementation("androidx.room:room-runtime:$roomVersion")
-    implementation("androidx.room:room-ktx:$roomVersion")
-    ksp("androidx.room:room-compiler:$roomVersion")
 
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")

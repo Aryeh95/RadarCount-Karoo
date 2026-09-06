@@ -61,6 +61,12 @@ class ClosingSpeedTracker {
     }
 
     /**
+     * Current smoothed closing speed in m/s (positive = closing), or null
+     * if fewer than 2 samples are buffered.
+     */
+    fun closingSpeedMps(): Double? = calculateClosingSpeed(buffer.toList())
+
+    /**
      * True if the vehicle is closing at >= [FAST_APPROACH_MS] m/s.
      * Requires at least 2 samples.
      */
