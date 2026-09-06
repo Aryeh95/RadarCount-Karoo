@@ -19,6 +19,8 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      HAS_SIGNING_KEY: ${{ secrets.SIGNING_KEYSTORE_B64 != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -39,14 +41,16 @@ jobs:
         # Add repository secrets SIGNING_KEYSTORE_B64 and SIGNING_STORE_PASSWORD
         # so every release is signed with the same key and installs as an
         # update. Without them the build falls back to a throwaway debug key.
-        if: ${{ secrets.SIGNING_KEYSTORE_B64 != '' }}
-        run: echo "${{ secrets.SIGNING_KEYSTORE_B64 }}" | base64 -d > "$RUNNER_TEMP/release.jks"
+        if: env.HAS_SIGNING_KEY == 'true'
+        env:
+          KEYSTORE_B64: ${{ secrets.SIGNING_KEYSTORE_B64 }}
+        run: echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
 
       - name: Build release APK
         env:
           USERNAME: ${{ github.actor }}
           TOKEN: ${{ secrets.GPR_KEY || secrets.GITHUB_TOKEN }}
-          SIGNING_KEYSTORE_PATH: ${{ secrets.SIGNING_KEYSTORE_B64 != '' && format('{0}/release.jks', runner.temp) || '' }}
+          SIGNING_KEYSTORE_PATH: ${{ env.HAS_SIGNING_KEY == 'true' && format('{0}/release.jks', runner.temp) || '' }}
           SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
           SIGNING_KEY_ALIAS: radarcount
         run: ./gradlew --no-daemon assembleRelease
