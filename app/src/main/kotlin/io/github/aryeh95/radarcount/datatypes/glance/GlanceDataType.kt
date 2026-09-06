@@ -125,12 +125,16 @@ abstract class GlanceDataType(
             return
         }
 
+        radarExtension.acquireRadar()
         scope.launch {
             val inputs = liveInputs()
             render(inputs.first())
             inputs.sample(VIEW_UPDATE_INTERVAL_MS).collect { render(it) }
         }
 
-        emitter.setCancellable { scope.cancel() }
+        emitter.setCancellable {
+            scope.cancel()
+            radarExtension.releaseRadar()
+        }
     }
 }

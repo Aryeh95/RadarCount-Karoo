@@ -16,6 +16,24 @@ import io.github.aryeh95.radarcount.ui.theme.RadarCountTheme
  */
 class MainActivity : ComponentActivity() {
 
+    private var holdingRadar = false
+
+    override fun onStart() {
+        super.onStart()
+        RadarCountExtension.instance?.let {
+            it.acquireRadar()
+            holdingRadar = true
+        }
+    }
+
+    override fun onStop() {
+        if (holdingRadar) {
+            RadarCountExtension.instance?.releaseRadar()
+            holdingRadar = false
+        }
+        super.onStop()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()

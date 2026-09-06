@@ -24,6 +24,10 @@ Add any of these to a ride page from the Karoo's data field picker under **Radar
 
 Units follow your Karoo profile (km/h and metres, or mph and feet).
 
+The extension is idle at boot. It only opens the radar and speed streams while
+a ride is recording, one of its data fields is on screen, or its status screen
+is open, and closes them again afterwards.
+
 A vehicle is counted when it drops off the radar after having come within 20 m,
 the same rule the Garmin field uses. The ride count resets when a ride starts
 recording; the lap count resets on every Karoo lap.
