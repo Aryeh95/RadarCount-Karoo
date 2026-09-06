@@ -18,6 +18,8 @@ object Units {
         return if (useImperial) "${metersToFeet(meters)}ft" else "${meters}m"
     }
 
+    fun speedUnitLabel(useImperial: Boolean): String = if (useImperial) "mph" else "km/h"
+
     /** e.g. "5 km/h" or "3 mph". */
     fun formatSpeed(kmh: Int, useImperial: Boolean): String {
         return if (useImperial) "${kmhToMph(kmh)} mph" else "$kmh km/h"

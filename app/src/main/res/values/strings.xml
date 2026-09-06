@@ -1,121 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">eiRadar</string>
-    <string name="extension_name">eiRadar</string>
+    <string name="app_name">MyBikeTraffic</string>
+    <string name="extension_name">MyBikeTraffic</string>
 
     <!-- Data types -->
-    <string name="datatype_small">Radar (S)</string>
-    <string name="datatype_small_desc">Compact</string>
-    <string name="datatype_medium">Radar (M)</string>
-    <string name="datatype_medium_desc">Count + distance</string>
-    <string name="datatype_large">Radar (L)</string>
-    <string name="datatype_large_desc">Full info</string>
-    <string name="datatype_passed">Vehicle Count</string>
-    <string name="datatype_passed_desc">Vehicles passed this ride and lap</string>
-
-    <!-- Widget states -->
-    <string name="state_clear">Clear</string>
-
-    <!-- Threat levels -->
-    <string name="threat_approaching">Approaching</string>
-    <string name="threat_warning">Warning</string>
-    <string name="threat_critical">Danger</string>
-
-    <!-- Vehicle counts -->
-    <string name="vehicle_singular">%d vehicle</string>
-    <string name="vehicle_plural">%d vehicles</string>
-    <string name="vehicle_word_singular">vehicle</string>
-    <string name="vehicle_word_plural">vehicles</string>
-    <string name="vehicles_behind_simple">behind</string>
+    <string name="datatype_count">Vehicle Count</string>
+    <string name="datatype_count_desc">Vehicles passed this ride and lap</string>
+    <string name="datatype_speed">Approach Speed</string>
+    <string name="datatype_speed_desc">Relative and absolute speed of nearest vehicle</string>
+    <string name="datatype_distance">Closest Vehicle</string>
+    <string name="datatype_distance_desc">Distance to nearest vehicle</string>
 
     <!-- Widget text -->
-    <string name="widget_connect_radar">Connect radar</string>
-    <string name="widget_searching">Searching…</string>
+    <string name="widget_count_label">PASSED</string>
+    <string name="widget_lap_label">Lap %d</string>
+    <string name="widget_approach_label">APPROACH %s</string>
+    <string name="widget_absolute_label">Abs %1$d %2$s</string>
+    <string name="widget_no_vehicle">No vehicle</string>
+    <string name="widget_distance_label">CLOSEST</string>
     <string name="widget_road_clear">Road is clear</string>
-    <string name="widget_connection_lost">Connection lost</string>
     <string name="widget_no_radar">No radar</string>
-    <string name="widget_connecting">Connecting</string>
-    <string name="widget_all_clear">All clear</string>
     <string name="widget_behind">Behind</string>
-    <string name="widget_lost">Lost</string>
-    <string name="widget_ok">OK</string>
-    <string name="widget_radar">RADAR</string>
-    <string name="widget_passed_label">PASSED</string>
-    <string name="widget_lap_passed_label">Lap %d</string>
-
-    <!-- Distance -->
-    <string name="distance_meters">%dm</string>
+    <plurals name="widget_vehicles_behind">
+        <item quantity="one">%d vehicle behind</item>
+        <item quantity="other">%d vehicles behind</item>
+    </plurals>
 
     <!-- Dashboard -->
-    <string name="dashboard_not_connected">No Radar</string>
-    <string name="dashboard_connect_radar">Connect radar in Karoo settings</string>
+    <string name="dashboard_not_connected">No radar</string>
     <string name="dashboard_searching">Searching…</string>
     <string name="dashboard_clear">Clear</string>
-    <string name="dashboard_connection_lost">Lost</string>
-    <string name="dashboard_reconnecting">Reconnecting…</string>
-
-    <!-- Settings - Main -->
-    <string name="settings_title">Settings</string>
-    <string name="settings_test_alert">Test</string>
-
-    <!-- Settings - Alert Channels -->
-    <string name="settings_alert_channels">Alerts</string>
-    <string name="settings_master_enable">Enable alerts</string>
-    <string name="settings_visual_alert">Banner</string>
-    <string name="settings_sound_alert">Sound</string>
-
-    <!-- Settings - Sound -->
-    <string name="sound_set_classic">Classic</string>
-    <string name="sound_set_subtle">Subtle</string>
-    <string name="sound_set_urgent">Urgent</string>
-    <string name="sound_set_bike_bell">Bell</string>
-    <string name="settings_clear_chime">All-clear sound</string>
-
-    <!-- Settings - Detection -->
-    <string name="settings_detection">Detection</string>
-    <string name="settings_approaching_distance">Approaching</string>
-    <string name="settings_warning_distance">Warning</string>
-    <string name="settings_critical_distance">Critical</string>
-
-    <!-- Settings - Screen -->
-    <string name="settings_screen_wake">Wake screen</string>
-    <string name="screen_wake_never">Never</string>
-    <string name="screen_wake_critical">Critical only</string>
-    <string name="screen_wake_always">Always</string>
-
-    <!-- Settings - Speed gate and cooldown -->
-    <string name="settings_speed_gate">Min speed</string>
-    <string name="speed_gate_off">Off</string>
-    <string name="settings_alert_cooldown">Repeat delay</string>
-
-    <!-- About -->
-    <string name="settings_about">About</string>
-    <string name="settings_version">Version</string>
-    <string name="settings_radar_support">Radars</string>
-
-    <!-- Actions -->
-    <string name="action_reset">Reset</string>
-    <string name="action_reset_confirm_title">Reset?</string>
-    <string name="action_reset_confirm_message">All settings will be restored to defaults.</string>
-    <string name="action_cancel">Cancel</string>
-    <string name="action_confirm">Reset</string>
-
-    <!-- Bonus Actions -->
-    <string name="action_toggle_alerts">Toggle Radar Alerts</string>
-    <string name="alerts_muted">Alerts muted</string>
-    <string name="alerts_enabled">Alerts enabled</string>
-    <string name="widget_muted">MUTED</string>
-
-    <!-- Onboarding -->
-    <string name="onboarding_welcome">Welcome</string>
-    <string name="onboarding_welcome_desc">Get vehicle alerts while riding</string>
-    <string name="onboarding_connect">Connect</string>
-    <string name="onboarding_connect_desc">Connect radar in Karoo sensor settings</string>
-    <string name="onboarding_widget">Add Widget</string>
-    <string name="onboarding_widget_desc">Add radar to your ride screen</string>
-    <string name="onboarding_ready">Ready</string>
-    <string name="onboarding_ready_desc">Start riding and stay safe</string>
-    <string name="onboarding_start">Start</string>
-    <string name="onboarding_next">Next</string>
-    <string name="onboarding_skip">Skip</string>
+    <string name="dashboard_connection_lost">Radar lost</string>
+    <string name="dashboard_hint">Add the Vehicle Count, Approach Speed or Closest Vehicle data fields to a ride page. Rides record MyBikeTraffic-compatible FIT fields automatically.</string>
 </resources>

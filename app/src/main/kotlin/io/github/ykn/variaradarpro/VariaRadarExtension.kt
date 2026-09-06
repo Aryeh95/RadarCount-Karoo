@@ -1,16 +1,9 @@
 package io.github.ykn.variaradarpro
 
-import io.github.ykn.variaradarpro.data.PreferencesRepository
-import io.github.ykn.variaradarpro.data.database.VariaRadarDatabase
-import io.github.ykn.variaradarpro.datatypes.glance.LargeWidgetGlanceDataType
-import io.github.ykn.variaradarpro.datatypes.glance.MediumWidgetGlanceDataType
-import io.github.ykn.variaradarpro.datatypes.glance.PassCountGlanceDataType
-import io.github.ykn.variaradarpro.datatypes.glance.SmallWidgetGlanceDataType
-import io.github.ykn.variaradarpro.engine.AlertManager
-import io.github.ykn.variaradarpro.engine.NightModeManager
+import io.github.ykn.variaradarpro.datatypes.glance.ApproachSpeedGlanceDataType
+import io.github.ykn.variaradarpro.datatypes.glance.ClosestDistanceGlanceDataType
+import io.github.ykn.variaradarpro.datatypes.glance.VehicleCountGlanceDataType
 import io.github.ykn.variaradarpro.engine.RadarEngine
-import io.github.ykn.variaradarpro.engine.SoundEngine
-import io.github.ykn.variaradarpro.engine.StatisticsCollector
 import io.hammerhead.karooext.KarooSystemService
 import io.hammerhead.karooext.extension.KarooExtension
 import io.hammerhead.karooext.internal.Emitter
@@ -18,18 +11,15 @@ import io.hammerhead.karooext.models.DataType
 import io.hammerhead.karooext.models.DeveloperField
 import io.hammerhead.karooext.models.FieldValue
 import io.hammerhead.karooext.models.FitEffect
-import io.hammerhead.karooext.models.InRideAlert
 import io.hammerhead.karooext.models.Lap
 import io.hammerhead.karooext.models.OnStreamState
 import io.hammerhead.karooext.models.RideState
 import io.hammerhead.karooext.models.StreamState
-import io.hammerhead.karooext.models.SystemNotification
 import io.hammerhead.karooext.models.UserProfile
 import io.hammerhead.karooext.models.WriteToRecordMesg
 import io.hammerhead.karooext.models.WriteToSessionMesg
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -41,15 +31,18 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /**
- * Main extension entry point for eiRadar.
+ * MyBikeTraffic for Karoo.
  *
- * Provides enhanced alerts and visualization for rear radar
- * on Hammerhead Karoo devices.
+ * Counts vehicles that pass the rider, estimates their approach speed, and
+ * records everything to the ride FIT file using the same developer fields
+ * as the Garmin "My Bike Radar Traffic" data field so rides can be
+ * uploaded to mybiketraffic.com.
  */
-class VariaRadarExtension : KarooExtension("eiradar", BuildConfig.VERSION_NAME) {
+class VariaRadarExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) {
 
     companion object {
-        private const val TAG = "VariaRadarExtension"
+        const val EXTENSION_ID = "mybiketraffic"
+        private const val TAG = "MyBikeTrafficExt"
 
         // FIT base type ids (Garmin FIT SDK)
         private const val FIT_BASE_TYPE_ENUM: Short = 0
@@ -67,6 +60,12 @@ class VariaRadarExtension : KarooExtension("eiradar", BuildConfig.VERSION_NAME) 
         @Volatile
         var instance: VariaRadarExtension? = null
             private set
+
+        /** m/s to the rider's speed unit, rounded, never negative. */
+        internal fun toUserSpeedUnits(metersPerSecond: Double, imperial: Boolean): Int {
+            val v = if (imperial) metersPerSecond * 2.23694 else metersPerSecond * 3.6
+            return v.roundToInt().coerceAtLeast(0)
+        }
     }
 
     lateinit var karooSystem: KarooSystemService
@@ -75,30 +74,9 @@ class VariaRadarExtension : KarooExtension("eiradar", BuildConfig.VERSION_NAME) 
     private val _isConnected = MutableStateFlow(false)
     val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
 
-    // Lazy-initialized components (null-safe pattern)
     private var _radarEngine: RadarEngine? = null
     val radarEngine: RadarEngine
         get() = _radarEngine ?: throw IllegalStateException("RadarEngine not initialized")
-
-    private var _preferencesRepository: PreferencesRepository? = null
-    val preferencesRepository: PreferencesRepository
-        get() = _preferencesRepository ?: throw IllegalStateException("PreferencesRepository not initialized")
-
-    private var _alertManager: AlertManager? = null
-    val alertManager: AlertManager
-        get() = _alertManager ?: throw IllegalStateException("AlertManager not initialized")
-
-    private var _statisticsCollector: StatisticsCollector? = null
-    val statisticsCollector: StatisticsCollector
-        get() = _statisticsCollector ?: throw IllegalStateException("StatisticsCollector not initialized")
-
-    private var _nightModeManager: NightModeManager? = null
-    val nightModeManager: NightModeManager
-        get() = _nightModeManager ?: throw IllegalStateException("NightModeManager not initialized")
-
-    private var _soundEngine: SoundEngine? = null
-    val soundEngine: SoundEngine
-        get() = _soundEngine ?: throw IllegalStateException("SoundEngine not initialized")
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -110,108 +88,62 @@ class VariaRadarExtension : KarooExtension("eiradar", BuildConfig.VERSION_NAME) 
     private val _riderSpeedMps = MutableStateFlow(0.0)
     val riderSpeedMps: StateFlow<Double> = _riderSpeedMps.asStateFlow()
 
-    // Alert mute state (toggled via BonusAction, resets on ride end)
-    private val _alertsMuted = MutableStateFlow(false)
-    val alertsMuted: StateFlow<Boolean> = _alertsMuted.asStateFlow()
+    private var rideRecording = false
 
     // Consumer IDs for cleanup
     private var rideStateConsumerId: String? = null
     private var lapConsumerId: String? = null
     private var userProfileConsumerId: String? = null
     private var speedConsumerId: String? = null
-    private var radarNotifierJob: Job? = null
-    private var passCountJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
         instance = this
 
-        android.util.Log.i(TAG, "Initializing eiRadar v${BuildConfig.VERSION_NAME}")
+        android.util.Log.i(TAG, "Initializing MyBikeTraffic v${BuildConfig.VERSION_NAME}")
 
-        // Initialize KarooSystemService first
         karooSystem = KarooSystemService(this)
-
-        // Initialize repositories
-        _preferencesRepository = PreferencesRepository.getInstance(this)
-
-        // Night mode uses Karoo SUNRISE/SUNSET streams (requires karooSystem)
-        _nightModeManager = NightModeManager(karooSystem)
-
-        // Initialize engine
         _radarEngine = RadarEngine(karooSystem)
 
-        // Initialize database and statistics collector
-        val database = VariaRadarDatabase.getInstance(this)
-        _statisticsCollector = StatisticsCollector(database.rideStatisticsDao())
-
-        // Initialize sound engine
-        _soundEngine = SoundEngine(karooSystem)
-
-        // Initialize alert manager
-        _alertManager = AlertManager(
-            extension = this,
-            radarEngine = radarEngine,
-            preferencesRepository = preferencesRepository,
-            nightModeManager = nightModeManager,
-            soundEngine = soundEngine,
-            statisticsCollector = statisticsCollector
-        )
-
-        // Connect to Karoo
         karooSystem.connect { connected ->
             _isConnected.value = connected
             if (connected) {
                 android.util.Log.i(TAG, "KarooSystemService connected")
                 _radarEngine?.startStreaming()
-                _nightModeManager?.startMonitoring()
-                _alertManager?.startMonitoring()
                 startRideStateTracking()
                 startLapTracking()
                 startUserProfileTracking()
                 startSpeedTracking()
-                startRadarConnectionNotifier()
-                startPassCountTracking()
             } else {
                 android.util.Log.w(TAG, "KarooSystemService disconnected")
-                _alertManager?.stopMonitoring()
                 _radarEngine?.stopStreaming()
-                _nightModeManager?.destroy()
-                _statisticsCollector?.endSession()
                 stopRideStateTracking()
                 stopLapTracking()
                 stopUserProfileTracking()
                 stopSpeedTracking()
-                radarNotifierJob?.cancel()
-                passCountJob?.cancel()
             }
         }
     }
 
     /**
-     * Track ride state to properly scope statistics sessions and the
-     * per-ride vehicle pass counter.
-     * Consumer receives current state on subscription.
+     * Reset the pass counters when a new ride starts recording.
+     * Pause/resume re-emits Recording, so only reset on Idle -> Recording.
      */
     private fun startRideStateTracking() {
-        rideStateConsumerId = karooSystem.addConsumer(
-            RideState.Params
-        ) { event: RideState ->
+        rideStateConsumerId = karooSystem.addConsumer(RideState.Params) { event: RideState ->
             when (event) {
                 is RideState.Recording -> {
-                    val collector = _statisticsCollector
-                    if (collector != null && !collector.isSessionActive()) {
+                    if (!rideRecording) {
                         android.util.Log.i(TAG, "Ride recording started")
+                        rideRecording = true
                         _radarEngine?.resetPassCounts()
-                        collector.startSession()
                     }
                 }
                 is RideState.Idle -> {
                     android.util.Log.i(TAG, "Ride idle")
-                    _alertsMuted.value = false
-                    _statisticsCollector?.endSession()
+                    rideRecording = false
                 }
                 is RideState.Paused -> {
-                    // Keep session alive during pause (rider will resume)
                     android.util.Log.d(TAG, "Ride paused (auto=${event.auto})")
                 }
             }
@@ -239,24 +171,10 @@ class VariaRadarExtension : KarooExtension("eiradar", BuildConfig.VERSION_NAME) 
     }
 
     /**
-     * Mirror the engine's pass count into the statistics session.
-     */
-    private fun startPassCountTracking() {
-        passCountJob?.cancel()
-        passCountJob = serviceScope.launch {
-            _radarEngine?.passCount?.collect { total ->
-                _statisticsCollector?.recordVehiclesPassed(total)
-            }
-        }
-    }
-
-    /**
      * Track user profile for unit preference (metric/imperial).
      */
     private fun startUserProfileTracking() {
-        userProfileConsumerId = karooSystem.addConsumer(
-            UserProfile.Params
-        ) { event: UserProfile ->
+        userProfileConsumerId = karooSystem.addConsumer(UserProfile.Params) { event: UserProfile ->
             val isImperial = event.preferredUnit.distance == UserProfile.PreferredUnit.UnitType.IMPERIAL
             _useImperial.value = isImperial
             android.util.Log.i(TAG, "User unit preference: ${if (isImperial) "Imperial" else "Metric"}")
@@ -269,7 +187,7 @@ class VariaRadarExtension : KarooExtension("eiradar", BuildConfig.VERSION_NAME) 
     }
 
     /**
-     * Track rider speed for the alert speed gate and absolute passing speed.
+     * Track rider speed for absolute passing speed.
      */
     private fun startSpeedTracking() {
         speedConsumerId = karooSystem.addConsumer(
@@ -287,112 +205,33 @@ class VariaRadarExtension : KarooExtension("eiradar", BuildConfig.VERSION_NAME) 
     }
 
     /**
-     * Observe radar connection state and dispatch SystemNotifications.
-     */
-    private fun startRadarConnectionNotifier() {
-        radarNotifierJob?.cancel()
-        radarNotifierJob = serviceScope.launch {
-            var previousConnected: Boolean? = null
-            _radarEngine?.isRadarConnected
-                ?.collect { connected ->
-                    // Skip initial state to avoid spam on startup
-                    if (previousConnected != null) {
-                        if (connected) {
-                            karooSystem.dispatch(SystemNotification(
-                                id = "eiradar_radar_status",
-                                message = "Radar connected",
-                                style = SystemNotification.Style.EVENT
-                            ))
-                        } else {
-                            karooSystem.dispatch(SystemNotification(
-                                id = "eiradar_radar_status",
-                                message = "Radar connection lost",
-                                style = SystemNotification.Style.ERROR
-                            ))
-                        }
-                    }
-                    previousConnected = connected
-                }
-        }
-    }
-
-    /**
-     * Write radar data to the ride FIT file at 1Hz.
+     * Write radar data to the ride FIT file at 1 Hz.
      *
-     * Two sets of developer fields are written:
+     * Field names, numbers and base types match the Garmin "My Bike Radar
+     * Traffic" Connect IQ field so the file can be uploaded to
+     * mybiketraffic.com. Karoo SDK limits: single values only (so
+     * `radar_ranges` / `radar_speeds` carry the nearest target rather than
+     * an 8-element array), and no lap-message API (so `radar_lap`, field 4,
+     * is not written). Like the Garmin field, radar-off is encoded as
+     * range -1 / speed 255 so "no radar" differs from "radar saw nothing".
      *
-     * 1. MyBikeTraffic-compatible fields, using the same names, field
-     *    numbers and base types as the Garmin "My Bike Radar Traffic" data
-     *    field so the ride can be uploaded to mybiketraffic.com. The Karoo
-     *    SDK cannot write arrays, so `radar_ranges` / `radar_speeds` carry
-     *    the nearest target only, and there is no lap message API so
-     *    `radar_lap` (field 4) is not written. Like the Garmin field, the
-     *    radar-off state is encoded as range -1 / speed 255 so "no radar"
-     *    is distinguishable from "radar saw nothing".
-     * 2. eiRadar's own fields (threat level, simultaneous vehicle count,
-     *    nearest distance), only written while the radar is connected.
+     * Three extra fields (7-9) record threat level, simultaneous vehicle
+     * count and nearest distance for other analysis tools.
      */
     override fun startFit(emitter: Emitter<FitEffect>) {
         android.util.Log.i(TAG, "Starting FIT file recording for radar data")
 
-        // --- MyBikeTraffic-compatible (record message) ---
-        val mbtRangesField = DeveloperField(
-            fieldDefinitionNumber = 0,
-            fitBaseTypeId = FIT_BASE_TYPE_SINT16,
-            fieldName = "radar_ranges",
-            units = ""
-        )
-        val mbtSpeedsField = DeveloperField(
-            fieldDefinitionNumber = 1,
-            fitBaseTypeId = FIT_BASE_TYPE_UINT8,
-            fieldName = "radar_speeds",
-            units = ""
-        )
-        val mbtCurrentField = DeveloperField(
-            fieldDefinitionNumber = 2,
-            fitBaseTypeId = FIT_BASE_TYPE_UINT16,
-            fieldName = "radar_current",
-            units = ""
-        )
-        // Field 3 is radar_total (session), field 4 is radar_lap (lap, not writable on Karoo)
-        val mbtTotalField = DeveloperField(
-            fieldDefinitionNumber = 3,
-            fitBaseTypeId = FIT_BASE_TYPE_UINT16,
-            fieldName = "radar_total",
-            units = ""
-        )
-        val mbtPassingSpeedField = DeveloperField(
-            fieldDefinitionNumber = 5,
-            fitBaseTypeId = FIT_BASE_TYPE_UINT8,
-            fieldName = "passing_speed",
-            units = ""
-        )
-        val mbtPassingSpeedAbsField = DeveloperField(
-            fieldDefinitionNumber = 6,
-            fitBaseTypeId = FIT_BASE_TYPE_UINT8,
-            fieldName = "passing_speedabs",
-            units = ""
-        )
+        val mbtRangesField = DeveloperField(0, FIT_BASE_TYPE_SINT16, "radar_ranges", "")
+        val mbtSpeedsField = DeveloperField(1, FIT_BASE_TYPE_UINT8, "radar_speeds", "")
+        val mbtCurrentField = DeveloperField(2, FIT_BASE_TYPE_UINT16, "radar_current", "")
+        val mbtTotalField = DeveloperField(3, FIT_BASE_TYPE_UINT16, "radar_total", "")
+        // 4 = radar_lap (lap message) is not writable with the Karoo SDK
+        val mbtPassingSpeedField = DeveloperField(5, FIT_BASE_TYPE_UINT8, "passing_speed", "")
+        val mbtPassingSpeedAbsField = DeveloperField(6, FIT_BASE_TYPE_UINT8, "passing_speedabs", "")
 
-        // --- eiRadar fields (record message) ---
-        val threatField = DeveloperField(
-            fieldDefinitionNumber = 7,
-            fitBaseTypeId = FIT_BASE_TYPE_ENUM,
-            fieldName = "radar_threat_level",
-            units = ""
-        )
-        val vehicleCountField = DeveloperField(
-            fieldDefinitionNumber = 8,
-            fitBaseTypeId = FIT_BASE_TYPE_UINT8,
-            fieldName = "radar_vehicle_count",
-            units = ""
-        )
-        val nearestDistanceField = DeveloperField(
-            fieldDefinitionNumber = 9,
-            fitBaseTypeId = FIT_BASE_TYPE_UINT16,
-            fieldName = "radar_nearest_distance",
-            units = "m"
-        )
+        val threatField = DeveloperField(7, FIT_BASE_TYPE_ENUM, "radar_threat_level", "")
+        val vehicleCountField = DeveloperField(8, FIT_BASE_TYPE_UINT8, "radar_vehicle_count", "")
+        val nearestDistanceField = DeveloperField(9, FIT_BASE_TYPE_UINT16, "radar_nearest_distance", "m")
 
         val fitScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         fitScope.launch {
@@ -412,8 +251,6 @@ class VariaRadarExtension : KarooExtension("eiradar", BuildConfig.VERSION_NAME) 
 
                     if (connected) {
                         val tracked = vehicleCount > 0
-                        // Relative speed of the nearest target in the rider's units,
-                        // like the Garmin field (km/h metric, mph imperial).
                         val passingSpeed = if (tracked) toUserSpeedUnits(closingMps, imperial) else 0
                         val passingSpeedAbs = if (passingSpeed > 0) {
                             passingSpeed + toUserSpeedUnits(_riderSpeedMps.value, imperial)
@@ -458,11 +295,6 @@ class VariaRadarExtension : KarooExtension("eiradar", BuildConfig.VERSION_NAME) 
         }
     }
 
-    private fun toUserSpeedUnits(metersPerSecond: Double, imperial: Boolean): Int {
-        val v = if (imperial) metersPerSecond * 2.23694 else metersPerSecond * 3.6
-        return v.roundToInt().coerceAtLeast(0)
-    }
-
     override fun onDestroy() {
         android.util.Log.i(TAG, "onDestroy called")
 
@@ -473,27 +305,9 @@ class VariaRadarExtension : KarooExtension("eiradar", BuildConfig.VERSION_NAME) 
         stopLapTracking()
         stopUserProfileTracking()
         stopSpeedTracking()
-        radarNotifierJob?.cancel()
-        radarNotifierJob = null
-        passCountJob?.cancel()
-        passCountJob = null
-
-        _alertManager?.destroy()
-        _alertManager = null
-
-        _soundEngine = null
-
-        _nightModeManager?.destroy()
-        _nightModeManager = null
 
         _radarEngine?.destroy()
         _radarEngine = null
-
-        _statisticsCollector?.endSession()
-        _statisticsCollector?.destroy()
-        _statisticsCollector = null
-
-        _preferencesRepository = null
 
         serviceScope.cancel()
 
@@ -506,37 +320,11 @@ class VariaRadarExtension : KarooExtension("eiradar", BuildConfig.VERSION_NAME) 
         super.onDestroy()
     }
 
-    override fun onBonusAction(actionId: String) {
-        when (actionId) {
-            "toggle-alerts" -> {
-                val muted = !_alertsMuted.value
-                _alertsMuted.value = muted
-
-                val message = if (muted) getString(R.string.alerts_muted) else getString(R.string.alerts_enabled)
-                val color = if (muted) R.color.alert_background_approaching else R.color.threat_clear
-
-                karooSystem.dispatch(
-                    InRideAlert(
-                        id = "eiradar_mute_toggle",
-                        icon = R.drawable.ic_radar,
-                        title = message,
-                        detail = "",
-                        autoDismissMs = 2000,
-                        backgroundColor = color,
-                        textColor = R.color.alert_text
-                    )
-                )
-                android.util.Log.i(TAG, "Alerts ${if (muted) "muted" else "enabled"} via BonusAction")
-            }
-        }
-    }
-
     override val types by lazy {
         listOf(
-            SmallWidgetGlanceDataType(this),
-            MediumWidgetGlanceDataType(this),
-            LargeWidgetGlanceDataType(this),
-            PassCountGlanceDataType(this)
+            VehicleCountGlanceDataType(this),
+            ApproachSpeedGlanceDataType(this),
+            ClosestDistanceGlanceDataType(this)
         )
     }
 }

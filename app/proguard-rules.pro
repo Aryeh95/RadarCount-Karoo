@@ -1,4 +1,4 @@
-# eiRadar ProGuard rules
+# MyBikeTraffic for Karoo ProGuard rules
 
 # Karoo extension entry point and data types are referenced from the manifest
 # / extension_info and must keep their names.
