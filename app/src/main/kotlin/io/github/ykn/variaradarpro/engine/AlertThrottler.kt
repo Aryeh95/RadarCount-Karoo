@@ -1,25 +1,24 @@
 package io.github.ykn.variaradarpro.engine
 
 import io.github.ykn.variaradarpro.data.models.ThreatLevel
-import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.atomic.AtomicReference
 
 /**
- * Thread-safe alert throttling with per-level cooldowns.
+ * Alert throttling with per-level cooldowns.
  *
  * Escalation (higher threat level) always bypasses cooldown.
+ * Called from a single coroutine in [AlertManager]; not thread-safe.
  */
 class AlertThrottler {
 
     // Per-level last alert timestamps
-    private val lastAlertTimes = mapOf(
-        ThreatLevel.APPROACHING to AtomicLong(0L),
-        ThreatLevel.WARNING to AtomicLong(0L),
-        ThreatLevel.CRITICAL to AtomicLong(0L)
+    private val lastAlertTimes = mutableMapOf(
+        ThreatLevel.APPROACHING to 0L,
+        ThreatLevel.WARNING to 0L,
+        ThreatLevel.CRITICAL to 0L
     )
 
     // Last alerted level for escalation detection
-    private val lastAlertedLevel = AtomicReference<ThreatLevel?>(null)
+    private var lastAlertedLevel: ThreatLevel? = null
 
     /**
      * Check if an alert should be fired for the given threat level.
@@ -34,54 +33,26 @@ class AlertThrottler {
         val now = System.currentTimeMillis()
         val lastTime = lastAlertTimes[level] ?: return false
 
-        // Check for escalation — always allow higher threat levels immediately
-        val previousLevel = lastAlertedLevel.get()
-        val isEscalation = previousLevel != null && level.ordinal > previousLevel.ordinal
+        // Escalation always fires immediately
+        val previousLevel = lastAlertedLevel
+        val isEscalation = previousLevel != null && level > previousLevel
 
-        if (!isEscalation) {
-            // Not an escalation — check cooldown
-            val elapsed = now - lastTime.get()
-            if (elapsed < cooldownMs) {
-                return false
-            }
+        if (!isEscalation && now - lastTime < cooldownMs) {
+            return false
         }
 
-        // Try to update atomically
-        val previous = lastTime.get()
-        if (lastTime.compareAndSet(previous, now)) {
-            lastAlertedLevel.set(level)
-            return true
-        }
-
-        // CAS failed — another thread won, skip this alert
-        return false
-    }
-
-    /**
-     * Record that an alert was fired externally.
-     */
-    fun recordAlert(level: ThreatLevel) {
-        if (level == ThreatLevel.CLEAR) return
-
-        val now = System.currentTimeMillis()
-        lastAlertTimes[level]?.set(now)
-        lastAlertedLevel.set(level)
+        lastAlertTimes[level] = now
+        lastAlertedLevel = level
+        return true
     }
 
     /**
      * Reset all throttle states.
      */
     fun reset() {
-        lastAlertTimes.values.forEach { it.set(0L) }
-        lastAlertedLevel.set(null)
-    }
-
-    /**
-     * Check if currently in cooldown for a specific level.
-     */
-    fun isInCooldown(level: ThreatLevel, cooldownMs: Long): Boolean {
-        if (level == ThreatLevel.CLEAR) return false
-        val lastTime = lastAlertTimes[level]?.get() ?: return false
-        return (System.currentTimeMillis() - lastTime) < cooldownMs
+        for (key in lastAlertTimes.keys) {
+            lastAlertTimes[key] = 0L
+        }
+        lastAlertedLevel = null
     }
 }

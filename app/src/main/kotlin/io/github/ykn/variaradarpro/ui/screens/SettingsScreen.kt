@@ -222,7 +222,8 @@ fun SettingsScreen(
 
                 SettingsItem(
                     title = stringResource(R.string.settings_speed_gate),
-                    value = SettingsLogic.formatSpeedGate(settings.speedGateKmh, useImperial),
+                    value = SettingsLogic.formatSpeedGate(settings.speedGateKmh, useImperial)
+                        ?: stringResource(R.string.speed_gate_off),
                     onClick = {
                         scope.launch {
                             preferencesRepository.updateSettings(

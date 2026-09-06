@@ -10,6 +10,8 @@
     <string name="datatype_medium_desc">Count + distance</string>
     <string name="datatype_large">Radar (L)</string>
     <string name="datatype_large_desc">Full info</string>
+    <string name="datatype_passed">Vehicle Count</string>
+    <string name="datatype_passed_desc">Vehicles passed this ride and lap</string>
 
     <!-- Widget states -->
     <string name="state_clear">Clear</string>
@@ -36,6 +38,10 @@
     <string name="widget_all_clear">All clear</string>
     <string name="widget_behind">Behind</string>
     <string name="widget_lost">Lost</string>
+    <string name="widget_ok">OK</string>
+    <string name="widget_radar">RADAR</string>
+    <string name="widget_passed_label">PASSED</string>
+    <string name="widget_lap_passed_label">Lap %d</string>
 
     <!-- Distance -->
     <string name="distance_meters">%dm</string>

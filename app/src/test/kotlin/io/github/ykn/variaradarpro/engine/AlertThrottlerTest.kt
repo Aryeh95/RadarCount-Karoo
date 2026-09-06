@@ -94,47 +94,4 @@ class AlertThrottlerTest {
             assertThat(throttler.shouldAlert(ThreatLevel.WARNING, 60_000L)).isTrue()
         }
     }
-
-    @Nested
-    @DisplayName("isInCooldown")
-    inner class IsInCooldown {
-
-        @Test
-        @DisplayName("CLEAR is never in cooldown")
-        fun clearNeverInCooldown() {
-            assertThat(throttler.isInCooldown(ThreatLevel.CLEAR, 5000L)).isFalse()
-        }
-
-        @Test
-        @DisplayName("reflects cooldown state after alert")
-        fun reflectsCooldownAfterAlert() {
-            throttler.shouldAlert(ThreatLevel.WARNING, 60_000L)
-            assertThat(throttler.isInCooldown(ThreatLevel.WARNING, 60_000L)).isTrue()
-        }
-
-        @Test
-        @DisplayName("not in cooldown before any alert")
-        fun notInCooldownBeforeAnyAlert() {
-            assertThat(throttler.isInCooldown(ThreatLevel.WARNING, 5000L)).isFalse()
-        }
-    }
-
-    @Nested
-    @DisplayName("recordAlert")
-    inner class RecordAlert {
-
-        @Test
-        @DisplayName("recordAlert updates timestamp and blocks subsequent same-level")
-        fun recordAlertUpdatesTimestamp() {
-            throttler.recordAlert(ThreatLevel.APPROACHING)
-            assertThat(throttler.isInCooldown(ThreatLevel.APPROACHING, 60_000L)).isTrue()
-        }
-
-        @Test
-        @DisplayName("recordAlert for CLEAR is ignored")
-        fun recordAlertClearIgnored() {
-            throttler.recordAlert(ThreatLevel.CLEAR)
-            assertThat(throttler.isInCooldown(ThreatLevel.CLEAR, 60_000L)).isFalse()
-        }
-    }
 }

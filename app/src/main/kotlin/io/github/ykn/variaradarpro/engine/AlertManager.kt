@@ -8,10 +8,7 @@ import io.github.ykn.variaradarpro.data.models.PresetSettings
 import io.github.ykn.variaradarpro.data.models.ScreenWakePolicy
 import io.github.ykn.variaradarpro.data.models.ThreatLevel
 import io.github.ykn.variaradarpro.data.models.WidgetState
-import io.hammerhead.karooext.models.DataType
 import io.hammerhead.karooext.models.InRideAlert
-import io.hammerhead.karooext.models.OnStreamState
-import io.hammerhead.karooext.models.StreamState
 import io.hammerhead.karooext.models.TurnScreenOn
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -21,17 +18,19 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicReference
 
 /**
- * Manages alert dispatch with thread-safe throttling.
+ * Manages alert dispatch with throttling.
  *
- * Combines radar state, user settings, and alert settings to determine
- * when and how to alert the user.
+ * Alert evaluation is driven by every radar packet (see [RadarEngine.packets])
+ * so the closing-speed and traffic-density trackers get one sample per packet,
+ * not one per state change. Settings and rider speed are cached from their
+ * own flows and read at evaluation time.
+ *
+ * All evaluation happens on a single coroutine, so the trackers and the
+ * throttler are never touched concurrently.
  */
 class AlertManager(
     private val extension: VariaRadarExtension,
@@ -64,26 +63,14 @@ class AlertManager(
         }
     }
 
-    /** Combined input for the alert evaluation pipeline. */
-    private data class AlertInput(
-        val widgetState: WidgetState,
-        val settings: PresetSettings,
-        val alertSettings: AlertSettings,
-        val speedKmh: Int
-    )
-
     private val alertScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val throttler = AlertThrottler()
     private val closingSpeedTracker = ClosingSpeedTracker()
     private val trafficDensityTracker = TrafficDensityTracker()
 
-    // Current cached settings
-    private var currentSettings: PresetSettings = PresetSettings()
-    private var currentAlertSettings: AlertSettings = AlertSettings()
-
-    // Speed gate: current rider speed in km/h
-    private val currentSpeedKmh = MutableStateFlow(0.0)
-    private val speedConsumerId = AtomicReference<String?>(null)
+    // Cached settings, written by their collectors and read on the packet coroutine
+    @Volatile private var currentSettings: PresetSettings = PresetSettings()
+    @Volatile private var currentAlertSettings: AlertSettings = AlertSettings()
 
     // Monitoring state
     private val isMonitoring = AtomicBoolean(false)
@@ -105,38 +92,19 @@ class AlertManager(
         android.util.Log.i(TAG, "Starting alert monitoring")
         throttler.reset()
 
-        // Subscribe to rider speed for speed gate
-        speedConsumerId.set(extension.karooSystem.addConsumer(
-            OnStreamState.StartStreaming(DataType.Type.SPEED)
-        ) { event: OnStreamState ->
-            if (event.state is StreamState.Streaming) {
-                val speedMs = (event.state as StreamState.Streaming).dataPoint.singleValue
-                if (speedMs != null) {
-                    currentSpeedKmh.value = speedMs * 3.6 // m/s → km/h
-                }
-            }
-        })
-
         monitoringJob = alertScope.launch {
-            // Include speed (rounded to int) so crossing the speed gate
-            // threshold triggers re-evaluation even if radar state is unchanged.
-            combine(
-                radarEngine.widgetState,
-                preferencesRepository.settingsFlow,
-                preferencesRepository.alertSettingsFlow,
-                currentSpeedKmh
-            ) { widgetState, settings, alertSettings, speedKmh ->
-                AlertInput(widgetState, settings, alertSettings, speedKmh.toInt())
-            }
-                .distinctUntilChanged()
-                .collect { input ->
-                    currentSettings = input.settings
-                    currentAlertSettings = input.alertSettings
-
-                    soundEngine.setSoundSet(input.settings.soundSet)
-
-                    processWidgetState(input.widgetState)
+            launch {
+                preferencesRepository.settingsFlow.collect { settings ->
+                    currentSettings = settings
+                    soundEngine.setSoundSet(settings.soundSet)
                 }
+            }
+            launch {
+                preferencesRepository.alertSettingsFlow.collect { currentAlertSettings = it }
+            }
+            radarEngine.packets.collect { state ->
+                processWidgetState(state)
+            }
         }
     }
 
@@ -151,14 +119,13 @@ class AlertManager(
         android.util.Log.i(TAG, "Stopping alert monitoring")
         monitoringJob?.cancel()
         monitoringJob = null
-        speedConsumerId.getAndSet(null)?.let { extension.karooSystem.removeConsumer(it) }
         throttler.reset()
         closingSpeedTracker.reset()
         trafficDensityTracker.reset()
     }
 
     private fun processWidgetState(state: WidgetState) {
-        // Feed trackers on every state update
+        // Feed trackers on every packet
         when (state) {
             is WidgetState.Threat -> {
                 closingSpeedTracker.addSample(state.nearestDistanceM)
@@ -187,16 +154,18 @@ class AlertManager(
         statisticsCollector.recordVehicleDetection(threat.vehicleCount, threat.nearestDistanceM)
         statisticsCollector.startThreatTracking()
 
-        if (!currentAlertSettings.globalEnabled || extension.alertsMuted.value) {
+        val settings = currentSettings
+        val alertSettings = currentAlertSettings
+
+        if (!alertSettings.globalEnabled || extension.alertsMuted.value) {
             return
         }
 
         // Apply night mode overrides to thresholds
-        val isNight = nightModeManager.isNightMode.value
-        val effectiveSettings = if (isNight) {
-            applyNightModeOverrides(currentSettings)
+        val effectiveSettings = if (nightModeManager.isNightMode.value) {
+            applyNightModeOverrides(settings)
         } else {
-            currentSettings
+            settings
         }
 
         // Calculate threat level based on (possibly adjusted) thresholds
@@ -208,7 +177,7 @@ class AlertManager(
         )
 
         // Use the more severe level
-        var effectiveLevel = maxOf(threat.level, calculatedLevel, compareBy { it.ordinal })
+        var effectiveLevel = maxOf(threat.level, calculatedLevel)
 
         if (effectiveLevel == ThreatLevel.CLEAR) {
             return
@@ -232,8 +201,9 @@ class AlertManager(
         // Speed gate: suppress APPROACHING alerts when stopped or moving slowly.
         // WARNING and CRITICAL always fire — a stopped cyclist is the most
         // vulnerable target (e.g. traffic light, intersection).
-        val speedGate = currentSettings.speedGateKmh
-        if (speedGate > 0 && currentSpeedKmh.value < speedGate
+        val speedGate = settings.speedGateKmh
+        val riderSpeedKmh = extension.riderSpeedMps.value * 3.6
+        if (speedGate > 0 && riderSpeedKmh < speedGate
             && effectiveLevel == ThreatLevel.APPROACHING) {
             return
         }
@@ -245,12 +215,12 @@ class AlertManager(
         }
 
         // Check throttling
-        if (!throttler.shouldAlert(effectiveLevel, currentSettings.alertCooldownMs)) {
+        if (!throttler.shouldAlert(effectiveLevel, settings.alertCooldownMs)) {
             return
         }
 
         // Dispatch alerts
-        dispatchAlerts(effectiveLevel, threat)
+        dispatchAlerts(effectiveLevel, threat, settings, alertSettings)
 
         // Record for statistics
         _lastAlertLevel.value = effectiveLevel
@@ -269,21 +239,26 @@ class AlertManager(
         throttler.reset()
     }
 
-    private fun dispatchAlerts(level: ThreatLevel, threat: WidgetState.Threat) {
+    private fun dispatchAlerts(
+        level: ThreatLevel,
+        threat: WidgetState.Threat,
+        settings: PresetSettings,
+        alertSettings: AlertSettings
+    ) {
         android.util.Log.d(TAG, "Dispatching alerts for level: $level, distance: ${threat.nearestDistanceM}m")
 
         // Visual alert
-        if (currentAlertSettings.visualAlert) {
+        if (alertSettings.visualAlert) {
             dispatchVisualAlert(level, threat)
         }
 
         // Sound alert
-        if (currentAlertSettings.soundAlert && currentSettings.soundEnabled) {
+        if (alertSettings.soundAlert && settings.soundEnabled) {
             soundEngine.playAlert(level)
         }
 
         // Screen wake
-        handleScreenWake(level)
+        handleScreenWake(level, settings.screenWakePolicy)
     }
 
     private fun dispatchVisualAlert(level: ThreatLevel, threat: WidgetState.Threat) {
@@ -300,9 +275,7 @@ class AlertManager(
         extension.karooSystem.dispatch(alert)
     }
 
-    private fun handleScreenWake(level: ThreatLevel) {
-        val policy = currentSettings.screenWakePolicy
-
+    private fun handleScreenWake(level: ThreatLevel, policy: ScreenWakePolicy) {
         val shouldWake = when (policy) {
             ScreenWakePolicy.NEVER -> false
             ScreenWakePolicy.CRITICAL_ONLY -> level == ThreatLevel.CRITICAL
@@ -330,21 +303,13 @@ class AlertManager(
 
     private fun formatAlertDetail(level: ThreatLevel, threat: WidgetState.Threat): String {
         val distance = threat.nearestDistanceM
-        if (distance <= 0) return "Behind"
-        val distanceText = formatDistance(distance)
+        if (distance <= 0) return extension.getString(R.string.widget_behind)
+        val distanceText = Units.formatDistance(distance, extension.useImperial.value)
         return when (level) {
             ThreatLevel.CRITICAL -> "$distanceText!"
             ThreatLevel.WARNING -> distanceText
             ThreatLevel.APPROACHING -> distanceText
             ThreatLevel.CLEAR -> ""
-        }
-    }
-
-    private fun formatDistance(meters: Int): String {
-        return if (extension.useImperial.value) {
-            "${(meters * 3.281).toInt()}ft"
-        } else {
-            "${meters}m"
         }
     }
 
@@ -371,7 +336,7 @@ class AlertManager(
                 ThreatLevel.CLEAR -> 200
             }
         )
-        dispatchAlerts(level, mockThreat)
+        dispatchAlerts(level, mockThreat, currentSettings, currentAlertSettings)
     }
 
     /**

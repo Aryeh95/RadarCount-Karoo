@@ -14,8 +14,8 @@ android {
         applicationId = "io.github.ykn.variaradarpro"
         minSdk = 26
         targetSdk = 35
-        versionCode = 8
-        versionName = "1.0.7"
+        versionCode = 9
+        versionName = "1.1.0"
     }
 
     buildTypes {
@@ -54,7 +54,7 @@ android {
 
 dependencies {
     // Karoo Extension SDK
-    implementation("io.hammerhead:karoo-ext:1.1.7")
+    implementation("io.hammerhead:karoo-ext:1.1.9")
 
     // Kotlin
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")

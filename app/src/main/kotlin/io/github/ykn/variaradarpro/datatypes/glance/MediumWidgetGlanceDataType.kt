@@ -15,7 +15,6 @@ import androidx.glance.layout.padding
 import androidx.glance.layout.width
 import io.github.ykn.variaradarpro.R
 import io.github.ykn.variaradarpro.VariaRadarExtension
-import io.github.ykn.variaradarpro.data.models.PresetSettings
 import io.github.ykn.variaradarpro.data.models.WidgetState
 import io.hammerhead.karooext.models.ViewConfig
 
@@ -28,7 +27,9 @@ class MediumWidgetGlanceDataType(
 ) : GlanceDataType(radarExtension, "radar-medium") {
 
     @Composable
-    override fun Content(state: WidgetState, settings: PresetSettings, config: ViewConfig, muted: Boolean) {
+    override fun Content(input: RenderInput, config: ViewConfig) {
+        val state = input.state
+        val muted = input.muted
         DataFieldContainer {
             Column(modifier = GlanceModifier.fillMaxSize()) {
                 StatusBar(state, muted)
@@ -54,7 +55,7 @@ class MediumWidgetGlanceDataType(
                             if (state is WidgetState.Threat && state.nearestDistanceM > 0) {
                                 Spacer(modifier = GlanceModifier.width(10.dp))
                                 ValueText(
-                                    text = formatDistance(state.nearestDistanceM),
+                                    text = formatDistance(state.nearestDistanceM, input.useImperial),
                                     color = GlanceColors.White,
                                     fontSize = 20
                                 )
@@ -77,7 +78,7 @@ class MediumWidgetGlanceDataType(
     private fun getMainText(state: WidgetState): String = when (state) {
         is WidgetState.NotConnected -> "--"
         is WidgetState.Connecting -> "--"
-        is WidgetState.Clear -> "OK"
+        is WidgetState.Clear -> radarExtension.getString(R.string.widget_ok)
         is WidgetState.Threat -> state.vehicleCount.toString()
         is WidgetState.ConnectionLost -> "--"
     }

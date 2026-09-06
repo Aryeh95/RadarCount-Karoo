@@ -28,7 +28,7 @@ Rear vehicle radar extension for Hammerhead Karoo. Reads ANT+ radar data and del
 
 | Feature | Description |
 |---------|-------------|
-| **3 Data Fields** | Compact, Standard, Full — graphical Glance widgets for any ride screen layout |
+| **4 Data Fields** | Compact, Standard, Full, Vehicle Count — graphical Glance widgets for any ride screen layout |
 | **Multi-channel Alerts** | Visual banner + escalating sound patterns via Karoo speaker |
 | **4 Sound Sets** | Classic, Subtle, Urgent, Bike Bell — choose what fits your riding style |
 | **Threat Levels** | Approaching, Warning, Critical — color-coded with configurable distance thresholds |
@@ -38,7 +38,8 @@ Rear vehicle radar extension for Hammerhead Karoo. Reads ANT+ radar data and del
 | **Speed Gate** | Suppress minor alerts when stopped or slow — critical alerts always fire |
 | **Alert Cooldown** | Smart repeat delay prevents alert fatigue without missing new threats |
 | **Escalation Bypass** | Higher threat levels fire immediately, ignoring cooldown |
-| **FIT Recording** | Threat level, vehicle count, and nearest distance written to ride file at 1 Hz |
+| **FIT Recording** | MyBikeTraffic-compatible developer fields plus threat level, vehicle count and nearest distance at 1 Hz |
+| **Vehicle Pass Counter** | Counts vehicles that overtake you, per ride and per lap, on screen and in the FIT file |
 | **Ride Statistics** | Per-ride stats: alert counts, closest approach, max vehicles, threat time |
 | **Quick Mute** | Toggle alerts via physical button or remote — data fields keep updating |
 | **Screen Wake** | Wake Karoo screen on critical threats or any threat |
@@ -109,13 +110,16 @@ Alerts fire automatically when vehicles approach from behind. The first launch s
 
 ## Data Fields
 
-Three graphical data types built with Jetpack Glance. Each renders fresh RemoteViews every 1 Hz cycle.
+Four graphical data types built with Jetpack Glance. Widgets re-render only when their data changes, rate-limited to the Karoo's 1 Hz view update limit.
 
 | Data Field | Karoo Name | Content |
 |------------|:----------:|---------|
-| **Compact** | Radar (S) | Vehicle count, colored by threat level |
-| **Standard** | Radar (M) | Vehicle count + nearest distance + status label |
-| **Full** | Radar (L) | Threat label + vehicle count + distance + status message |
+| **Compact** | Radar (S) | Vehicles currently behind you, colored by threat level |
+| **Standard** | Radar (M) | Vehicles behind + nearest distance + status label |
+| **Full** | Radar (L) | Threat label + vehicles behind + distance + status message |
+| **Vehicle Count** | Vehicle Count | Vehicles that have **passed** you this ride, with the lap count underneath |
+
+The pass counter uses the same rule as the Garmin *My Bike Radar Traffic* field: a target is counted when it drops off the radar after having come within 20 m. It resets at the start of each ride; the lap count resets on every Karoo lap.
 
 All widgets feature a colored status bar at the top (green / orange / red) and a rounded dark background. When alerts are muted, the status bar turns grey and the label shows "MUTED" — radar data continues to display normally.
 
@@ -270,11 +274,30 @@ Night mode status is visible on the dashboard screen. The multiplier applies aut
 
 eiRadar writes radar data to the Karoo ride FIT file at 1 Hz using developer fields. This data appears alongside your standard ride metrics in any FIT-compatible analysis tool.
 
-| Developer Field | Type | Description |
-|----------------|:----:|-------------|
-| `radar_threat_level` | uint8 | 0 = Clear, 1 = Approaching, 2 = Warning, 3 = Critical |
-| `radar_vehicle_count` | uint8 | Number of vehicles currently detected (0–8) |
-| `radar_nearest_distance` | uint16 | Distance to nearest vehicle in meters |
+### MyBikeTraffic-compatible fields
+
+These use the same names, field numbers and base types as the Garmin *My Bike Radar Traffic* Connect IQ field, so rides can be uploaded to [mybiketraffic.com](https://www.mybiketraffic.com/rides/import).
+
+| # | Developer Field | Message | Type | Description |
+|:-:|----------------|:-------:|:----:|-------------|
+| 0 | `radar_ranges` | record | sint16 | Range to the nearest vehicle in meters. `-1` while the radar is disconnected. |
+| 1 | `radar_speeds` | record | uint8 | Estimated closing speed of the nearest vehicle in m/s. `255` while the radar is disconnected. |
+| 2 | `radar_current` | record | uint16 | Running count of vehicles passed so far this ride |
+| 3 | `radar_total` | session | uint16 | Total vehicles passed for the ride |
+| 5 | `passing_speed` | record | uint8 | Relative speed of the nearest vehicle in your units (km/h or mph) |
+| 6 | `passing_speedabs` | record | uint8 | Absolute speed of the nearest vehicle (relative + your speed) |
+
+Differences from the Garmin file, both due to Karoo SDK limits: `radar_ranges` and `radar_speeds` hold a single value (the nearest target) instead of an 8-element array, and `radar_lap` (field 4, lap message) is not written because the SDK has no lap-message API. Speeds are estimated from consecutive range samples because the SDK does not expose radar target speed.
+
+### eiRadar fields
+
+Only written while the radar is connected.
+
+| # | Developer Field | Type | Description |
+|:-:|----------------|:----:|-------------|
+| 7 | `radar_threat_level` | enum | 0 = Clear, 1 = Approaching, 2 = Warning, 3 = Critical |
+| 8 | `radar_vehicle_count` | uint8 | Number of vehicles currently detected (0–8) |
+| 9 | `radar_nearest_distance` | uint16 | Distance to nearest vehicle in meters (omitted when no vehicle is tracked) |
 
 Recording starts and stops automatically with ride recording.
 

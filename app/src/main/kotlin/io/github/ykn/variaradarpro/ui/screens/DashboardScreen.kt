@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.sp
 import io.github.ykn.variaradarpro.R
 import io.github.ykn.variaradarpro.data.models.ThreatLevel
 import io.github.ykn.variaradarpro.data.models.WidgetState
+import io.github.ykn.variaradarpro.engine.Units
 import io.github.ykn.variaradarpro.ui.theme.RadarColors
 import kotlinx.coroutines.flow.StateFlow
 
@@ -218,11 +219,7 @@ private fun ThreatStatus(
 
     // Distance
     if (distanceM > 0) {
-        val distanceText = if (useImperial) {
-            "${(distanceM * 3.281).toInt()}ft"
-        } else {
-            stringResource(R.string.distance_meters, distanceM)
-        }
+        val distanceText = Units.formatDistance(distanceM, useImperial)
         Text(
             text = distanceText,
             style = MaterialTheme.typography.headlineMedium,
