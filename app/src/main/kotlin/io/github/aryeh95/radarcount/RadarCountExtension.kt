@@ -90,6 +90,14 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
 
     private var rideRecording = false
 
+    // Demand-driven sensor streams: radar/speed/lap are only open while a
+    // ride is recording, a data field is on screen, the FIT writer is
+    // active, or the status screen is open. At boot nothing runs except
+    // the cheap ride-state and profile consumers.
+    private val sensorLock = Any()
+    private var sensorDemand = 0
+    private var sensorsRunning = false
+
     // Consumer IDs for cleanup
     private var rideStateConsumerId: String? = null
     private var lapConsumerId: String? = null
@@ -109,20 +117,57 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
             _isConnected.value = connected
             if (connected) {
                 android.util.Log.i(TAG, "KarooSystemService connected")
-                _radarEngine?.startStreaming()
                 startRideStateTracking()
-                startLapTracking()
                 startUserProfileTracking()
-                startSpeedTracking()
+                synchronized(sensorLock) {
+                    if (sensorDemand > 0) startSensorsLocked()
+                }
             } else {
                 android.util.Log.w(TAG, "KarooSystemService disconnected")
-                _radarEngine?.stopStreaming()
+                synchronized(sensorLock) { stopSensorsLocked() }
                 stopRideStateTracking()
-                stopLapTracking()
                 stopUserProfileTracking()
-                stopSpeedTracking()
             }
         }
+    }
+
+    /**
+     * Register interest in live radar data. Streams open on the first
+     * acquire and close on the last release. Every acquire must be paired
+     * with exactly one [releaseRadar].
+     */
+    fun acquireRadar() {
+        synchronized(sensorLock) {
+            sensorDemand++
+            if (sensorDemand == 1 && _isConnected.value) startSensorsLocked()
+        }
+    }
+
+    fun releaseRadar() {
+        synchronized(sensorLock) {
+            if (sensorDemand == 0) return
+            sensorDemand--
+            if (sensorDemand == 0) stopSensorsLocked()
+        }
+    }
+
+    private fun startSensorsLocked() {
+        if (sensorsRunning) return
+        sensorsRunning = true
+        android.util.Log.i(TAG, "Starting radar/speed/lap streams")
+        _radarEngine?.startStreaming()
+        startSpeedTracking()
+        startLapTracking()
+    }
+
+    private fun stopSensorsLocked() {
+        if (!sensorsRunning) return
+        sensorsRunning = false
+        android.util.Log.i(TAG, "Stopping radar/speed/lap streams")
+        _radarEngine?.stopStreaming()
+        stopSpeedTracking()
+        stopLapTracking()
+        _riderSpeedMps.value = 0.0
     }
 
     /**
@@ -137,11 +182,15 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
                         android.util.Log.i(TAG, "Ride recording started")
                         rideRecording = true
                         _radarEngine?.resetPassCounts()
+                        acquireRadar()
                     }
                 }
                 is RideState.Idle -> {
                     android.util.Log.i(TAG, "Ride idle")
-                    rideRecording = false
+                    if (rideRecording) {
+                        rideRecording = false
+                        releaseRadar()
+                    }
                 }
                 is RideState.Paused -> {
                     android.util.Log.d(TAG, "Ride paused (auto=${event.auto})")
@@ -220,6 +269,7 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
      */
     override fun startFit(emitter: Emitter<FitEffect>) {
         android.util.Log.i(TAG, "Starting FIT file recording for radar data")
+        acquireRadar()
 
         val mbtRangesField = DeveloperField(0, FIT_BASE_TYPE_SINT16, "radar_ranges", "")
         val mbtSpeedsField = DeveloperField(1, FIT_BASE_TYPE_UINT8, "radar_speeds", "")
@@ -292,6 +342,7 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
         emitter.setCancellable {
             android.util.Log.i(TAG, "Stopping FIT file recording")
             fitScope.cancel()
+            releaseRadar()
         }
     }
 
@@ -301,10 +352,12 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
         instance = null
         _isConnected.value = false
 
+        synchronized(sensorLock) {
+            sensorDemand = 0
+            stopSensorsLocked()
+        }
         stopRideStateTracking()
-        stopLapTracking()
         stopUserProfileTracking()
-        stopSpeedTracking()
 
         _radarEngine?.destroy()
         _radarEngine = null

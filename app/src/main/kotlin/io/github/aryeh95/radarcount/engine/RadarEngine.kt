@@ -157,6 +157,13 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
     fun stopStreaming() {
         android.util.Log.i(TAG, "Stopping radar data stream")
         radarConsumerId.getAndSet(null)?.let { karooSystem.removeConsumer(it) }
+        synchronized(lock) {
+            _isRadarConnected.value = false
+            passCounter.clearTracking()
+            closingSpeedTracker.reset()
+            _closingSpeedMps.value = 0.0
+            _widgetState.value = WidgetState.NotConnected
+        }
     }
 
     private fun processRadarData(values: Map<String, Double>) {
