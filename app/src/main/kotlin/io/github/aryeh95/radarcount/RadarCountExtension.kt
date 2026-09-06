@@ -61,6 +61,8 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
         private const val MBT_RANGE_RADAR_OFF = -1.0
         private const val MBT_SPEED_RADAR_OFF = 255.0
         private const val MBT_SPEED_MAX = 254.0
+        /** Range written on the record where a pass is counted (car alongside) */
+        private const val MBT_PASS_RANGE_M = 3.0
 
         private const val FIT_WRITE_INTERVAL_MS = 1000L
 
@@ -316,10 +318,6 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
         val vehicleCountField = DeveloperField(8, FIT_BASE_TYPE_UINT8, "radar_vehicle_count", "")
         val nearestDistanceField = DeveloperField(9, FIT_BASE_TYPE_UINT16, "radar_nearest_distance", "m")
         // Ranges of the 2nd-4th targets, for tuning the pass counter offline
-        // Experiment: does the Karoo write an array if the same developer
-        // field is given several values in one record? If it does, this
-        // field will show up as an 8-element array like the Garmin one.
-        val arrayProbeField = DeveloperField(13, FIT_BASE_TYPE_SINT16, "radar_ranges_probe", "")
         val extraRangeFields = listOf(
             DeveloperField(10, FIT_BASE_TYPE_UINT16, "radar_range_2", "m"),
             DeveloperField(11, FIT_BASE_TYPE_UINT16, "radar_range_3", "m"),
@@ -330,6 +328,10 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
         fitScope.launch {
             var lastSessionTotal = -1
             var lastRecordTotal = -1
+            var passSignatureLeft = 0
+            var lastSpeedMps = 0.0
+            var lastPassingSpeed = 0
+            var lastPassingSpeedAbs = 0
             while (isActive) {
                 delay(FIT_WRITE_INTERVAL_MS)
                 try {
@@ -343,15 +345,22 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
 
                     val values = ArrayList<FieldValue>(12)
 
-                    // Mimic the Garmin field: on the record where a vehicle is
-                    // counted, slot 0 of the ranges reads 0 even if another
-                    // vehicle is already being tracked. mybiketraffic.com uses
-                    // that gap to separate consecutive cars.
-                    val justPassed = lastRecordTotal in 0 until passTotal
+                    // Mimic the Garmin field's pass signature, which
+                    // mybiketraffic.com relies on to split cars: a car is a run
+                    // of non-zero slot-0 ranges that ends below 10 m followed
+                    // by a 0. Our nearest-range value would already show the
+                    // next car by the time the pass is counted, so on a pass we
+                    // write one record at 3 m (car alongside) and then one
+                    // record at 0 before resuming the live nearest range.
+                    if (passTotal > lastRecordTotal && lastRecordTotal >= 0) {
+                        passSignatureLeft = 2
+                    }
                     lastRecordTotal = passTotal
+                    val signature = passSignatureLeft
+                    if (signature > 0) passSignatureLeft--
 
                     if (connected) {
-                        val tracked = vehicleCount > 0 && !justPassed
+                        val tracked = vehicleCount > 0
                         val passingSpeed = if (tracked) toUserSpeedUnits(closingMps, imperial) else 0
                         val passingSpeedAbs = if (passingSpeed > 0) {
                             passingSpeed + toUserSpeedUnits(_riderSpeedMps.value, imperial)
@@ -359,10 +368,36 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
                             0
                         }
 
-                        values.add(FieldValue(mbtRangesField, if (tracked) nearestM.toDouble() else 0.0))
-                        values.add(FieldValue(mbtSpeedsField, if (tracked) closingMps.coerceIn(0.0, MBT_SPEED_MAX) else 0.0))
-                        values.add(FieldValue(mbtPassingSpeedField, passingSpeed.toDouble().coerceAtMost(MBT_SPEED_MAX)))
-                        values.add(FieldValue(mbtPassingSpeedAbsField, passingSpeedAbs.toDouble().coerceAtMost(MBT_SPEED_MAX)))
+                        val rangeValue = when (signature) {
+                            2 -> MBT_PASS_RANGE_M
+                            1 -> 0.0
+                            else -> if (tracked) nearestM.toDouble() else 0.0
+                        }
+                        val speedValue = when (signature) {
+                            2 -> lastSpeedMps.coerceIn(0.0, MBT_SPEED_MAX)
+                            1 -> 0.0
+                            else -> if (tracked) closingMps.coerceIn(0.0, MBT_SPEED_MAX) else 0.0
+                        }
+                        val psValue = when (signature) {
+                            2 -> lastPassingSpeed
+                            1 -> 0
+                            else -> passingSpeed
+                        }
+                        val psAbsValue = when (signature) {
+                            2 -> lastPassingSpeedAbs
+                            1 -> 0
+                            else -> passingSpeedAbs
+                        }
+                        if (tracked && signature == 0) {
+                            lastSpeedMps = closingMps
+                            lastPassingSpeed = passingSpeed
+                            lastPassingSpeedAbs = passingSpeedAbs
+                        }
+
+                        values.add(FieldValue(mbtRangesField, rangeValue))
+                        values.add(FieldValue(mbtSpeedsField, speedValue))
+                        values.add(FieldValue(mbtPassingSpeedField, psValue.toDouble().coerceAtMost(MBT_SPEED_MAX)))
+                        values.add(FieldValue(mbtPassingSpeedAbsField, psAbsValue.toDouble().coerceAtMost(MBT_SPEED_MAX)))
 
                         values.add(FieldValue(threatField, engine.threatLevel.value.ordinal.toDouble()))
                         values.add(FieldValue(vehicleCountField, vehicleCount.toDouble()))
@@ -371,9 +406,6 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
                             val sorted = engine.targetDistances.value.sorted()
                             for ((i, field) in extraRangeFields.withIndex()) {
                                 sorted.getOrNull(i + 1)?.let { values.add(FieldValue(field, it.toDouble())) }
-                            }
-                            for (i in 0 until 8) {
-                                values.add(FieldValue(arrayProbeField, (sorted.getOrNull(i) ?: 0).toDouble()))
                             }
                         }
                     } else {

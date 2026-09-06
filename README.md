@@ -66,11 +66,15 @@ Written at 1 Hz while a ride is recording.
 | 8 | `radar_vehicle_count` | record | uint8 | Vehicles currently detected |
 | 9 | `radar_nearest_distance` | record | uint16 | Nearest vehicle in metres (omitted when none) |
 | 10-12 | `radar_range_2` .. `radar_range_4` | record | uint16 | Ranges of the next three targets, when present |
-| 13 | `radar_ranges_probe` | record | sint16 | Experiment: all eight ranges written to one field to test whether the Karoo records arrays |
 
-On the record where a vehicle is counted, `radar_ranges` and `radar_speeds` read 0
-even if another vehicle is already in view. The Garmin field behaves the same way
-and mybiketraffic.com relies on that gap to separate consecutive cars.
+mybiketraffic.com identifies a car as a run of consecutive non-zero `radar_ranges`
+records that ends below 10 m and is followed by a 0. Because the Karoo SDK only
+allows one value per field, our nearest-target value would already show the next
+car by the time a pass is counted, so on each counted pass the extension writes
+one record with the range at 3 m and then one record at 0 before resuming the
+live value. That reproduces the Garmin signature the importer expects. (An
+experiment confirmed the Karoo keeps only the last value when several are
+written to one field, so true arrays are not possible.)
 
 Two differences from the Garmin file, both imposed by the Karoo SDK:
 
