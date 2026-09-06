@@ -1,4 +1,4 @@
-package io.github.aryeh95.mybiketraffic.engine
+package io.github.aryeh95.radarcount.engine
 
 /**
  * Counts vehicles that have passed the rider.

@@ -1,9 +1,9 @@
-package io.github.aryeh95.mybiketraffic.engine
+package io.github.aryeh95.radarcount.engine
 
 import com.google.common.truth.Truth.assertThat
-import io.github.aryeh95.mybiketraffic.engine.ClosingSpeedTracker.Companion.calculateClosingSpeed
-import io.github.aryeh95.mybiketraffic.engine.ClosingSpeedTracker.Companion.isTargetChange
-import io.github.aryeh95.mybiketraffic.engine.ClosingSpeedTracker.Sample
+import io.github.aryeh95.radarcount.engine.ClosingSpeedTracker.Companion.calculateClosingSpeed
+import io.github.aryeh95.radarcount.engine.ClosingSpeedTracker.Companion.isTargetChange
+import io.github.aryeh95.radarcount.engine.ClosingSpeedTracker.Sample
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested

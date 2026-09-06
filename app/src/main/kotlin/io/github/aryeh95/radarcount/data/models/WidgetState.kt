@@ -1,4 +1,4 @@
-package io.github.aryeh95.mybiketraffic.data.models
+package io.github.aryeh95.radarcount.data.models
 
 /**
  * Sealed class representing all possible widget states.

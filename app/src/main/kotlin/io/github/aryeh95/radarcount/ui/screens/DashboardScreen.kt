@@ -1,4 +1,4 @@
-package io.github.aryeh95.mybiketraffic.ui.screens
+package io.github.aryeh95.radarcount.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -21,20 +21,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.github.aryeh95.mybiketraffic.BuildConfig
-import io.github.aryeh95.mybiketraffic.R
-import io.github.aryeh95.mybiketraffic.MyBikeTrafficExtension
-import io.github.aryeh95.mybiketraffic.data.models.ThreatLevel
-import io.github.aryeh95.mybiketraffic.data.models.WidgetState
-import io.github.aryeh95.mybiketraffic.engine.Units
-import io.github.aryeh95.mybiketraffic.ui.theme.RadarColors
+import io.github.aryeh95.radarcount.BuildConfig
+import io.github.aryeh95.radarcount.R
+import io.github.aryeh95.radarcount.RadarCountExtension
+import io.github.aryeh95.radarcount.data.models.ThreatLevel
+import io.github.aryeh95.radarcount.data.models.WidgetState
+import io.github.aryeh95.radarcount.engine.Units
+import io.github.aryeh95.radarcount.ui.theme.RadarColors
 
 /**
  * Status screen: radar state, vehicles passed, approach speed.
  * There are no settings; everything is driven by the Karoo profile.
  */
 @Composable
-fun DashboardScreen(extension: MyBikeTrafficExtension?) {
+fun DashboardScreen(extension: RadarCountExtension?) {
     val state = extension?.radarEngine?.widgetState?.collectAsState()?.value ?: WidgetState.NotConnected
     val passCount = extension?.radarEngine?.passCount?.collectAsState()?.value ?: 0
     val lapCount = extension?.radarEngine?.lapPassCount?.collectAsState()?.value ?: 0
@@ -63,8 +63,8 @@ fun DashboardScreen(extension: MyBikeTrafficExtension?) {
         is WidgetState.ConnectionLost -> stringResource(R.string.dashboard_connection_lost)
     }
 
-    val relative = MyBikeTrafficExtension.toUserSpeedUnits(closing, imperial)
-    val absolute = if (relative > 0) relative + MyBikeTrafficExtension.toUserSpeedUnits(rider, imperial) else 0
+    val relative = RadarCountExtension.toUserSpeedUnits(closing, imperial)
+    val absolute = if (relative > 0) relative + RadarCountExtension.toUserSpeedUnits(rider, imperial) else 0
     val unit = Units.speedUnitLabel(imperial)
 
     Column(

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ExtensionInfo
-    id="mybiketraffic"
+    id="radarcount"
     displayName="@string/extension_name"
     icon="@drawable/ic_radar"
     configurable="true"

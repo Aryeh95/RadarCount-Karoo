@@ -1,6 +1,6 @@
-package io.github.aryeh95.mybiketraffic.engine
+package io.github.aryeh95.radarcount.engine
 
-import io.github.aryeh95.mybiketraffic.data.models.ThreatLevel
+import io.github.aryeh95.radarcount.data.models.ThreatLevel
 
 /**
  * One parsed radar packet.

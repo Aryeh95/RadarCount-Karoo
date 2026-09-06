@@ -1,4 +1,4 @@
-package io.github.aryeh95.mybiketraffic
+package io.github.aryeh95.radarcount
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -7,8 +7,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
-import io.github.aryeh95.mybiketraffic.ui.screens.DashboardScreen
-import io.github.aryeh95.mybiketraffic.ui.theme.MyBikeTrafficTheme
+import io.github.aryeh95.radarcount.ui.screens.DashboardScreen
+import io.github.aryeh95.radarcount.ui.theme.RadarCountTheme
 
 /**
  * Status screen. All configuration comes from the Karoo profile
@@ -21,9 +21,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         setContent {
-            MyBikeTrafficTheme {
+            RadarCountTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    DashboardScreen(extension = MyBikeTrafficExtension.instance)
+                    DashboardScreen(extension = RadarCountExtension.instance)
                 }
             }
         }

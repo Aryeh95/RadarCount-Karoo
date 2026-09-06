@@ -1,4 +1,4 @@
-# MyBikeTraffic for Karoo
+# RadarCount for Karoo
 
 A Hammerhead Karoo extension that counts the vehicles that pass you and
 estimates their approach speed from your ANT+ rear radar, then records it all
@@ -9,9 +9,12 @@ field, so rides can be uploaded to [mybiketraffic.com](https://www.mybiketraffic
 No alerts, no sounds, no settings. The radar plumbing started from [eiRadar](https://github.com/yrkan/eiradar)
 with everything except counting and recording removed.
 
+RadarCount is an independent project. It is not affiliated with or endorsed by
+MyBikeTraffic or Hammerhead; the names are used only to describe compatibility.
+
 ## Data fields
 
-Add any of these to a ride page from the Karoo's data field picker under **MyBikeTraffic**.
+Add any of these to a ride page from the Karoo's data field picker under **RadarCount**.
 
 | Data Field | Shows |
 |------------|-------|
@@ -54,7 +57,7 @@ from consecutive range samples. Treat them as ballpark figures.
 ## Install
 
 Download the APK from [Releases](../../releases) and install with
-`adb install mybiketraffic-karoo.apk`, or share it to the Hammerhead companion
+`adb install radarcount-karoo.apk`, or share it to the Hammerhead companion
 app. Works on Karoo 2 and Karoo 3 with any ANT+ radar the Karoo pairs with.
 
 ## Build

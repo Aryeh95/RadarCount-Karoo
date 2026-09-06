@@ -1,9 +1,9 @@
-package io.github.aryeh95.mybiketraffic
+package io.github.aryeh95.radarcount
 
-import io.github.aryeh95.mybiketraffic.datatypes.glance.ApproachSpeedGlanceDataType
-import io.github.aryeh95.mybiketraffic.datatypes.glance.ClosestDistanceGlanceDataType
-import io.github.aryeh95.mybiketraffic.datatypes.glance.VehicleCountGlanceDataType
-import io.github.aryeh95.mybiketraffic.engine.RadarEngine
+import io.github.aryeh95.radarcount.datatypes.glance.ApproachSpeedGlanceDataType
+import io.github.aryeh95.radarcount.datatypes.glance.ClosestDistanceGlanceDataType
+import io.github.aryeh95.radarcount.datatypes.glance.VehicleCountGlanceDataType
+import io.github.aryeh95.radarcount.engine.RadarEngine
 import io.hammerhead.karooext.KarooSystemService
 import io.hammerhead.karooext.extension.KarooExtension
 import io.hammerhead.karooext.internal.Emitter
@@ -31,18 +31,18 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /**
- * MyBikeTraffic for Karoo.
+ * RadarCount for Karoo.
  *
  * Counts vehicles that pass the rider, estimates their approach speed, and
  * records everything to the ride FIT file using the same developer fields
  * as the Garmin "My Bike Radar Traffic" data field so rides can be
  * uploaded to mybiketraffic.com.
  */
-class MyBikeTrafficExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) {
+class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) {
 
     companion object {
-        const val EXTENSION_ID = "mybiketraffic"
-        private const val TAG = "MyBikeTrafficExt"
+        const val EXTENSION_ID = "radarcount"
+        private const val TAG = "RadarCountExt"
 
         // FIT base type ids (Garmin FIT SDK)
         private const val FIT_BASE_TYPE_ENUM: Short = 0
@@ -58,7 +58,7 @@ class MyBikeTrafficExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_
         private const val FIT_WRITE_INTERVAL_MS = 1000L
 
         @Volatile
-        var instance: MyBikeTrafficExtension? = null
+        var instance: RadarCountExtension? = null
             private set
 
         /** m/s to the rider's speed unit, rounded, never negative. */
@@ -100,7 +100,7 @@ class MyBikeTrafficExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_
         super.onCreate()
         instance = this
 
-        android.util.Log.i(TAG, "Initializing MyBikeTraffic v${BuildConfig.VERSION_NAME}")
+        android.util.Log.i(TAG, "Initializing RadarCount v${BuildConfig.VERSION_NAME}")
 
         karooSystem = KarooSystemService(this)
         _radarEngine = RadarEngine(karooSystem)
