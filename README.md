@@ -92,6 +92,14 @@ Download the APK from [Releases](../../releases) and install with
 `adb install radarcount-karoo.apk`, or share it to the Hammerhead companion
 app. Works on Karoo 2 and Karoo 3 with any ANT+ radar the Karoo pairs with.
 
+## Release signing
+
+Releases built by GitHub Actions are signed with a permanent keystore held in
+the repository secrets `SIGNING_KEYSTORE_B64` (the `.jks` file, base64) and
+`SIGNING_STORE_PASSWORD`, so each release installs over the previous one. A
+build without those secrets is signed with a throwaway debug key and must be
+installed after uninstalling the old version.
+
 ## Build
 
 Needs Android Studio (or JDK 17 + the Android SDK) and access to the Karoo SDK
