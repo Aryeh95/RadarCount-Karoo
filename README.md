@@ -28,10 +28,10 @@ The extension is idle at boot. It only opens the radar and speed streams while
 a ride is recording, one of its data fields is on screen, or its status screen
 is open, and closes them again afterwards.
 
-A vehicle is counted when it drops off the radar after either coming within
-20 m, or closing in and being last seen within 60 m. This is the Garmin field's
-rule loosened for the Karoo's roughly one-sample-per-second radar feed, which
-can lose a fast car between 40 m and gone in a single step. The ride count
+Each radar target is tracked individually across packets. A target counts as a
+pass when it drops off the radar after either coming within 20 m, or closing in
+and being last seen within 60 m, and only if it was seen more than once (the
+Karoo's target list jitters, so one-packet blips are ignored). The ride count
 resets when a ride starts recording; the lap count resets on every Karoo lap.
 
 ## FIT recording
@@ -49,6 +49,7 @@ Written at 1 Hz while a ride is recording.
 | 7 | `radar_threat_level` | record | enum | Karoo threat level 0-3 |
 | 8 | `radar_vehicle_count` | record | uint8 | Vehicles currently detected |
 | 9 | `radar_nearest_distance` | record | uint16 | Nearest vehicle in metres (omitted when none) |
+| 10-12 | `radar_range_2` .. `radar_range_4` | record | uint16 | Ranges of the next three targets, when present |
 
 Two differences from the Garmin file, both imposed by the Karoo SDK:
 
