@@ -2,8 +2,8 @@
 
 # Karoo extension entry point and data types are referenced from the manifest
 # / extension_info and must keep their names.
--keep class io.github.ykn.variaradarpro.VariaRadarExtension { *; }
--keep class io.github.ykn.variaradarpro.datatypes.** { *; }
+-keep class io.github.aryeh95.mybiketraffic.MyBikeTrafficExtension { *; }
+-keep class io.github.aryeh95.mybiketraffic.datatypes.** { *; }
 
 # Karoo SDK models are serialized across the process boundary.
 -keep class io.hammerhead.karooext.** { *; }

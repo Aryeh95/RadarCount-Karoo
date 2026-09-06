@@ -6,7 +6,7 @@ to the ride FIT file using the same developer fields as the Garmin
 [My Bike Radar Traffic](https://github.com/kartoone/mybiketraffic) Connect IQ
 field, so rides can be uploaded to [mybiketraffic.com](https://www.mybiketraffic.com/rides/import).
 
-No alerts, no sounds, no settings. It is a fork of [eiRadar](https://github.com/yrkan/eiradar)
+No alerts, no sounds, no settings. The radar plumbing started from [eiRadar](https://github.com/yrkan/eiradar)
 with everything except counting and recording removed.
 
 ## Data fields

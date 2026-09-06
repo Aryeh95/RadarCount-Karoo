@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "io.github.ykn.variaradarpro"
+    namespace = "io.github.aryeh95.mybiketraffic"
     compileSdk = 35
 
     defaultConfig {
