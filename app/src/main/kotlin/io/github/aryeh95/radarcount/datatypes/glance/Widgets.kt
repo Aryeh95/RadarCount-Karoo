@@ -37,7 +37,7 @@ class Sizes(config: ViewConfig, density: Float) {
     val availDp: Float = (heightDp - 40f).coerceAtLeast(24f)
 
     /** Small text for captions and second lines */
-    val small: Int = (availDp * 0.22f).toInt().coerceIn(10, 16)
+    val small: Int = (availDp * 0.22f).toInt().coerceIn(9, 16)
 
     /**
      * Value font: no more than the Karoo's own numeric size for the cell,
@@ -49,7 +49,7 @@ class Sizes(config: ViewConfig, density: Float) {
     val hasFooter: Boolean = availDp >= value * 1.3f + small * 1.3f + 4
 
     /** Font for a value when it must share the height with a caption */
-    val valueWithCaption: Int = minOf(config.textSize.toFloat(), (availDp - small * 1.3f - 2) / 1.3f).toInt().coerceIn(14, 64)
+    val valueWithCaption: Int = minOf(config.textSize.toFloat(), (availDp - small * 1.3f - 2) / 1.3f).toInt().coerceIn(12, 64)
 
     val narrow: Boolean = widthDp < 200
     val wide: Boolean = widthDp >= 300
@@ -208,11 +208,11 @@ class ComboGlanceDataType(
 
         // Three values across share the width; shrink from the Karoo size
         // so "148ft" style values fit in a half-width cell.
-        // Captions only if they leave a readable value; otherwise bare values
-        val captions = sz.valueWithCaption >= 18
-        val vBase = if (captions) sz.valueWithCaption else sz.value
+        // Captions always: the value shrinks to whatever height is left
+        val captions = true
+        val vBase = sz.valueWithCaption
         // Three values share the width: shrink in narrow cells so "148ft" fits
-        val v = (if (sz.narrow) vBase * 0.75f else vBase.toFloat()).toInt().coerceAtLeast(14)
+        val v = (if (sz.narrow) vBase * 0.75f else vBase.toFloat()).toInt().coerceAtLeast(12)
         val full = sz.wide && sz.availDp >= 130
 
         DataFieldContainer {
