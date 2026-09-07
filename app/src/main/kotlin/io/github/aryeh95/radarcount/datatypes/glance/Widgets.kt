@@ -21,20 +21,38 @@ import io.github.aryeh95.radarcount.engine.Units
 import io.hammerhead.karooext.models.ViewConfig
 
 /**
- * Font sizes derived from the Karoo's own numeric size for this grid
- * cell, so the field scales like the built-in ones.
+ * Sizing from the cell's real pixel dimensions, so text fits whatever
+ * grid size the rider picked. Glance text takes roughly 1.25x its font
+ * size in height.
  */
-private class Sizes(config: ViewConfig) {
-    /** Karoo's standard numeric font size for this cell, in sp */
-    private val base = config.textSize.coerceIn(18, 72)
-    val value = base
-    val medium = (base * 0.55).toInt().coerceAtLeast(16)
-    val label = (base * 0.32).toInt().coerceIn(11, 20)
-    val rows = config.gridSize.second     // of 60
-    val cols = config.gridSize.first      // of 60
-    val tall = rows >= 30
-    val wide = cols >= 60
-    val tiny = rows <= 15 && cols < 60
+class Sizes(config: ViewConfig, density: Float) {
+    val widthDp: Float = config.viewSize.first / density
+    val heightDp: Float = config.viewSize.second / density
+
+    /** Never larger than the Karoo's own numeric size for this cell */
+    private val maxValue = config.textSize.coerceIn(16, 72)
+
+    /** Status bar (5) + container padding (4) + inner padding (4) */
+    private val chrome = 13f
+
+    val label: Int = (heightDp * 0.13f).toInt().coerceIn(10, 16)
+
+    /** Largest value font that fits alongside [labelLines] lines of label text. */
+    fun valueFor(labelLines: Int): Int {
+        val avail = heightDp - chrome - labelLines * label * 1.25f
+        return (avail / 1.3f).toInt().coerceIn(0, maxValue)
+    }
+
+    /** Value font for a single row containing label and value side by side. */
+    val inline: Int = ((heightDp - chrome) / 1.3f).toInt().coerceIn(14, maxValue)
+
+    val narrow: Boolean = widthDp < 200
+    val wide: Boolean = widthDp >= 300
+
+    companion object {
+        /** Minimum value font worth stacking a label above. */
+        const val MIN_STACKED = 18
+    }
 }
 
 private data class Derived(
@@ -63,39 +81,47 @@ private fun derive(input: GlanceDataType.RenderInput): Derived {
     return Derived(tracked, relative, absolute, Units.speedUnitLabel(input.useImperial), distance, threat?.vehicleCount ?: 0)
 }
 
-/** Shared layout: status bar, small label, big value, small footer. */
+/**
+ * Shared single-value layout. Picks, in order of available height:
+ * label / value / footer, label / value, or label and value on one row.
+ */
 @Composable
-private fun LabelValueFooter(
+private fun SingleValue(
     input: GlanceDataType.RenderInput,
-    config: ViewConfig,
+    sz: Sizes,
     label: String,
+    shortLabel: String,
     value: String,
     valueColor: ColorProvider,
     footer: String?
 ) {
-    val sz = Sizes(config)
     val theme = input.settings.theme
+    val labelColor = GlanceColors.label(theme)
+    val withFooter = footer != null && sz.valueFor(2) >= Sizes.MIN_STACKED
+    val stacked = withFooter || sz.valueFor(1) >= Sizes.MIN_STACKED
+    val lbl = if (sz.narrow) shortLabel else label
+
     DataFieldContainer {
         Column(modifier = GlanceModifier.fillMaxSize()) {
             StatusBar(input.state)
             Box(
-                modifier = GlanceModifier.fillMaxSize().padding(horizontal = 6.dp, vertical = 2.dp),
+                modifier = GlanceModifier.fillMaxSize().padding(horizontal = 4.dp, vertical = 2.dp),
                 contentAlignment = Alignment.Center
             ) {
-                if (sz.tiny) {
-                    // One line: label and value side by side
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        LabelText(text = label, color = GlanceColors.label(theme), fontSize = sz.label)
-                        Spacer(modifier = GlanceModifier.width(8.dp))
-                        ValueText(text = value, color = valueColor, fontSize = sz.medium)
+                when {
+                    withFooter -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        LabelText(text = lbl, color = labelColor, fontSize = sz.label)
+                        ValueText(text = value, color = valueColor, fontSize = sz.valueFor(2))
+                        LabelText(text = footer!!, color = labelColor, fontSize = sz.label)
                     }
-                } else {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        LabelText(text = label, color = GlanceColors.label(theme), fontSize = sz.label)
-                        ValueText(text = value, color = valueColor, fontSize = sz.value)
-                        if (footer != null) {
-                            LabelText(text = footer, color = GlanceColors.label(theme), fontSize = sz.label)
-                        }
+                    stacked -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        LabelText(text = lbl, color = labelColor, fontSize = sz.label)
+                        ValueText(text = value, color = valueColor, fontSize = sz.valueFor(1))
+                    }
+                    else -> Row(verticalAlignment = Alignment.CenterVertically) {
+                        LabelText(text = shortLabel, color = labelColor, fontSize = sz.label)
+                        Spacer(modifier = GlanceModifier.width(6.dp))
+                        ValueText(text = value, color = valueColor, fontSize = sz.inline)
                     }
                 }
             }
@@ -113,10 +139,11 @@ class VehicleCountGlanceDataType(
     @Composable
     override fun Content(input: RenderInput, config: ViewConfig) {
         val theme = input.settings.theme
-        LabelValueFooter(
+        SingleValue(
             input = input,
-            config = config,
+            sz = Sizes(config, density),
             label = radarExtension.getString(R.string.widget_count_label),
+            shortLabel = radarExtension.getString(R.string.widget_count_label),
             value = if (input.connected) input.passCount.toString() else "--",
             valueColor = if (input.connected) GlanceColors.text(theme) else ColorProvider(GlanceColors.Neutral),
             footer = if (input.settings.showLapCount) {
@@ -139,10 +166,11 @@ class ApproachSpeedGlanceDataType(
     @Composable
     override fun Content(input: RenderInput, config: ViewConfig) {
         val d = derive(input)
-        LabelValueFooter(
+        SingleValue(
             input = input,
-            config = config,
+            sz = Sizes(config, density),
             label = radarExtension.getString(R.string.widget_approach_label, d.unit),
+            shortLabel = radarExtension.getString(R.string.widget_approach_short, d.unit),
             value = if (d.tracked) d.relative.toString() else "--",
             valueColor = if (d.tracked) ColorProvider(GlanceColors.forState(input.state)) else ColorProvider(GlanceColors.Neutral),
             footer = if (d.tracked) {
@@ -164,10 +192,11 @@ class ClosestDistanceGlanceDataType(
     @Composable
     override fun Content(input: RenderInput, config: ViewConfig) {
         val d = derive(input)
-        LabelValueFooter(
+        SingleValue(
             input = input,
-            config = config,
+            sz = Sizes(config, density),
             label = radarExtension.getString(R.string.widget_distance_label),
+            shortLabel = radarExtension.getString(R.string.combo_dist),
             value = d.distance ?: "--",
             valueColor = if (d.tracked) ColorProvider(GlanceColors.forState(input.state)) else ColorProvider(GlanceColors.Neutral),
             footer = when {
@@ -181,10 +210,11 @@ class ClosestDistanceGlanceDataType(
 
 /**
  * Combined field: pass count, approach speed and closest distance in one
- * cell. Layout adapts to the cell's grid size:
- *  - quarter-height or narrower: one row of three values
- *  - half height: big count on the left, speed and distance stacked right
- *  - full height: big count, then speed and distance, then lap and status
+ * cell. Layout picked from the cell's real size:
+ *  - tall and wide: big count, then speed and distance, then a status line
+ *  - room for a label row: three labelled values side by side
+ *    (two if the cell is narrow, distance moves to a footer if it fits)
+ *  - otherwise: one line "12 · 18 mph · 148ft"
  */
 class ComboGlanceDataType(
     radarExtension: RadarCountExtension
@@ -192,84 +222,98 @@ class ComboGlanceDataType(
 
     @Composable
     override fun Content(input: RenderInput, config: ViewConfig) {
-        val sz = Sizes(config)
+        val sz = Sizes(config, density)
         val theme = input.settings.theme
         val d = derive(input)
         val text = GlanceColors.text(theme)
         val label = GlanceColors.label(theme)
         val stateColor = ColorProvider(GlanceColors.forState(input.state))
         val neutral = ColorProvider(GlanceColors.Neutral)
+        val liveColor = if (d.tracked) stateColor else neutral
 
         val countText = if (input.connected) input.passCount.toString() else "--"
         val speedText = if (d.tracked) "${d.relative}" else "--"
         val distText = d.distance ?: "--"
         val unit = d.unit
 
+        val countLabel = radarExtension.getString(R.string.widget_count_label)
+        val speedLabel = radarExtension.getString(R.string.widget_approach_short, unit)
+        val distLabel = radarExtension.getString(R.string.combo_dist)
+
+        val statusLine = when {
+            d.tracked -> radarExtension.getString(R.string.widget_absolute_label, d.absolute, unit) +
+                "  ·  " + radarExtension.resources.getQuantityString(R.plurals.widget_vehicles_behind, d.behind, d.behind)
+            input.state is WidgetState.Clear -> radarExtension.getString(R.string.widget_road_clear)
+            else -> radarExtension.getString(R.string.widget_no_radar)
+        }
+        val lapPrefix = if (input.settings.showLapCount) {
+            radarExtension.getString(R.string.widget_lap_label, input.lapPassCount) + "  ·  "
+        } else {
+            ""
+        }
+
+        val full = sz.wide && sz.valueFor(3) >= Sizes.MIN_STACKED + 6
+        val labelled = sz.valueFor(1) >= Sizes.MIN_STACKED
+
         DataFieldContainer {
             Column(modifier = GlanceModifier.fillMaxSize()) {
                 StatusBar(input.state)
                 Box(
-                    modifier = GlanceModifier.fillMaxSize().padding(horizontal = 6.dp, vertical = 2.dp),
+                    modifier = GlanceModifier.fillMaxSize().padding(horizontal = 4.dp, vertical = 2.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     when {
-                        sz.tiny || (!sz.tall && !sz.wide) -> {
-                            // Single row: count | speed | distance
-                            Row(
-                                modifier = GlanceModifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Cell(radarExtension.getString(R.string.combo_count), countText, text, label, sz.medium, sz.label)
-                                Spacer(modifier = GlanceModifier.width(10.dp))
-                                Cell(unit, speedText, if (d.tracked) stateColor else neutral, label, sz.medium, sz.label)
-                                Spacer(modifier = GlanceModifier.width(10.dp))
-                                Cell(radarExtension.getString(R.string.combo_dist), distText, if (d.tracked) stateColor else neutral, label, sz.medium, sz.label)
+                        full -> Column(
+                            modifier = GlanceModifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            // Big count; speed and distance share the second row
+                            val big = sz.valueFor(3)
+                            val med = (big * 0.6f).toInt().coerceAtLeast(Sizes.MIN_STACKED)
+                            Cell(countLabel, countText, text, label, big, sz.label)
+                            Spacer(modifier = GlanceModifier.height(2.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Cell(radarExtension.getString(R.string.widget_approach_label, unit), speedText, liveColor, label, med, sz.label)
+                                Spacer(modifier = GlanceModifier.width(20.dp))
+                                Cell(radarExtension.getString(R.string.widget_distance_label), distText, liveColor, label, med, sz.label)
                             }
+                            Spacer(modifier = GlanceModifier.height(2.dp))
+                            LabelText(text = lapPrefix + statusLine, color = label, fontSize = sz.label)
                         }
-                        !sz.tall -> {
-                            // Half height: count left, speed + distance stacked right
-                            Row(
-                                modifier = GlanceModifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Cell(radarExtension.getString(R.string.widget_count_label), countText, text, label, sz.value, sz.label)
-                                Spacer(modifier = GlanceModifier.width(14.dp))
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Cell(radarExtension.getString(R.string.widget_approach_label, unit), speedText, if (d.tracked) stateColor else neutral, label, sz.medium, sz.label)
-                                    Spacer(modifier = GlanceModifier.height(2.dp))
-                                    Cell(radarExtension.getString(R.string.widget_distance_label), distText, if (d.tracked) stateColor else neutral, label, sz.medium, sz.label)
-                                }
-                            }
+                        labelled && !sz.narrow -> Row(
+                            modifier = GlanceModifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            val v = sz.valueFor(1)
+                            Cell(countLabel, countText, text, label, v, sz.label)
+                            Spacer(modifier = GlanceModifier.width(12.dp))
+                            Cell(speedLabel, speedText, liveColor, label, v, sz.label)
+                            Spacer(modifier = GlanceModifier.width(12.dp))
+                            Cell(distLabel, distText, liveColor, label, v, sz.label)
                         }
-                        else -> {
-                            // Full height: everything
-                            Column(
-                                modifier = GlanceModifier.fillMaxWidth(),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Cell(radarExtension.getString(R.string.widget_count_label), countText, text, label, sz.value, sz.label)
-                                Spacer(modifier = GlanceModifier.height(4.dp))
+                        labelled -> {
+                            // Narrow: count and speed side by side; distance below if it fits
+                            val withFooter = sz.valueFor(2) >= Sizes.MIN_STACKED
+                            val v = if (withFooter) sz.valueFor(2) else sz.valueFor(1)
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Cell(radarExtension.getString(R.string.widget_approach_label, unit), speedText, if (d.tracked) stateColor else neutral, label, sz.medium, sz.label)
-                                    Spacer(modifier = GlanceModifier.width(16.dp))
-                                    Cell(radarExtension.getString(R.string.widget_distance_label), distText, if (d.tracked) stateColor else neutral, label, sz.medium, sz.label)
+                                    Cell(countLabel, countText, text, label, v, sz.label)
+                                    Spacer(modifier = GlanceModifier.width(10.dp))
+                                    Cell(speedLabel, speedText, liveColor, label, v, sz.label)
                                 }
-                                Spacer(modifier = GlanceModifier.height(4.dp))
-                                val footer = when {
-                                    d.tracked -> radarExtension.getString(R.string.widget_absolute_label, d.absolute, unit) +
-                                        "  ·  " + radarExtension.resources.getQuantityString(R.plurals.widget_vehicles_behind, d.behind, d.behind)
-                                    input.state is WidgetState.Clear -> radarExtension.getString(R.string.widget_road_clear)
-                                    else -> radarExtension.getString(R.string.widget_no_radar)
+                                if (withFooter) {
+                                    LabelText(text = "$distLabel $distText", color = label, fontSize = sz.label)
                                 }
-                                val lapText = if (input.settings.showLapCount) {
-                                    radarExtension.getString(R.string.widget_lap_label, input.lapPassCount) + "  ·  "
-                                } else {
-                                    ""
-                                }
-                                LabelText(text = lapText + footer, color = label, fontSize = sz.label)
                             }
+                        }
+                        else -> Row(verticalAlignment = Alignment.CenterVertically) {
+                            val v = sz.inline
+                            ValueText(text = countText, color = text, fontSize = v)
+                            LabelText(text = " · ", color = label, fontSize = sz.label)
+                            ValueText(text = "$speedText $unit", color = liveColor, fontSize = v)
+                            LabelText(text = " · ", color = label, fontSize = sz.label)
+                            ValueText(text = distText, color = liveColor, fontSize = v)
                         }
                     }
                 }

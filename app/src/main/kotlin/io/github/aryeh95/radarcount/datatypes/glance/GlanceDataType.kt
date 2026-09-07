@@ -73,6 +73,10 @@ abstract class GlanceDataType(
 
     private val glance = GlanceRemoteViews()
 
+    /** Screen density, captured from the first view so sizes can be computed in dp. */
+    @Volatile
+    protected var density: Float = 1f
+
     @Composable
     protected abstract fun Content(input: RenderInput, config: ViewConfig)
 
@@ -107,8 +111,9 @@ abstract class GlanceDataType(
 
     override fun startView(context: Context, config: ViewConfig, emitter: ViewEmitter) {
         emitter.onNext(UpdateGraphicConfig(showHeader = false))
+        density = context.resources.displayMetrics.density
 
-        android.util.Log.d(TAG, "[$dataTypeId] Starting view: grid=${config.gridSize}, size=${config.viewSize}, preview=${config.preview}")
+        android.util.Log.d(TAG, "[$dataTypeId] Starting view: grid=${config.gridSize}, size=${config.viewSize}, text=${config.textSize}, density=$density, preview=${config.preview}")
 
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 

@@ -19,6 +19,7 @@
     <string name="widget_count_label">PASSED</string>
     <string name="widget_lap_label">Lap %d</string>
     <string name="widget_approach_label">APPROACH %s</string>
+    <string name="widget_approach_short">APPR %s</string>
     <string name="widget_absolute_label">Abs %1$d %2$s</string>
     <string name="widget_no_vehicle">No vehicle</string>
     <string name="widget_distance_label">CLOSEST</string>
