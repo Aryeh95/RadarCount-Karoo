@@ -63,6 +63,8 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
         private const val MBT_SPEED_MAX = 254.0
         /** Range written on the record where a pass is counted (car alongside) */
         private const val MBT_PASS_RANGE_M = 3.0
+        /** mybiketraffic.com counts a run as a car only if its last range is under this */
+        private const val MBT_PASS_CLOSE_M = 10.0
 
         private const val FIT_WRITE_INTERVAL_MS = 1000L
 
@@ -329,6 +331,10 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
             var lastSessionTotal = -1
             var lastRecordTotal = -1
             var passSignatureLeft = 0
+            // Last two radar_ranges values written, to tell whether the
+            // current car's run already ended the way the site expects.
+            var lastWrittenRange = -1.0
+            var prevWrittenRange = -1.0
             var lastSpeedMps = 0.0
             var lastPassingSpeed = 0
             var lastPassingSpeedAbs = 0
@@ -352,8 +358,14 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
                     // next car by the time the pass is counted, so on a pass we
                     // write one record at 3 m (car alongside) and then one
                     // record at 0 before resuming the live nearest range.
+                    //
+                    // Skip that when the run already ended on its own with a
+                    // value under 10 m followed by 0: the site counts that run
+                    // as the car, and an extra marker would count it twice.
                     if (passTotal > lastRecordTotal && lastRecordTotal >= 0) {
-                        passSignatureLeft = 2
+                        val runAlreadyClosed = lastWrittenRange == 0.0 &&
+                            prevWrittenRange > 0.0 && prevWrittenRange < MBT_PASS_CLOSE_M
+                        if (!runAlreadyClosed) passSignatureLeft = 2
                     }
                     lastRecordTotal = passTotal
                     val signature = passSignatureLeft
@@ -394,6 +406,9 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
                             lastPassingSpeedAbs = passingSpeedAbs
                         }
 
+                        prevWrittenRange = lastWrittenRange
+                        lastWrittenRange = rangeValue
+
                         values.add(FieldValue(mbtRangesField, rangeValue))
                         values.add(FieldValue(mbtSpeedsField, speedValue))
                         values.add(FieldValue(mbtPassingSpeedField, psValue.toDouble().coerceAtMost(MBT_SPEED_MAX)))
@@ -409,6 +424,8 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
                             }
                         }
                     } else {
+                        prevWrittenRange = -1.0
+                        lastWrittenRange = -1.0
                         values.add(FieldValue(mbtRangesField, MBT_RANGE_RADAR_OFF))
                         values.add(FieldValue(mbtSpeedsField, MBT_SPEED_RADAR_OFF))
                         values.add(FieldValue(mbtPassingSpeedField, 0.0))
