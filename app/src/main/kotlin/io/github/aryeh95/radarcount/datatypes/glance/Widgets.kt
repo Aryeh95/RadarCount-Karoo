@@ -31,16 +31,25 @@ class Sizes(config: ViewConfig, density: Float) {
     val heightDp: Float = config.viewSize.second / density
 
     /**
-     * The Karoo's numeric size is meant for the whole cell; its header
-     * takes roughly the top third, so the value gets ~70% of that.
+     * Space left under the Karoo's header, in dp. The header is about
+     * 34 dp tall; the cell has a few dp of padding.
      */
-    val value: Int = (config.textSize * 0.7f).toInt().coerceIn(16, 60)
+    val availDp: Float = (heightDp - 40f).coerceAtLeast(24f)
 
-    /** Small text for a second line under the value */
-    val small: Int = (value * 0.4f).toInt().coerceIn(11, 16)
+    /** Small text for captions and second lines */
+    val small: Int = (availDp * 0.22f).toInt().coerceIn(10, 16)
 
-    /** Room for a second line under the value (only in tall cells) */
-    val hasFooter: Boolean = heightDp >= 130
+    /**
+     * Value font: no more than the Karoo's own numeric size for the cell,
+     * and no taller than the space left (Glance text needs ~1.3x its size).
+     */
+    val value: Int = minOf(config.textSize.toFloat(), availDp / 1.3f).toInt().coerceIn(14, 64)
+
+    /** Room for a second line under the value? */
+    val hasFooter: Boolean = availDp >= value * 1.3f + small * 1.3f + 4
+
+    /** Font for a value when it must share the height with a caption */
+    val valueWithCaption: Int = minOf(config.textSize.toFloat(), (availDp - small * 1.3f - 2) / 1.3f).toInt().coerceIn(14, 64)
 
     val narrow: Boolean = widthDp < 200
     val wide: Boolean = widthDp >= 300
@@ -193,15 +202,18 @@ class ComboGlanceDataType(
         val speedText = if (d.tracked) "${d.relative}" else "--"
         val distText = d.distance ?: "--"
 
-        val countCap = radarExtension.getString(R.string.widget_count_label)
+        val countCap = radarExtension.getString(R.string.combo_count)
         val speedCap = d.unit
         val distCap = radarExtension.getString(R.string.combo_dist)
 
         // Three values across share the width; shrink from the Karoo size
         // so "148ft" style values fit in a half-width cell.
-        val across = if (sz.narrow) (sz.value * 0.7f).toInt() else sz.value
-        val v = across.coerceAtLeast(16)
-        val full = sz.wide && sz.heightDp >= 170
+        // Captions only if they leave a readable value; otherwise bare values
+        val captions = sz.valueWithCaption >= 18
+        val vBase = if (captions) sz.valueWithCaption else sz.value
+        // Three values share the width: shrink in narrow cells so "148ft" fits
+        val v = (if (sz.narrow) vBase * 0.75f else vBase.toFloat()).toInt().coerceAtLeast(14)
+        val full = sz.wide && sz.availDp >= 130
 
         DataFieldContainer {
             Box(
@@ -230,7 +242,6 @@ class ComboGlanceDataType(
                         LabelText(text = lap + status, color = label, fontSize = sz.small)
                     }
                 } else {
-                    val captions = sz.heightDp >= 80
                     Row(
                         modifier = GlanceModifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
