@@ -110,7 +110,7 @@ abstract class GlanceDataType(
     }
 
     override fun startView(context: Context, config: ViewConfig, emitter: ViewEmitter) {
-        emitter.onNext(UpdateGraphicConfig(showHeader = false))
+        emitter.onNext(UpdateGraphicConfig(showHeader = true))
         density = context.resources.displayMetrics.density
 
         android.util.Log.d(TAG, "[$dataTypeId] Starting view: grid=${config.gridSize}, size=${config.viewSize}, text=${config.textSize}, density=$density, preview=${config.preview}")
