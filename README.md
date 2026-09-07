@@ -18,10 +18,10 @@ Add any of these to a ride page from the Karoo's data field picker under **Radar
 
 | Data Field | Shows |
 |------------|-------|
-| **Radar Combo** | Pass count, approach speed and closest distance in one field. The layout adapts to the field size: one row when small, count beside speed and distance at half height, everything including lap and status at full height |
-| **Vehicle Count** | Vehicles that have passed you this ride, with the current lap count underneath |
-| **Approach Speed** | Relative speed of the nearest vehicle, with its absolute speed (relative + your speed) underneath |
-| **Closest Vehicle** | Distance to the nearest vehicle, with how many vehicles are behind you |
+| **Radar** | Pass count, approach speed and closest distance in one field. The layout adapts to the field size: one row when small, count beside speed and distance at half height, everything including lap and status at full height |
+| **Passed** | Vehicles that have passed you this ride, with the current lap count underneath |
+| **Approach** | Relative speed of the nearest vehicle, with its absolute speed (relative + your speed) underneath |
+| **Closest** | Distance to the nearest vehicle, with how many vehicles are behind you |
 
 Fields use the Karoo's standard header (icon and name at the top) and draw no
 background of their own, so they look like the built-in fields in both the
