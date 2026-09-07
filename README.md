@@ -93,6 +93,22 @@ Download the APK from [Releases](../../releases) and install with
 `adb install radarcount-karoo.apk`, or share it to the Hammerhead companion
 app. Works on Karoo 2 and Karoo 3 with any ANT+ radar the Karoo pairs with.
 
+The Karoo shows a "not verified by Hammerhead" warning for every sideloaded
+extension; that is expected. Updates install over the previous version and
+keep your settings and field placements.
+
+## Privacy
+
+RadarCount has no network access and no accounts. It reads radar, speed and
+ride state from the Karoo and writes radar fields into the ride's FIT file on
+the device. Nothing leaves the Karoo unless you upload the ride yourself.
+
+## Feedback
+
+Bugs, ideas and ride files that counted wrong are welcome as
+[issues](../../issues). A FIT file from the ride plus what you saw on the road
+is the most useful report.
+
 ## Release signing
 
 Releases built by GitHub Actions are signed with a permanent keystore held in
@@ -118,6 +134,10 @@ Then:
 ./gradlew testDebugUnitTest assembleRelease
 ```
 
-## License
+## Credits and license
 
-MIT, same as eiRadar. See [LICENSE](LICENSE).
+Built on the radar and Karoo plumbing of [eiRadar](https://github.com/yrkan/eiradar)
+by yrkan, and on the FIT field layout of [My Bike Radar Traffic](https://github.com/kartoone/mybiketraffic)
+by Brian Toone. Not affiliated with Hammerhead or mybiketraffic.com.
+
+MIT license, see [LICENSE](LICENSE).
