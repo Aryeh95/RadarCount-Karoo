@@ -36,6 +36,7 @@ Open the RadarCount app on the Karoo and tap Settings.
 |---------|---------|
 | Units | Karoo profile (default), Metric, Imperial |
 | Field colours | Match device (default), Light, Dark |
+| Vehicle speed shown | Relative to you (default), or Absolute (relative plus your own speed). Applies to the Vehicle Speed field and the Radar combo; the other value shows on the small line where there is room. |
 | Count sensitivity | Strict (12 m / 40 m), Normal (20 m / 60 m), Relaxed (30 m / 90 m). The first number is how close a car must come to count outright; the second is how close a car that was still closing in may drop off the radar and still count. |
 | Reset count when a ride starts | On by default. Off keeps a running total across rides; use Reset count on the status screen to clear it. |
 | Reset lap count on each lap | On by default |

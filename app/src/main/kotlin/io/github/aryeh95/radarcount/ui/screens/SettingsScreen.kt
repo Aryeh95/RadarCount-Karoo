@@ -30,6 +30,7 @@ import io.github.aryeh95.radarcount.R
 import io.github.aryeh95.radarcount.data.SensitivitySetting
 import io.github.aryeh95.radarcount.data.Settings
 import io.github.aryeh95.radarcount.data.SettingsRepository
+import io.github.aryeh95.radarcount.data.SpeedSetting
 import io.github.aryeh95.radarcount.data.ThemeSetting
 import io.github.aryeh95.radarcount.data.UnitsSetting
 import io.github.aryeh95.radarcount.ui.theme.RadarColors
@@ -83,6 +84,20 @@ fun SettingsScreen(repository: SettingsRepository, onBack: () -> Unit) {
                 ThemeSetting.DARK -> stringResource(R.string.settings_theme_dark)
             },
             onClick = { save(settings.copy(theme = next(settings.theme))) }
+        )
+        CycleRow(
+            title = stringResource(R.string.settings_speed),
+            value = when (settings.speed) {
+                SpeedSetting.RELATIVE -> stringResource(R.string.settings_speed_relative)
+                SpeedSetting.ABSOLUTE -> stringResource(R.string.settings_speed_absolute)
+            },
+            onClick = { save(settings.copy(speed = next(settings.speed))) }
+        )
+        Text(
+            text = stringResource(R.string.settings_speed_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = RadarColors.textSecondary,
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
         )
         CycleRow(
             title = stringResource(R.string.settings_sensitivity),

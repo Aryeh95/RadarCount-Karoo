@@ -15,6 +15,7 @@ import androidx.glance.layout.width
 import androidx.glance.unit.ColorProvider
 import io.github.aryeh95.radarcount.R
 import io.github.aryeh95.radarcount.RadarCountExtension
+import io.github.aryeh95.radarcount.data.SpeedSetting
 import io.github.aryeh95.radarcount.data.models.WidgetState
 import io.github.aryeh95.radarcount.engine.Units
 import io.hammerhead.karooext.models.ViewConfig
@@ -32,24 +33,24 @@ class Sizes(config: ViewConfig, density: Float) {
 
     /**
      * Space left under the Karoo's header, in dp. The header is about
-     * 34 dp tall; the cell has a few dp of padding.
+     * 30 dp tall.
      */
-    val availDp: Float = (heightDp - 40f).coerceAtLeast(24f)
+    val availDp: Float = (heightDp - 30f).coerceAtLeast(24f)
 
     /** Small text for captions and second lines */
     val small: Int = (availDp * 0.22f).toInt().coerceIn(9, 16)
 
     /**
-     * Value font: no more than the Karoo's own numeric size for the cell,
-     * and no taller than the space left (Glance text needs ~1.3x its size).
+     * Value font: the Karoo's own numeric size for this cell, which is
+     * what the built-in fields use under the same header.
      */
-    val value: Int = minOf(config.textSize.toFloat(), availDp / 1.3f).toInt().coerceIn(14, 64)
+    val value: Int = config.textSize.coerceIn(14, 80)
 
     /** Room for a second line under the value? */
-    val hasFooter: Boolean = availDp >= value * 1.3f + small * 1.3f + 4
+    val hasFooter: Boolean = availDp >= value * 1.15f + small * 1.3f + 4
 
     /** Font for a value when it must share the height with a caption */
-    val valueWithCaption: Int = minOf(config.textSize.toFloat(), (availDp - small * 1.3f - 2) / 1.3f).toInt().coerceIn(12, 64)
+    val valueWithCaption: Int = minOf(config.textSize.toFloat(), (availDp - small * 1.3f - 2) / 1.15f).toInt().coerceIn(12, 80)
 
     val narrow: Boolean = widthDp < 200
     val wide: Boolean = widthDp >= 300
@@ -61,7 +62,10 @@ private data class Derived(
     val absolute: Int,
     val unit: String,
     val distance: String?,
-    val behind: Int
+    val behind: Int,
+    /** Speed selected in settings for the main value */
+    val shownSpeed: Int,
+    val showsAbsolute: Boolean
 )
 
 private fun derive(input: GlanceDataType.RenderInput): Derived {
@@ -78,7 +82,12 @@ private fun derive(input: GlanceDataType.RenderInput): Derived {
     } else {
         null
     }
-    return Derived(tracked, relative, absolute, Units.speedUnitLabel(input.useImperial), distance, threat?.vehicleCount ?: 0)
+    val showsAbsolute = input.settings.speed == SpeedSetting.ABSOLUTE
+    return Derived(
+        tracked, relative, absolute, Units.speedUnitLabel(input.useImperial), distance, threat?.vehicleCount ?: 0,
+        shownSpeed = if (showsAbsolute) absolute else relative,
+        showsAbsolute = showsAbsolute
+    )
 }
 
 /** Standard field body: big value, optional small line beneath. */
@@ -144,12 +153,12 @@ class ApproachSpeedGlanceDataType(
         ValueBody(
             input = input,
             sz = Sizes(config, density),
-            value = if (d.tracked) d.relative.toString() else "--",
+            value = if (d.tracked) d.shownSpeed.toString() else "--",
             valueColor = if (d.tracked) ColorProvider(GlanceColors.forState(input.state)) else ColorProvider(GlanceColors.Neutral),
-            footer = if (d.tracked) {
-                radarExtension.getString(R.string.widget_absolute_label, d.absolute, d.unit)
-            } else {
-                d.unit
+            footer = when {
+                !d.tracked -> d.unit
+                d.showsAbsolute -> radarExtension.getString(R.string.widget_relative_label, d.relative, d.unit)
+                else -> radarExtension.getString(R.string.widget_absolute_label, d.absolute, d.unit)
             }
         )
     }
@@ -199,7 +208,7 @@ class ComboGlanceDataType(
         val liveColor = if (d.tracked) ColorProvider(GlanceColors.forState(input.state)) else ColorProvider(GlanceColors.Neutral)
 
         val countText = if (input.connected) input.passCount.toString() else "--"
-        val speedText = if (d.tracked) "${d.relative}" else "--"
+        val speedText = if (d.tracked) "${d.shownSpeed}" else "--"
         val distText = d.distance ?: "--"
 
         val countCap = radarExtension.getString(R.string.combo_count)
@@ -228,8 +237,13 @@ class ComboGlanceDataType(
                             Spacer(modifier = GlanceModifier.width(20.dp))
                             Cell(radarExtension.getString(R.string.widget_distance_label), distText, liveColor, label, v, sz.small)
                         }
+                        val otherSpeed = if (d.showsAbsolute) {
+                            radarExtension.getString(R.string.widget_relative_label, d.relative, d.unit)
+                        } else {
+                            radarExtension.getString(R.string.widget_absolute_label, d.absolute, d.unit)
+                        }
                         val status = when {
-                            d.tracked -> radarExtension.getString(R.string.widget_absolute_label, d.absolute, d.unit) +
+                            d.tracked -> otherSpeed +
                                 "  ·  " + radarExtension.resources.getQuantityString(R.plurals.widget_vehicles_behind, d.behind, d.behind)
                             input.state is WidgetState.Clear -> radarExtension.getString(R.string.widget_road_clear)
                             else -> radarExtension.getString(R.string.widget_no_radar)

@@ -48,6 +48,11 @@
     <string name="settings_theme_auto">Match device</string>
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_dark">Dark</string>
+    <string name="settings_speed">Vehicle speed shown</string>
+    <string name="settings_speed_relative">Relative to you</string>
+    <string name="settings_speed_absolute">Absolute</string>
+    <string name="settings_speed_hint">Relative is how fast the vehicle is closing on you. Absolute adds your own speed, giving its road speed.</string>
+    <string name="widget_relative_label">Rel %1$d %2$s</string>
     <string name="settings_sensitivity">Count sensitivity</string>
     <string name="settings_sensitivity_strict">Strict</string>
     <string name="settings_sensitivity_normal">Normal</string>

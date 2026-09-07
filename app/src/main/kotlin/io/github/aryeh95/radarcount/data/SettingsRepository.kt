@@ -37,6 +37,7 @@ class SettingsRepository private constructor(private val context: Context) {
         private val KEY_UNITS = stringPreferencesKey("units")
         private val KEY_THEME = stringPreferencesKey("theme")
         private val KEY_SENSITIVITY = stringPreferencesKey("sensitivity")
+        private val KEY_SPEED = stringPreferencesKey("speed")
         private val KEY_RESET_ON_RIDE_START = booleanPreferencesKey("reset_on_ride_start")
         private val KEY_RESET_LAP_ON_LAP = booleanPreferencesKey("reset_lap_on_lap")
         private val KEY_SHOW_LAP_COUNT = booleanPreferencesKey("show_lap_count")
@@ -50,6 +51,7 @@ class SettingsRepository private constructor(private val context: Context) {
                 units = parseEnum(p[KEY_UNITS], UnitsSetting.AUTO),
                 theme = parseEnum(p[KEY_THEME], ThemeSetting.AUTO),
                 sensitivity = parseEnum(p[KEY_SENSITIVITY], SensitivitySetting.NORMAL),
+                speed = parseEnum(p[KEY_SPEED], SpeedSetting.RELATIVE),
                 resetOnRideStart = p[KEY_RESET_ON_RIDE_START] ?: true,
                 resetLapOnLap = p[KEY_RESET_LAP_ON_LAP] ?: true,
                 showLapCount = p[KEY_SHOW_LAP_COUNT] ?: true
@@ -63,6 +65,7 @@ class SettingsRepository private constructor(private val context: Context) {
             p[KEY_UNITS] = settings.units.name
             p[KEY_THEME] = settings.theme.name
             p[KEY_SENSITIVITY] = settings.sensitivity.name
+            p[KEY_SPEED] = settings.speed.name
             p[KEY_RESET_ON_RIDE_START] = settings.resetOnRideStart
             p[KEY_RESET_LAP_ON_LAP] = settings.resetLapOnLap
             p[KEY_SHOW_LAP_COUNT] = settings.showLapCount
