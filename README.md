@@ -23,9 +23,10 @@ Add any of these to a ride page from the Karoo's data field picker under **Radar
 | **Approach Speed** | Relative speed of the nearest vehicle, with its absolute speed (relative + your speed) underneath |
 | **Closest Vehicle** | Distance to the nearest vehicle, with how many vehicles are behind you |
 
-Fields draw no background of their own, so they match the Karoo's light or dark
-theme like the built-in fields. Text colour follows the device theme
-automatically and can be forced in settings.
+Fields use the Karoo's standard header (icon and name at the top) and draw no
+background of their own, so they look like the built-in fields in both the
+light and dark theme. Text colour follows the device theme automatically and
+can be forced in settings.
 
 ## Settings
 
