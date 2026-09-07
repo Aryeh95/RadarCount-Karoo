@@ -4,13 +4,13 @@
     <string name="extension_name">RadarCount</string>
 
     <!-- Data types -->
-    <string name="datatype_count">Vehicle Count</string>
+    <string name="datatype_count">Passed</string>
     <string name="datatype_count_desc">Vehicles passed this ride and lap</string>
-    <string name="datatype_speed">Approach Speed</string>
+    <string name="datatype_speed">Approach</string>
     <string name="datatype_speed_desc">Relative and absolute speed of nearest vehicle</string>
-    <string name="datatype_distance">Closest Vehicle</string>
+    <string name="datatype_distance">Closest</string>
     <string name="datatype_distance_desc">Distance to nearest vehicle</string>
-    <string name="datatype_combo">Radar Combo</string>
+    <string name="datatype_combo">Radar</string>
     <string name="datatype_combo_desc">Count, approach speed and distance in one field</string>
     <string name="combo_count">COUNT</string>
     <string name="combo_dist">DIST</string>
@@ -36,7 +36,7 @@
     <string name="dashboard_searching">Searching…</string>
     <string name="dashboard_clear">Clear</string>
     <string name="dashboard_connection_lost">Radar lost</string>
-    <string name="dashboard_hint">Add the Radar Combo, Vehicle Count, Approach Speed or Closest Vehicle data fields to a ride page. Rides record FIT fields compatible with mybiketraffic.com automatically.</string>
+    <string name="dashboard_hint">Add the Radar, Passed, Approach or Closest data fields to a ride page. Rides record FIT fields compatible with mybiketraffic.com automatically.</string>
     <string name="dashboard_reset_count">Reset count</string>
     <string name="settings_title">Settings</string>
     <string name="settings_units">Units</string>

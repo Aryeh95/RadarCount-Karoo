@@ -30,14 +30,17 @@ class Sizes(config: ViewConfig, density: Float) {
     val widthDp: Float = config.viewSize.first / density
     val heightDp: Float = config.viewSize.second / density
 
-    /** The Karoo's own numeric size for this cell is the ceiling */
-    val value: Int = config.textSize.coerceIn(16, 80)
+    /**
+     * The Karoo's numeric size is meant for the whole cell; its header
+     * takes roughly the top third, so the value gets ~70% of that.
+     */
+    val value: Int = (config.textSize * 0.7f).toInt().coerceIn(16, 60)
 
     /** Small text for a second line under the value */
-    val small: Int = (value * 0.36f).toInt().coerceIn(11, 18)
+    val small: Int = (value * 0.4f).toInt().coerceIn(11, 16)
 
-    /** Room for a second line under the value? */
-    val hasFooter: Boolean = heightDp >= value * 1.25f + small * 1.25f + 8
+    /** Room for a second line under the value (only in tall cells) */
+    val hasFooter: Boolean = heightDp >= 130
 
     val narrow: Boolean = widthDp < 200
     val wide: Boolean = widthDp >= 300
@@ -81,8 +84,8 @@ private fun ValueBody(
     val labelColor = GlanceColors.label(input.settings.theme)
     DataFieldContainer {
         Box(
-            modifier = GlanceModifier.fillMaxSize().padding(horizontal = 4.dp, vertical = 2.dp),
-            contentAlignment = Alignment.BottomCenter
+            modifier = GlanceModifier.fillMaxSize().padding(horizontal = 4.dp),
+            contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 ValueText(text = value, color = valueColor, fontSize = sz.value)
@@ -196,14 +199,14 @@ class ComboGlanceDataType(
 
         // Three values across share the width; shrink from the Karoo size
         // so "148ft" style values fit in a half-width cell.
-        val across = if (sz.narrow) (sz.value * 0.6f).toInt() else (sz.value * 0.8f).toInt()
+        val across = if (sz.narrow) (sz.value * 0.7f).toInt() else sz.value
         val v = across.coerceAtLeast(16)
-        val full = sz.wide && sz.heightDp >= sz.value * 1.25f + v * 1.25f + sz.small * 2.5f + 12
+        val full = sz.wide && sz.heightDp >= 170
 
         DataFieldContainer {
             Box(
-                modifier = GlanceModifier.fillMaxSize().padding(horizontal = 4.dp, vertical = 2.dp),
-                contentAlignment = Alignment.BottomCenter
+                modifier = GlanceModifier.fillMaxSize().padding(horizontal = 4.dp),
+                contentAlignment = Alignment.Center
             ) {
                 if (full) {
                     Column(modifier = GlanceModifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -227,10 +230,10 @@ class ComboGlanceDataType(
                         LabelText(text = lap + status, color = label, fontSize = sz.small)
                     }
                 } else {
-                    val captions = sz.heightDp >= v * 1.25f + sz.small * 1.25f + 6
+                    val captions = sz.heightDp >= 80
                     Row(
                         modifier = GlanceModifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.Bottom,
+                        verticalAlignment = Alignment.CenterVertically,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Cell(if (captions) countCap else null, countText, text, label, v, sz.small)
