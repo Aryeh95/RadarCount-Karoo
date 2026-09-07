@@ -91,7 +91,7 @@ from consecutive range samples. Treat them as ballpark figures.
 ## Install
 
 Download the APK from [Releases](../../releases) and install with
-`adb install radarcount-karoo.apk`, or share it to the Hammerhead companion
+`adb install radarcount-karoo-<version>.apk`, or share it to the Hammerhead companion
 app. Works on Karoo 2 and Karoo 3 with any ANT+ radar the Karoo pairs with.
 
 The Karoo shows a "not verified by Hammerhead" warning for every sideloaded
