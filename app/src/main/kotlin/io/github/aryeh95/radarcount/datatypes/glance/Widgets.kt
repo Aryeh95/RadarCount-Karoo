@@ -10,7 +10,6 @@ import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
-import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.width
 import androidx.glance.unit.ColorProvider
@@ -32,31 +31,27 @@ class Sizes(config: ViewConfig, density: Float) {
     val widthDp: Float = config.viewSize.first / density
     val heightDp: Float = config.viewSize.second / density
 
-    /**
-     * Space left under the Karoo's header, in dp. The Karoo places the
-     * custom view below its header but still hands it the full cell
-     * height, so anything centred in the full height is clipped. Layouts
-     * anchor at the top and size themselves to this instead.
-     */
-    val availDp: Float = (heightDp - 36f).coerceAtLeast(24f)
+    /** The Karoo's numeric size for this cell, as the built-in fields use it */
+    val value: Int = (config.textSize * 0.97f).toInt().coerceIn(14, 90)
 
     /** Small text for captions and second lines */
-    val small: Int = (availDp * 0.22f).toInt().coerceIn(9, 16)
+    val small: Int = (value * 0.3f).toInt().coerceIn(10, 16)
 
-    /**
-     * Value font: the Karoo's own numeric size for this cell, which is
-     * what the built-in fields use under the same header.
-     */
-    val value: Int = minOf(config.textSize.toFloat(), availDp / 1.15f).toInt().coerceIn(14, 80)
+    /** A second line under the value only in tall cells */
+    val hasFooter: Boolean = heightDp >= 150
 
-    /** Room for a second line under the value? */
-    val hasFooter: Boolean = availDp >= value * 1.15f + small * 1.3f + 4
-
-    /** Font for a value when it must share the height with a caption */
-    val valueWithCaption: Int = minOf(config.textSize.toFloat(), (availDp - small * 1.3f - 2) / 1.15f).toInt().coerceIn(12, 80)
+    /** Value size when sharing the cell with a caption row */
+    val valueWithCaption: Int = (value * 0.7f).toInt().coerceAtLeast(14)
 
     val narrow: Boolean = widthDp < 200
     val wide: Boolean = widthDp >= 300
+
+    /** Horizontal alignment the rider configured for this field */
+    val horizontal: Alignment.Horizontal = when (config.alignment) {
+        ViewConfig.Alignment.LEFT -> Alignment.Horizontal.Start
+        ViewConfig.Alignment.CENTER -> Alignment.Horizontal.CenterHorizontally
+        ViewConfig.Alignment.RIGHT -> Alignment.Horizontal.End
+    }
 }
 
 private data class Derived(
@@ -103,16 +98,14 @@ private fun ValueBody(
     footer: String?
 ) {
     val labelColor = GlanceColors.label(input.settings.theme)
-    DataFieldContainer {
-        Box(
-            modifier = GlanceModifier.fillMaxWidth().height(sz.availDp.dp).padding(horizontal = 4.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                ValueText(text = value, color = valueColor, fontSize = sz.value)
-                if (footer != null && sz.hasFooter) {
-                    LabelText(text = footer, color = labelColor, fontSize = sz.small)
-                }
+    Box(
+        modifier = GlanceModifier.fillMaxSize().padding(start = 5.dp, end = 5.dp),
+        contentAlignment = Alignment(vertical = Alignment.Vertical.CenterVertically, horizontal = sz.horizontal)
+    ) {
+        Column(horizontalAlignment = sz.horizontal) {
+            ValueText(text = value, color = valueColor, fontSize = sz.value)
+            if (footer != null && sz.hasFooter) {
+                LabelText(text = footer, color = labelColor, fontSize = sz.small)
             }
         }
     }
@@ -225,11 +218,11 @@ class ComboGlanceDataType(
         val vBase = sz.valueWithCaption
         // Three values share the width: shrink in narrow cells so "148ft" fits
         val v = (if (sz.narrow) vBase * 0.75f else vBase.toFloat()).toInt().coerceAtLeast(12)
-        val full = sz.wide && sz.availDp >= 130
+        val full = sz.wide && sz.heightDp >= 200
 
-        DataFieldContainer {
+        run {
             Box(
-                modifier = GlanceModifier.fillMaxWidth().height(sz.availDp.dp).padding(horizontal = 4.dp),
+                modifier = GlanceModifier.fillMaxSize().padding(start = 5.dp, end = 5.dp),
                 contentAlignment = Alignment.Center
             ) {
                 if (full) {
