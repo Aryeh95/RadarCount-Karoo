@@ -14,6 +14,7 @@
     <string name="datatype_combo_desc">Count, approach speed and distance in one field</string>
     <string name="combo_count">COUNT</string>
     <string name="combo_dist">DIST</string>
+    <string name="combo_speed">SPEED</string>
 
     <!-- Widget text -->
     <string name="widget_count_label">PASSED</string>
