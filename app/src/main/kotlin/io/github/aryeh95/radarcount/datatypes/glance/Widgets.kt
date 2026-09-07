@@ -203,7 +203,7 @@ class ComboGlanceDataType(
         val distText = d.distance ?: "--"
 
         val countCap = radarExtension.getString(R.string.combo_count)
-        val speedCap = d.unit
+        val speedCap = radarExtension.getString(R.string.combo_speed)
         val distCap = radarExtension.getString(R.string.combo_dist)
 
         // Three values across share the width; shrink from the Karoo size
