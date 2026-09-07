@@ -10,6 +10,7 @@ import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
+import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.width
 import androidx.glance.unit.ColorProvider
@@ -32,10 +33,12 @@ class Sizes(config: ViewConfig, density: Float) {
     val heightDp: Float = config.viewSize.second / density
 
     /**
-     * Space left under the Karoo's header, in dp. The header is about
-     * 30 dp tall.
+     * Space left under the Karoo's header, in dp. The Karoo places the
+     * custom view below its header but still hands it the full cell
+     * height, so anything centred in the full height is clipped. Layouts
+     * anchor at the top and size themselves to this instead.
      */
-    val availDp: Float = (heightDp - 30f).coerceAtLeast(24f)
+    val availDp: Float = (heightDp - 36f).coerceAtLeast(24f)
 
     /** Small text for captions and second lines */
     val small: Int = (availDp * 0.22f).toInt().coerceIn(9, 16)
@@ -44,7 +47,7 @@ class Sizes(config: ViewConfig, density: Float) {
      * Value font: the Karoo's own numeric size for this cell, which is
      * what the built-in fields use under the same header.
      */
-    val value: Int = config.textSize.coerceIn(14, 80)
+    val value: Int = minOf(config.textSize.toFloat(), availDp / 1.15f).toInt().coerceIn(14, 80)
 
     /** Room for a second line under the value? */
     val hasFooter: Boolean = availDp >= value * 1.15f + small * 1.3f + 4
@@ -102,7 +105,7 @@ private fun ValueBody(
     val labelColor = GlanceColors.label(input.settings.theme)
     DataFieldContainer {
         Box(
-            modifier = GlanceModifier.fillMaxSize().padding(horizontal = 4.dp),
+            modifier = GlanceModifier.fillMaxWidth().height(sz.availDp.dp).padding(horizontal = 4.dp),
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -226,7 +229,7 @@ class ComboGlanceDataType(
 
         DataFieldContainer {
             Box(
-                modifier = GlanceModifier.fillMaxSize().padding(horizontal = 4.dp),
+                modifier = GlanceModifier.fillMaxWidth().height(sz.availDp.dp).padding(horizontal = 4.dp),
                 contentAlignment = Alignment.Center
             ) {
                 if (full) {

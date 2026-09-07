@@ -6,6 +6,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceModifier
 import androidx.glance.color.ColorProvider as DayNightColorProvider
+import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.padding
@@ -67,7 +68,7 @@ fun DataFieldContainer(
     modifier: GlanceModifier = GlanceModifier,
     content: @Composable () -> Unit
 ) {
-    Box(modifier = modifier.fillMaxSize().padding(2.dp)) {
+    Box(modifier = modifier.fillMaxSize().padding(horizontal = 2.dp), contentAlignment = Alignment.TopCenter) {
         content()
     }
 }
