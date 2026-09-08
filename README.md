@@ -18,10 +18,10 @@ Add any of these to a ride page from the Karoo's data field picker under **Radar
 
 | Data Field | Shows |
 |------------|-------|
-| **Radar** | Pass count, vehicle speed and distance side by side in one field, captioned COUNT, SPEED and DIST |
+| **Radar** | Pass count, vehicle speed and distance side by side in one field, captioned COUNT, REL SPEED or ABS SPEED, and DIST |
 | **Vehicles** | Vehicles that have passed you this ride |
 | **Vehicles per Hour** | Pass count divided by recording time (paused time excluded). Shows `--` for the first two minutes of a ride |
-| **Vehicle Speed** | Speed of the nearest vehicle, with its unit (for example `36mph` or `58km/h`) |
+| **Vehicle Speed** | Speed of the nearest vehicle, with its unit (for example `36mph` or `58km/h`) and a RELATIVE or ABSOLUTE tag underneath |
 | **Vehicle Distance** | Distance to the nearest vehicle, with its unit (for example `148ft` or `45m`) |
 
 Fields look like the Karoo's own: the standard header with icon and name at
@@ -44,9 +44,9 @@ Open the RadarCount app on the Karoo and tap Settings.
 | Count sensitivity | Strict, Normal (default) or Relaxed. A car counts once it has come within 12 / 20 / 30 m of you, or if it was still closing in when it dropped off the radar inside 40 / 60 / 90 m. The settings screen spells out the rule for the selected option. |
 | Reset count when a ride starts | On by default. Off keeps a running total across rides; use Reset count on the status screen to clear it. |
 
-The extension is idle at boot. It only opens the radar and speed streams while
-a ride is recording, one of its data fields is on screen, or its status screen
-is open, and closes them again afterwards.
+The extension is idle at boot. It only opens the radar, speed and heading
+streams while a ride is recording, one of its data fields is on screen, or its
+status screen is open, and closes them again afterwards.
 
 Each radar target is tracked individually across packets. A target counts as a
 pass when it drops off the radar after either coming within 20 m, or closing in
@@ -56,10 +56,40 @@ come within 20 m is counted on the first packet it is missing from, since the
 radar cannot see a car alongside you; it lingers as a ghost for two seconds so
 a range that reappears right where it vanished (a radar dropout) re-attaches
 without counting again. A car that vanishes farther out waits the full two
-seconds, because there a dropout and a pass look alike. The ride count resets
-when a ride starts recording, and does not advance while the ride is paused
-(including auto-pause), because nothing is written to the FIT file then and
-the site would never see those cars.
+seconds, because there a dropout and a pass look alike.
+
+Two kinds of target are deliberately not counted:
+
+- **Followers.** A car that sits behind you at your speed disappears from the
+  radar without passing, because the radar only reports targets that are
+  closing. A track has to have looked like a pass at some point: the radar
+  flagged it as approaching fast, it was closing at 2.5 m/s (about 5.5 mph)
+  or more when last seen, or it was seen alongside at 3 m.
+- **Turns.** Using the rider's heading, a car that was behind you before you
+  turned off a road and vanishes as you turn is taken to have gone straight
+  on, and a brief target first seen within 30 m just after a turn is a car
+  crossing the radar cone on the road you left. A car on the new road that
+  appears mid-turn and passes you is counted normally.
+
+The ride count resets when a ride starts recording, and does not advance
+while the ride is paused (including auto-pause), because nothing is written
+to the FIT file then and the site would never see those cars.
+
+### Why the device and mybiketraffic.com can disagree
+
+The site counts cars from the file with the same simple rule the Garmin app
+uses: any run of radar readings that ends under 10 m is a car. RadarCount is
+stricter, so the two can differ by a car or two on a ride:
+
+- A follower that got within 10 m before dropping off is a car to the site
+  but not to RadarCount.
+- Two cars that overlap on the radar share one range in the file; RadarCount
+  writes a marker so the site still sees both, but a car that only ever
+  appeared as the second target can be merged.
+- Cars that pass while the ride is paused are counted by neither.
+
+In side-by-side recordings the device count has matched a head count where
+the Garmin app's did not, so treat the device number as the better one.
 
 ## FIT recording
 
