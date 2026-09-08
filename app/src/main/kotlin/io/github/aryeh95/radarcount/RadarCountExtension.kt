@@ -331,10 +331,12 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
             var lastSessionTotal = -1
             var lastRecordTotal = -1
             var passSignatureLeft = 0
-            // Last two radar_ranges values written, to tell whether the
-            // current car's run already ended the way the site expects.
-            var lastWrittenRange = -1.0
-            var prevWrittenRange = -1.0
+            // How the last run of non-zero radar_ranges values ended, to tell
+            // whether the current car's run already closed the way the site
+            // expects: lastRunEndRange is the final non-zero value written and
+            // runOpen is true until a 0 has been written after it.
+            var lastRunEndRange = -1.0
+            var runOpen = false
             var lastSpeedMps = 0.0
             var lastPassingSpeed = 0
             var lastPassingSpeedAbs = 0
@@ -360,11 +362,13 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
                     // record at 0 before resuming the live nearest range.
                     //
                     // Skip that when the run already ended on its own with a
-                    // value under 10 m followed by 0: the site counts that run
-                    // as the car, and an extra marker would count it twice.
+                    // value under 10 m followed by one or more 0s (the pass is
+                    // usually counted a couple of seconds after the car drops
+                    // off the radar): the site counts that run as the car, and
+                    // an extra marker would count it twice.
                     if (passTotal > lastRecordTotal && lastRecordTotal >= 0) {
-                        val runAlreadyClosed = lastWrittenRange == 0.0 &&
-                            prevWrittenRange > 0.0 && prevWrittenRange < MBT_PASS_CLOSE_M
+                        val runAlreadyClosed = !runOpen &&
+                            lastRunEndRange > 0.0 && lastRunEndRange < MBT_PASS_CLOSE_M
                         if (!runAlreadyClosed) passSignatureLeft = 2
                     }
                     lastRecordTotal = passTotal
@@ -406,8 +410,12 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
                             lastPassingSpeedAbs = passingSpeedAbs
                         }
 
-                        prevWrittenRange = lastWrittenRange
-                        lastWrittenRange = rangeValue
+                        if (rangeValue > 0.0) {
+                            lastRunEndRange = rangeValue
+                            runOpen = true
+                        } else {
+                            runOpen = false
+                        }
 
                         values.add(FieldValue(mbtRangesField, rangeValue))
                         values.add(FieldValue(mbtSpeedsField, speedValue))
@@ -424,8 +432,8 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
                             }
                         }
                     } else {
-                        prevWrittenRange = -1.0
-                        lastWrittenRange = -1.0
+                        lastRunEndRange = -1.0
+                        runOpen = false
                         values.add(FieldValue(mbtRangesField, MBT_RANGE_RADAR_OFF))
                         values.add(FieldValue(mbtSpeedsField, MBT_SPEED_RADAR_OFF))
                         values.add(FieldValue(mbtPassingSpeedField, 0.0))
