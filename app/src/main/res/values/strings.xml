@@ -60,7 +60,6 @@
     <string name="settings_sensitivity_hint">Strict counts only cars that get very close. Relaxed also counts cars that were closing in but dropped off the radar early.</string>
     <string name="settings_reset_on_ride_start">Reset count when a ride starts</string>
     <string name="settings_reset_lap">Reset lap count on each lap</string>
-    <string name="settings_show_lap">Show lap count on fields</string>
     <string name="settings_reset_defaults">Restore defaults</string>
     <string name="settings_back">Back</string>
     <string name="settings_version">Version %s</string>

@@ -40,7 +40,6 @@ class SettingsRepository private constructor(private val context: Context) {
         private val KEY_SPEED = stringPreferencesKey("speed")
         private val KEY_RESET_ON_RIDE_START = booleanPreferencesKey("reset_on_ride_start")
         private val KEY_RESET_LAP_ON_LAP = booleanPreferencesKey("reset_lap_on_lap")
-        private val KEY_SHOW_LAP_COUNT = booleanPreferencesKey("show_lap_count")
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -53,8 +52,7 @@ class SettingsRepository private constructor(private val context: Context) {
                 sensitivity = parseEnum(p[KEY_SENSITIVITY], SensitivitySetting.NORMAL),
                 speed = parseEnum(p[KEY_SPEED], SpeedSetting.RELATIVE),
                 resetOnRideStart = p[KEY_RESET_ON_RIDE_START] ?: true,
-                resetLapOnLap = p[KEY_RESET_LAP_ON_LAP] ?: true,
-                showLapCount = p[KEY_SHOW_LAP_COUNT] ?: true
+                resetLapOnLap = p[KEY_RESET_LAP_ON_LAP] ?: true
             )
         }
         .distinctUntilChanged()
@@ -68,7 +66,6 @@ class SettingsRepository private constructor(private val context: Context) {
             p[KEY_SPEED] = settings.speed.name
             p[KEY_RESET_ON_RIDE_START] = settings.resetOnRideStart
             p[KEY_RESET_LAP_ON_LAP] = settings.resetLapOnLap
-            p[KEY_SHOW_LAP_COUNT] = settings.showLapCount
         }
     }
 

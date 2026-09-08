@@ -121,9 +121,6 @@ fun SettingsScreen(repository: SettingsRepository, onBack: () -> Unit) {
         ToggleRow(stringResource(R.string.settings_reset_lap), settings.resetLapOnLap) {
             save(settings.copy(resetLapOnLap = it))
         }
-        ToggleRow(stringResource(R.string.settings_show_lap), settings.showLapCount) {
-            save(settings.copy(showLapCount = it))
-        }
 
         Spacer(modifier = Modifier.height(12.dp))
         TextButton(onClick = { scope.launch { repository.resetToDefaults() } }) {

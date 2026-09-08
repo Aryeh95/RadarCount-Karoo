@@ -25,7 +25,5 @@ data class Settings(
     /** Reset the ride count when a ride starts recording. */
     val resetOnRideStart: Boolean = true,
     /** Reset the lap count on each Karoo lap. */
-    val resetLapOnLap: Boolean = true,
-    /** Show the lap count line on the Vehicle Count and combo fields. */
-    val showLapCount: Boolean = true
+    val resetLapOnLap: Boolean = true
 )
