@@ -29,8 +29,8 @@ class TargetTracker(
     @Volatile var closingThresholdM: Int = 60,
     private val minSamples: Int = 2,
     private val lostMs: Long = 1_800L,
-    private val minSpeedSpanMs: Long = 1_500L,
-    private val speedWindowMs: Long = 5_000L,
+    private val minSpeedSpanMs: Long = 1_000L,
+    private val speedWindowMs: Long = 3_000L,
     private val maxSpeedMps: Double = 40.0
 ) {
 
@@ -151,12 +151,23 @@ class TargetTracker(
      */
     fun nearestClosingSpeedMps(): Double {
         val t = tracks.minByOrNull { it.range } ?: return 0.0
-        val first = t.history.firstOrNull() ?: return 0.0
-        val last = t.history.lastOrNull() ?: return 0.0
-        val spanMs = last.first - first.first
+        val h = t.history
+        if (h.size < 2) return 0.0
+        val spanMs = h.last().first - h.first().first
         if (spanMs < minSpeedSpanMs) return 0.0
-        val speed = (first.second - last.second) / (spanMs / 1000.0)
-        return speed.coerceIn(0.0, maxSpeedMps)
+        // Least-squares slope of range over time; less sensitive to
+        // per-sample jitter than the first/last endpoints.
+        val t0 = h.first().first
+        val n = h.size
+        var sumT = 0.0; var sumR = 0.0; var sumTT = 0.0; var sumTR = 0.0
+        for ((ts, r) in h) {
+            val x = (ts - t0) / 1000.0
+            sumT += x; sumR += r; sumTT += x * x; sumTR += x * r
+        }
+        val denom = n * sumTT - sumT * sumT
+        if (denom <= 0.0) return 0.0
+        val slope = (n * sumTR - sumT * sumR) / denom
+        return (-slope).coerceIn(0.0, maxSpeedMps)
     }
 
     /**

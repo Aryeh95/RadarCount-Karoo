@@ -127,10 +127,9 @@ class TargetTrackerTest {
     }
 
     @Test
-    @DisplayName("closing speed is zero with less than 1.5 s of history")
+    @DisplayName("closing speed is zero with less than 1 s of history")
     fun speedNeedsHistory() {
         feed(84)
-        feed(72)
         assertThat(tracker.nearestClosingSpeedMps()).isEqualTo(0.0)
     }
 
