@@ -23,7 +23,5 @@ data class Settings(
     val sensitivity: SensitivitySetting = SensitivitySetting.NORMAL,
     val speed: SpeedSetting = SpeedSetting.RELATIVE,
     /** Reset the ride count when a ride starts recording. */
-    val resetOnRideStart: Boolean = true,
-    /** Reset the lap count on each Karoo lap. */
-    val resetLapOnLap: Boolean = true
+    val resetOnRideStart: Boolean = true
 )

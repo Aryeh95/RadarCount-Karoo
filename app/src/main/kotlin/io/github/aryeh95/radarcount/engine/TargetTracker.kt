@@ -14,13 +14,36 @@ import kotlin.math.abs
  *
  * Instead each reported range is matched to a track from the previous
  * packet (closest range within a tolerance that grows with elapsed time).
- * A track that is not seen for [lostMs] ends. It counts as a pass if it
- * was observed at least [minSamples] times and either came within
- * [closeThresholdM] or was closing and last seen within [closingThresholdM].
+ * A track counts as a pass if it was observed at least [minSamples] times
+ * and either came within [closeThresholdM] or was closing and last seen
+ * within [closingThresholdM]. It must also have looked like a pass at some
+ * point: the radar flagged it as approaching fast (threat level 2 or
+ * more), or it was closing at [minPassClosingMps] or more when last seen,
+ * or it was seen alongside at [alongsideRangeM]. A car that sits behind
+ * the rider at the rider's speed and then drops off the radar without
+ * doing any of those is a follower, not a pass.
+ *
+ * Turns are handled with the rider's heading, when [updateHeading] is fed:
+ * a target that was already behind the rider before a turn through
+ * [turnThresholdDeg] and vanishes during or just after it has gone
+ * straight on, not past, so it is not counted. A target first seen close
+ * ([crossingFirstRangeM] or less) and briefly right after a turn is a car
+ * crossing the radar cone on the road just left. A car on the new road
+ * that appears at normal radar range and passes is counted as usual.
+ *
+ * A track that has come within [closeThresholdM] is counted as soon as it
+ * has been missing for [closeLostMs]: a car that close and then gone has
+ * passed, and the radar cannot see it once it is alongside. The counted
+ * track lingers as a ghost until [lostMs] so a range that reappears close
+ * to it (a radar dropout) re-attaches without counting again. Tracks that
+ * vanish farther out keep the full [lostMs] wait, because there a dropout
+ * and a pass look alike.
  *
  * The closing speed of the nearest track is estimated from its range
  * history over at least [minSpeedSpanMs], which filters the burst-timing
- * artefacts that produced nonsense speeds before.
+ * artefacts that produced nonsense speeds before. The estimate freezes
+ * once the car is inside [speedFreezeRangeM]: the last few samples before
+ * a pass are the noisiest, so the speed at the pass is the approach speed.
  *
  * Not thread-safe: call from a single thread.
  */
@@ -29,18 +52,37 @@ class TargetTracker(
     @Volatile var closingThresholdM: Int = 60,
     private val minSamples: Int = 2,
     private val lostMs: Long = 1_800L,
+    private val closeLostMs: Long = 700L,
     private val minSpeedSpanMs: Long = 1_000L,
     private val speedWindowMs: Long = 3_000L,
-    private val maxSpeedMps: Double = 40.0
+    private val maxSpeedMps: Double = 40.0,
+    private val speedFreezeRangeM: Int = 10,
+    private val minPassClosingMps: Double = 2.5,
+    private val alongsideRangeM: Int = 3,
+    private val fastThreatLevel: Int = 2,
+    private val turnThresholdDeg: Double = 45.0,
+    private val turnWindowMs: Long = 6_000L,
+    private val turnHoldMs: Long = 4_000L,
+    private val afterTurnMs: Long = 12_000L,
+    private val crossingFirstRangeM: Int = 30
 ) {
 
     private class Track(range: Int, nowMs: Long) {
         var range = range
+        val firstRange = range
         var minRange = range
         var firstSeenMs = nowMs
         var lastSeenMs = nowMs
         var samples = 1
         var closing = false
+        /** Pass decision already made (counted or rejected); the track is a ghost. */
+        var resolved = false
+        /** Closing speed captured when the car came inside the freeze range. */
+        var frozenSpeedMps: Double? = null
+        /** Closing speed estimate as of the last observation. */
+        var lastSpeedMps = 0.0
+        /** Highest radar threat level reported while this track was seen. */
+        var maxThreat = 0
         /** (timestampMs, rangeM) history for speed estimation */
         val history = ArrayDeque<Pair<Long, Int>>()
 
@@ -48,20 +90,31 @@ class TargetTracker(
             history.addLast(nowMs to range)
         }
 
-        fun observe(newRange: Int, nowMs: Long) {
+        fun observe(newRange: Int, nowMs: Long, threat: Int, freezeRangeM: Int, estimate: (ArrayDeque<Pair<Long, Int>>) -> Double) {
             // Ignore duplicate packets delivered within a burst
             if (nowMs - lastSeenMs >= MIN_SAMPLE_GAP_MS) {
                 samples++
+            }
+            if (frozenSpeedMps == null && newRange < freezeRangeM) {
+                val v = estimate(history)
+                if (v > 0.0) frozenSpeedMps = v
             }
             closing = newRange < range
             range = newRange
             if (newRange < minRange) minRange = newRange
             lastSeenMs = nowMs
             history.addLast(nowMs to newRange)
+            if (threat > maxThreat) maxThreat = threat
+            lastSpeedMps = frozenSpeedMps ?: estimate(history)
         }
 
-        fun isPass(closeThresholdM: Int, closingThresholdM: Int, minSamples: Int): Boolean {
+        fun isPass(
+            closeThresholdM: Int, closingThresholdM: Int, minSamples: Int,
+            minClosingMps: Double, alongsideM: Int, fastThreat: Int
+        ): Boolean {
             if (samples < minSamples) return false
+            val lookedLikePass = maxThreat >= fastThreat || lastSpeedMps >= minClosingMps || minRange <= alongsideM
+            if (!lookedLikePass) return false
             if (minRange <= closeThresholdM) return true
             return closing && range <= closingThresholdM
         }
@@ -69,6 +122,8 @@ class TargetTracker(
 
     companion object {
         private const val MIN_SAMPLE_GAP_MS = 250L
+        /** Heading drift that marks the start of a turn. */
+        private const val TURN_START_DEG = 10.0
         /** Base matching tolerance; ranges are quantised to ~3 m */
         private const val MATCH_BASE_M = 12.0
         /** Extra tolerance per second elapsed (a relative speed of 30 m/s) */
@@ -77,8 +132,41 @@ class TargetTracker(
 
     private val tracks = ArrayList<Track>()
 
-    /** Number of currently tracked targets. */
-    val activeCount: Int get() = tracks.size
+    /** (timestampMs, heading in degrees) over the last [turnWindowMs]. */
+    private val headings = ArrayDeque<Pair<Long, Double>>()
+    /** A detected turn: when the heading started to swing, and when it passed [turnThresholdDeg]. */
+    private class Turn(val startMs: Long, val detectedMs: Long)
+    private val turns = ArrayDeque<Turn>()
+
+    /** Feed the rider's heading (0-360). Call whenever the Karoo reports it. */
+    fun updateHeading(degrees: Double, nowMs: Long) {
+        headings.addLast(nowMs to degrees)
+        while (headings.size > 1 && nowMs - headings.first().first > turnWindowMs) headings.removeFirst()
+        val oldest = headings.first().second
+        if (angleDiff(oldest, degrees) >= turnThresholdDeg) {
+            if (turns.isEmpty() || nowMs - turns.last().detectedMs > 1_000L) {
+                // The turn started at the last sample still on the old heading.
+                val start = headings.lastOrNull { angleDiff(oldest, it.second) < TURN_START_DEG }?.first ?: headings.first().first
+                turns.addLast(Turn(start, nowMs))
+            }
+        }
+        while (turns.isNotEmpty() && nowMs - turns.first().detectedMs > afterTurnMs + turnWindowMs + 60_000L) turns.removeFirst()
+    }
+
+    private fun angleDiff(a: Double, b: Double): Double {
+        val d = Math.abs(a - b) % 360.0
+        return if (d > 180.0) 360.0 - d else d
+    }
+
+    /** Was a turn detected within [fromMs, toMs]? */
+    private fun turnedBetween(fromMs: Long, toMs: Long): Boolean = turns.any { it.detectedMs in fromMs..toMs }
+
+    /** Was a turn detected within [fromMs, toMs] that had started after [trackedSinceMs]? */
+    private fun turnedAwayFrom(trackedSinceMs: Long, fromMs: Long, toMs: Long): Boolean =
+        turns.any { it.detectedMs in fromMs..toMs && it.startMs > trackedSinceMs }
+
+    /** Number of currently tracked targets (ghosts of counted cars excluded). */
+    val activeCount: Int get() = tracks.count { !it.resolved }
 
     /**
      * Feed one radar packet.
@@ -86,9 +174,10 @@ class TargetTracker(
      * @param rangesM ranges of all reported targets in metres (may be empty
      *                when the radar reports a threat without ranges)
      * @param nowMs   packet time in milliseconds
+     * @param threat  the radar's threat level for this packet (0-3)
      * @return number of targets that ended as passes on this packet
      */
-    fun update(rangesM: List<Int>, nowMs: Long): Int {
+    fun update(rangesM: List<Int>, nowMs: Long, threat: Int = 0): Int {
         // --- match reported ranges to existing tracks (closest pair first) ---
         val unmatchedRanges = rangesM.filter { it > 0 }.toMutableList()
         val matched = HashSet<Track>()
@@ -100,7 +189,9 @@ class TargetTracker(
             for (t in tracks) {
                 if (t in matched) continue
                 val dtSec = (nowMs - t.lastSeenMs).coerceAtLeast(0) / 1000.0
-                val tol = MATCH_BASE_M + MATCH_PER_SEC_M * dtSec
+                // A ghost only re-attaches a range right next to where the
+                // car vanished; a new car farther out must start a new track.
+                val tol = if (t.resolved) MATCH_BASE_M else MATCH_BASE_M + MATCH_PER_SEC_M * dtSec
                 for (r in unmatchedRanges) {
                     // Prefer the interpretation where targets approach: a
                     // range increase is penalised so a new closer car is
@@ -112,24 +203,39 @@ class TargetTracker(
                 }
             }
             if (bestTrack == null) break
-            bestTrack.observe(bestRange, nowMs)
+            bestTrack.observe(bestRange, nowMs, threat, speedFreezeRangeM, ::estimateClosingSpeed)
             matched.add(bestTrack)
             unmatchedRanges.remove(bestRange)
         }
 
         // --- leftover ranges become new tracks ---
         for (r in unmatchedRanges) {
-            tracks.add(Track(r, nowMs))
+            tracks.add(Track(r, nowMs).also { it.maxThreat = threat })
         }
 
-        // --- expire tracks not seen recently ---
+        // --- decide passes and expire tracks not seen recently ---
         var passed = 0
         val it = tracks.iterator()
         while (it.hasNext()) {
             val t = it.next()
-            if (t in matched || nowMs - t.lastSeenMs <= lostMs) continue
-            if (t.isPass(closeThresholdM, closingThresholdM, minSamples)) passed++
-            it.remove()
+            if (t in matched) continue
+            val missingMs = nowMs - t.lastSeenMs
+            if (!t.resolved) {
+                val closeCar = t.minRange <= closeThresholdM
+                val decideNow = missingMs > (if (closeCar) closeLostMs else lostMs)
+                if (decideNow) {
+                    // Was behind the rider before the turn and vanished during or just after it: went straight on.
+                    val turnedAway = turnedAwayFrom(t.firstSeenMs, t.lastSeenMs - turnHoldMs, nowMs)
+                    // Brief, first seen close, right after a turn: a car crossing the cone on the road just left.
+                    val crossingAfterTurn = t.samples <= 3 && t.firstRange <= crossingFirstRangeM &&
+                        turnedBetween(t.firstSeenMs - afterTurnMs, t.firstSeenMs)
+                    val pass = !turnedAway && !crossingAfterTurn &&
+                        t.isPass(closeThresholdM, closingThresholdM, minSamples, minPassClosingMps, alongsideRangeM, fastThreatLevel)
+                    if (pass) passed++
+                    t.resolved = true
+                }
+            }
+            if (missingMs > lostMs) it.remove()
         }
 
         // trim speed histories
@@ -142,16 +248,24 @@ class TargetTracker(
         return passed
     }
 
+    private fun nearestTrack(): Track? = tracks.filter { !it.resolved }.minByOrNull { it.range }
+
     /** Range of the nearest tracked target in metres, or 0 if none. */
-    fun nearestRangeM(): Int = tracks.minOfOrNull { it.range } ?: 0
+    fun nearestRangeM(): Int = nearestTrack()?.range ?: 0
 
     /**
      * Estimated closing speed of the nearest target in m/s (positive =
-     * approaching). Returns 0 if there is not yet enough history.
+     * approaching). Returns 0 if there is not yet enough history. Once the
+     * car is inside [speedFreezeRangeM] the estimate holds at its approach
+     * value instead of chasing the noisy last samples.
      */
     fun nearestClosingSpeedMps(): Double {
-        val t = tracks.minByOrNull { it.range } ?: return 0.0
-        val h = t.history
+        val t = nearestTrack() ?: return 0.0
+        t.frozenSpeedMps?.let { return it }
+        return estimateClosingSpeed(t.history)
+    }
+
+    private fun estimateClosingSpeed(h: ArrayDeque<Pair<Long, Int>>): Double {
         if (h.size < 2) return 0.0
         val spanMs = h.last().first - h.first().first
         if (spanMs < minSpeedSpanMs) return 0.0
@@ -177,4 +291,7 @@ class TargetTracker(
     fun clear() {
         tracks.clear()
     }
+
+    /** Test hook: has a turn been detected at or after [sinceMs]? */
+    internal fun turnedSince(sinceMs: Long): Boolean = turns.any { it.detectedMs >= sinceMs }
 }

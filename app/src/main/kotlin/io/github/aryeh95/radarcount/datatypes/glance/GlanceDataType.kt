@@ -50,11 +50,11 @@ abstract class GlanceDataType(
         val PREVIEW_INPUT = RenderInput(
             state = WidgetState.Threat(ThreatLevel.WARNING, vehicleCount = 2, nearestDistanceM = 45),
             passCount = 12,
-            lapPassCount = 4,
             closingSpeedMps = 8.0,
             riderSpeedMps = 7.0,
             useImperial = false,
-            settings = Settings()
+            settings = Settings(),
+            rideTimeMs = 3_600_000L
         )
     }
 
@@ -62,11 +62,11 @@ abstract class GlanceDataType(
     data class RenderInput(
         val state: WidgetState,
         val passCount: Int,
-        val lapPassCount: Int,
         val closingSpeedMps: Double,
         val riderSpeedMps: Double,
         val useImperial: Boolean,
-        val settings: Settings
+        val settings: Settings,
+        val rideTimeMs: Long
     ) {
         val connected: Boolean
             get() = state is WidgetState.Clear || state is WidgetState.Threat
@@ -81,6 +81,9 @@ abstract class GlanceDataType(
     @Composable
     protected abstract fun Content(input: RenderInput, config: ViewConfig)
 
+    /** Text shown on every field while no radar is connected. */
+    protected fun noRadarText(): String = radarExtension.getString(io.github.aryeh95.radarcount.R.string.widget_no_radar)
+
     override fun startStream(emitter: Emitter<StreamState>) {
         emitter.onNext(StreamState.Streaming(
             DataPoint(dataTypeId = dataTypeId, values = emptyMap())
@@ -92,20 +95,20 @@ abstract class GlanceDataType(
         return combine(
             engine.widgetState,
             engine.passCount,
-            engine.lapPassCount,
             engine.closingSpeedMps,
             radarExtension.riderSpeedMps,
             radarExtension.useImperial,
-            radarExtension.settings
+            radarExtension.settings,
+            radarExtension.rideTimeMs
         ) { values ->
             RenderInput(
                 state = values[0] as WidgetState,
                 passCount = values[1] as Int,
-                lapPassCount = values[2] as Int,
-                closingSpeedMps = values[3] as Double,
-                riderSpeedMps = values[4] as Double,
-                useImperial = values[5] as Boolean,
-                settings = values[6] as Settings
+                closingSpeedMps = values[2] as Double,
+                riderSpeedMps = values[3] as Double,
+                useImperial = values[4] as Boolean,
+                settings = values[5] as Settings,
+                rideTimeMs = values[6] as Long
             )
         }.distinctUntilChanged()
     }

@@ -26,6 +26,7 @@ import io.github.aryeh95.radarcount.data.ThemeSetting
 import io.github.aryeh95.radarcount.data.models.WidgetState
 import io.github.aryeh95.radarcount.engine.Units
 import io.hammerhead.karooext.models.ViewConfig
+import kotlin.math.roundToInt
 
 /**
  * Value text laid out exactly like ki2's TextView, which renders custom
@@ -40,7 +41,8 @@ private fun KarooValue(
     theme: ThemeSetting,
     color: ColorProvider? = null,
     density: Float,
-    fontSize: Int = config.textSize
+    fontSize: Int = config.textSize,
+    tag: String? = null
 ) {
     val fitted = minOf(fontSize, fitFontSp(text.length.toFloat(), config.viewSize.first, 10, density))
     val horizontal = when (config.alignment) {
@@ -52,7 +54,18 @@ private fun KarooValue(
         modifier = GlanceModifier.fillMaxSize().padding(start = 5.dp, top = 0.dp, end = 5.dp, bottom = 0.dp),
         contentAlignment = Alignment(vertical = Alignment.Vertical.CenterVertically, horizontal = horizontal)
     ) {
-        KarooText(text, theme, color, fitted)
+        if (tag == null) {
+            KarooText(text, theme, color, fitted)
+        } else {
+            Column(horizontalAlignment = horizontal) {
+                KarooText(text, theme, color, fitted)
+                Text(
+                    text = tag,
+                    style = TextStyle(color = GlanceColors.label(theme), fontSize = (fitted * CAPTION_RATIO).toInt().coerceIn(9, 16).sp),
+                    maxLines = 1
+                )
+            }
+        }
     }
 }
 
@@ -114,6 +127,7 @@ private fun fitFontSp(chars: Float, widthPx: Int, paddingDp: Int, density: Float
     return (availablePx / (0.62f * chars * density)).toInt()
 }
 
+
 /** Vehicles that have passed the rider this ride. */
 class VehicleCountGlanceDataType(
     radarExtension: RadarCountExtension
@@ -122,7 +136,7 @@ class VehicleCountGlanceDataType(
     @Composable
     override fun Content(input: RenderInput, config: ViewConfig) {
         KarooValue(
-            text = if (input.connected) input.passCount.toString() else "--",
+            text = if (input.connected) input.passCount.toString() else noRadarText(),
             config = config,
             theme = input.settings.theme,
             density = density,
@@ -140,7 +154,36 @@ class ApproachSpeedGlanceDataType(
     override fun Content(input: RenderInput, config: ViewConfig) {
         val d = derive(input)
         KarooValue(
-            text = if (d.tracked) "${d.shownSpeed}${d.unit}" else "--",
+            text = if (!input.connected) noRadarText() else if (d.tracked) "${d.shownSpeed}${d.unit}" else "--",
+            config = config,
+            theme = input.settings.theme,
+            density = density,
+            color = if (input.connected) null else ColorProvider(GlanceColors.Neutral),
+            tag = if (input.connected) radarExtension.getString(if (d.showsAbsolute) R.string.speed_tag_abs else R.string.speed_tag_rel) else null
+        )
+    }
+}
+
+/** Vehicles passed per hour of recording time. */
+class VehiclesPerHourGlanceDataType(
+    radarExtension: RadarCountExtension
+) : GlanceDataType(radarExtension, "vehicles-per-hour") {
+
+    companion object {
+        /** Below this much recording time the rate swings wildly, so show nothing. */
+        private const val MIN_RIDE_MS = 120_000L
+
+        internal fun format(passCount: Int, rideTimeMs: Long): String {
+            if (rideTimeMs < MIN_RIDE_MS) return "--"
+            val perHour = passCount * 3_600_000.0 / rideTimeMs
+            return if (perHour < 10.0) String.format(java.util.Locale.US, "%.1f", perHour) else perHour.roundToInt().toString()
+        }
+    }
+
+    @Composable
+    override fun Content(input: RenderInput, config: ViewConfig) {
+        KarooValue(
+            text = if (input.connected) format(input.passCount, input.rideTimeMs) else noRadarText(),
             config = config,
             theme = input.settings.theme,
             density = density,
@@ -158,7 +201,7 @@ class ClosestDistanceGlanceDataType(
     override fun Content(input: RenderInput, config: ViewConfig) {
         val d = derive(input)
         KarooValue(
-            text = d.distance ?: "--",
+            text = if (!input.connected) noRadarText() else d.distance ?: "--",
             config = config,
             theme = input.settings.theme,
             density = density,
@@ -178,14 +221,19 @@ class ComboGlanceDataType(
     @Composable
     override fun Content(input: RenderInput, config: ViewConfig) {
         val theme = input.settings.theme
+        if (!input.connected) {
+            KarooValue(noRadarText(), config, theme, ColorProvider(GlanceColors.Neutral), density)
+            return
+        }
         val d = derive(input)
-        val live = if (input.connected) null else ColorProvider(GlanceColors.Neutral)
-        val countText = if (input.connected) input.passCount.toString() else "--"
+        val live: ColorProvider? = null
+        val countText = input.passCount.toString()
         val speedText = if (d.tracked) "${d.shownSpeed}${d.unit}" else "--"
         val distText = d.distance ?: "--"
         val gapDp = if (config.gridSize.first >= 60) 14 else 8
         // Shrink the value font so all three cells fit the field width (monospace ~0.6em per char).
-        val captions = listOf(R.string.combo_count, R.string.combo_speed, R.string.combo_dist).map { radarExtension.getString(it) }
+        val speedCaption = if (d.showsAbsolute) R.string.combo_speed_abs else R.string.combo_speed_rel
+        val captions = listOf(R.string.combo_count, speedCaption, R.string.combo_dist).map { radarExtension.getString(it) }
         val chars = listOf(countText, speedText, distText).zip(captions).sumOf { (v, c) ->
             maxOf(v.length.toFloat(), c.length * CAPTION_RATIO).toDouble()
         }.toFloat()
@@ -200,7 +248,7 @@ class ComboGlanceDataType(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Cell(radarExtension.getString(R.string.combo_count), countText, theme, null, valueSize, captionSize)
                 Spacer(modifier = GlanceModifier.width(gap))
-                Cell(radarExtension.getString(R.string.combo_speed), speedText, theme, live, valueSize, captionSize)
+                Cell(captions[1], speedText, theme, live, valueSize, captionSize)
                 Spacer(modifier = GlanceModifier.width(gap))
                 Cell(radarExtension.getString(R.string.combo_dist), distText, theme, live, valueSize, captionSize)
             }

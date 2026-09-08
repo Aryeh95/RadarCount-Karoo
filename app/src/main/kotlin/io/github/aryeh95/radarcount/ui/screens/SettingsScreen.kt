@@ -108,8 +108,19 @@ fun SettingsScreen(repository: SettingsRepository, onBack: () -> Unit) {
             },
             onClick = { save(settings.copy(sensitivity = next(settings.sensitivity))) }
         )
+        val sens = settings.sensitivity
         Text(
-            text = stringResource(R.string.settings_sensitivity_hint),
+            text = stringResource(
+                R.string.settings_sensitivity_desc,
+                sens.closeThresholdM, metersToFeet(sens.closeThresholdM),
+                sens.closingThresholdM, metersToFeet(sens.closingThresholdM)
+            ) + " " + stringResource(
+                when (sens) {
+                    SensitivitySetting.STRICT -> R.string.settings_sensitivity_strict_note
+                    SensitivitySetting.NORMAL -> R.string.settings_sensitivity_normal_note
+                    SensitivitySetting.RELAXED -> R.string.settings_sensitivity_relaxed_note
+                }
+            ),
             style = MaterialTheme.typography.bodySmall,
             color = RadarColors.textSecondary,
             modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
@@ -117,9 +128,6 @@ fun SettingsScreen(repository: SettingsRepository, onBack: () -> Unit) {
 
         ToggleRow(stringResource(R.string.settings_reset_on_ride_start), settings.resetOnRideStart) {
             save(settings.copy(resetOnRideStart = it))
-        }
-        ToggleRow(stringResource(R.string.settings_reset_lap), settings.resetLapOnLap) {
-            save(settings.copy(resetLapOnLap = it))
         }
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -135,6 +143,9 @@ fun SettingsScreen(repository: SettingsRepository, onBack: () -> Unit) {
         )
     }
 }
+
+/** Rounded to the nearest 5 ft so the description reads like a rule, not a conversion. */
+private fun metersToFeet(m: Int): Int = (Math.round(m * 3.28084 / 5.0) * 5).toInt()
 
 private inline fun <reified T : Enum<T>> next(current: T): T {
     val values = enumValues<T>()

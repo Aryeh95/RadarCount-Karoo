@@ -20,6 +20,7 @@ Add any of these to a ride page from the Karoo's data field picker under **Radar
 |------------|-------|
 | **Radar** | Pass count, vehicle speed and distance side by side in one field, captioned COUNT, SPEED and DIST |
 | **Vehicles** | Vehicles that have passed you this ride |
+| **Vehicles per Hour** | Pass count divided by recording time (paused time excluded). Shows `--` for the first two minutes of a ride |
 | **Vehicle Speed** | Speed of the nearest vehicle, with its unit (for example `36mph` or `58km/h`) |
 | **Vehicle Distance** | Distance to the nearest vehicle, with its unit (for example `148ft` or `45m`) |
 
@@ -27,7 +28,9 @@ Fields look like the Karoo's own: the standard header with icon and name at
 the top, the value centred below it at the Karoo's font size, honouring the
 field alignment setting (left, centre or right). Text shrinks to fit narrow
 fields so nothing is cut off. Text colour follows the device theme and can be
-forced in settings. Fields show `--` while no radar is connected.
+forced in settings. Every field shows `NO RADAR` in grey while no radar is
+connected, including when a ride is started without one, so that is never
+confused with "no vehicles".
 
 ## Settings
 
@@ -38,9 +41,8 @@ Open the RadarCount app on the Karoo and tap Settings.
 | Units | Karoo profile (default), Metric, Imperial |
 | Field colours | Match device (default), Light, Dark |
 | Vehicle speed shown | Relative to you (default), or Absolute (relative plus your own speed). Applies to the Vehicle Speed field and the Radar field. |
-| Count sensitivity | Strict (12 m / 40 m), Normal (20 m / 60 m), Relaxed (30 m / 90 m). The first number is how close a car must come to count outright; the second is how close a car that was still closing in may drop off the radar and still count. |
+| Count sensitivity | Strict, Normal (default) or Relaxed. A car counts once it has come within 12 / 20 / 30 m of you, or if it was still closing in when it dropped off the radar inside 40 / 60 / 90 m. The settings screen spells out the rule for the selected option. |
 | Reset count when a ride starts | On by default. Off keeps a running total across rides; use Reset count on the status screen to clear it. |
-| Reset lap count on each lap | On by default. The lap count is shown on the status screen. |
 
 The extension is idle at boot. It only opens the radar and speed streams while
 a ride is recording, one of its data fields is on screen, or its status screen
@@ -49,8 +51,15 @@ is open, and closes them again afterwards.
 Each radar target is tracked individually across packets. A target counts as a
 pass when it drops off the radar after either coming within 20 m, or closing in
 and being last seen within 60 m, and only if it was seen more than once (the
-Karoo's target list jitters, so one-packet blips are ignored). The ride count
-resets when a ride starts recording; the lap count resets on every Karoo lap.
+Karoo's target list jitters, so one-packet blips are ignored). A car that has
+come within 20 m is counted on the first packet it is missing from, since the
+radar cannot see a car alongside you; it lingers as a ghost for two seconds so
+a range that reappears right where it vanished (a radar dropout) re-attaches
+without counting again. A car that vanishes farther out waits the full two
+seconds, because there a dropout and a pass look alike. The ride count resets
+when a ride starts recording, and does not advance while the ride is paused
+(including auto-pause), because nothing is written to the FIT file then and
+the site would never see those cars.
 
 ## FIT recording
 
@@ -71,13 +80,18 @@ Written at 1 Hz while a ride is recording.
 
 mybiketraffic.com identifies a car as a run of consecutive non-zero `radar_ranges`
 records that ends below 10 m and is followed by a 0. Because the Karoo SDK only
-allows one value per field, our nearest-target value would already show the next
-car by the time a pass is counted, so on each counted pass the extension writes
-one record with the range at 3 m and then one record at 0 before resuming the
-live value. That reproduces the Garmin signature the importer expects. The
-marker is skipped when the car's own run already ended below 10 m, so the site
-does not count it twice. (An experiment confirmed the Karoo keeps only the last
-value when several are written to one field, so true arrays are not possible.)
+allows one value per field, the writer makes sure every counted pass produces
+exactly one such run:
+
+- A car counted while its run is still open and already inside 10 m gets a
+  single 0 on that record, even if the next car is already the nearest target.
+- A car whose run already closed below 10 m before the count arrived needs
+  nothing; the site has it.
+- A car that dropped off the radar farther out gets the Garmin marker: one
+  record at 3 m, then one at 0.
+
+(An experiment confirmed the Karoo keeps only the last value when several are
+written to one field, so true arrays are not possible.)
 
 Two differences from the Garmin file, both imposed by the Karoo SDK:
 
@@ -88,9 +102,11 @@ Two differences from the Garmin file, both imposed by the Karoo SDK:
 
 The Karoo SDK also does not expose radar target speed, so speeds are estimated
 from how fast the range shrinks, as a least-squares slope over the last 3
-seconds of samples. Treat them as ballpark figures: a car reads `--` for its
-first second on the radar, and a car still accelerating toward you reads a
-little low.
+seconds of samples. The estimate freezes once the car is inside 10 m, because
+the last few samples before a pass are the noisiest, so the recorded passing
+speed is the approach speed. Treat them as ballpark figures: a car reads `--`
+for its first second on the radar, and a car still accelerating toward you
+reads a little low.
 
 ## Install
 

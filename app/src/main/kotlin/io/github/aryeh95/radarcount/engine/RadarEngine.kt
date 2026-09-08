@@ -76,7 +76,8 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
 
     private val targetTracker = TargetTracker()
     private var passTotal = 0
-    private var passLap = 0
+    /** False while the ride is paused: passes are still tracked but not counted, since the FIT file cannot carry them. */
+    @Volatile private var countingEnabled = true
     private val lock = Any()
 
     // Consumer ID for cleanup
@@ -96,12 +97,9 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
     private val _targetDistances = MutableStateFlow<List<Int>>(emptyList())
     val targetDistances: StateFlow<List<Int>> = _targetDistances.asStateFlow()
 
-    // Vehicles that have passed the rider this ride / this lap
+    // Vehicles that have passed the rider this ride
     private val _passCount = MutableStateFlow(0)
     val passCount: StateFlow<Int> = _passCount.asStateFlow()
-
-    private val _lapPassCount = MutableStateFlow(0)
-    val lapPassCount: StateFlow<Int> = _lapPassCount.asStateFlow()
 
     /**
      * Estimated closing speed of the nearest target in m/s, derived from
@@ -187,13 +185,11 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
 
         val widgetState = toWidgetState(snapshot)
 
-        val passed = targetTracker.update(snapshot.targetDistancesM, System.currentTimeMillis())
-        if (passed > 0) {
+        val passed = targetTracker.update(snapshot.targetDistancesM, System.currentTimeMillis(), snapshot.threatLevel.ordinal)
+        if (passed > 0 && countingEnabled) {
             passTotal += passed
-            passLap += passed
             android.util.Log.d(TAG, "$passed vehicle(s) passed, total=$passTotal")
             _passCount.value = passTotal
-            _lapPassCount.value = passLap
         }
         _closingSpeedMps.value = targetTracker.nearestClosingSpeedMps()
 
@@ -213,28 +209,28 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
         _packets.tryEmit(state)
     }
 
+    /** Count passes (true) or only track them (false, while the ride is paused). */
+    fun setCountingEnabled(enabled: Boolean) {
+        countingEnabled = enabled
+    }
+
+    /** Feed the rider's heading so the tracker can tell a turn from a pass. */
+    fun updateHeading(degrees: Double) {
+        synchronized(lock) { targetTracker.updateHeading(degrees, System.currentTimeMillis()) }
+    }
+
     /** Change how eager the pass counter is. Takes effect on the next packet. */
     fun setSensitivity(closeThresholdM: Int, closingThresholdM: Int) {
         targetTracker.closeThresholdM = closeThresholdM
         targetTracker.closingThresholdM = closingThresholdM
     }
 
-    /** Reset ride and lap pass counts (start of a new ride). */
+    /** Reset the ride pass count (start of a new ride). */
     fun resetPassCounts() {
         synchronized(lock) {
             targetTracker.clear()
             passTotal = 0
-            passLap = 0
             _passCount.value = 0
-            _lapPassCount.value = 0
-        }
-    }
-
-    /** Reset the lap pass count (lap button pressed / auto lap). */
-    fun resetLapPassCount() {
-        synchronized(lock) {
-            passLap = 0
-            _lapPassCount.value = 0
         }
     }
 

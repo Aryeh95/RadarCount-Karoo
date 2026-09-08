@@ -34,4 +34,11 @@
         graphical="true"
         icon="@drawable/ic_radar" />
 
+    <DataType
+        typeId="vehicles-per-hour"
+        description="@string/datatype_rate_desc"
+        displayName="@string/datatype_rate"
+        graphical="true"
+        icon="@drawable/ic_car" />
+
 </ExtensionInfo>

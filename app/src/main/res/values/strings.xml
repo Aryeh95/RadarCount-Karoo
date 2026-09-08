@@ -5,27 +5,32 @@
 
     <!-- Data types -->
     <string name="datatype_count">Vehicles</string>
-    <string name="datatype_count_desc">Vehicles passed this ride and lap</string>
+    <string name="datatype_count_desc">Vehicles passed this ride</string>
     <string name="datatype_speed">Vehicle Speed</string>
     <string name="datatype_speed_desc">Relative and absolute speed of nearest vehicle</string>
     <string name="datatype_distance">Vehicle Distance</string>
     <string name="datatype_distance_desc">Distance to nearest vehicle</string>
     <string name="datatype_combo">Radar</string>
     <string name="datatype_combo_desc">Count, approach speed and distance in one field</string>
+    <string name="datatype_rate">Vehicles per Hour</string>
+    <string name="datatype_rate_desc">Vehicles passed per hour of ride time</string>
     <string name="combo_count">COUNT</string>
     <string name="combo_dist">DIST</string>
     <string name="combo_speed">SPEED</string>
+    <string name="combo_speed_rel">REL SPEED</string>
+    <string name="combo_speed_abs">ABS SPEED</string>
+    <string name="speed_tag_rel">RELATIVE</string>
+    <string name="speed_tag_abs">ABSOLUTE</string>
 
     <!-- Widget text -->
     <string name="widget_count_label">PASSED</string>
-    <string name="widget_lap_label">Lap %d</string>
     <string name="widget_approach_label">APPROACH %s</string>
     <string name="widget_approach_short">APPR %s</string>
     <string name="widget_absolute_label">Abs %1$d %2$s</string>
     <string name="widget_no_vehicle">No vehicle</string>
     <string name="widget_distance_label">CLOSEST</string>
     <string name="widget_road_clear">Road is clear</string>
-    <string name="widget_no_radar">No radar</string>
+    <string name="widget_no_radar">NO RADAR</string>
     <string name="widget_behind">Behind</string>
     <plurals name="widget_vehicles_behind">
         <item quantity="one">%d vehicle behind</item>
@@ -37,7 +42,7 @@
     <string name="dashboard_searching">Searching…</string>
     <string name="dashboard_clear">Clear</string>
     <string name="dashboard_connection_lost">Radar lost</string>
-    <string name="dashboard_hint">Add the Radar, Vehicles, Vehicle Speed or Vehicle Distance data fields to a ride page. Rides record FIT fields compatible with mybiketraffic.com automatically.</string>
+    <string name="dashboard_hint">Add the RadarCount data fields to a ride page. Rides record mybiketraffic.com-compatible FIT fields automatically.</string>
     <string name="dashboard_reset_count">Reset count</string>
     <string name="settings_title">Settings</string>
     <string name="settings_units">Units</string>
@@ -57,9 +62,11 @@
     <string name="settings_sensitivity_strict">Strict</string>
     <string name="settings_sensitivity_normal">Normal</string>
     <string name="settings_sensitivity_relaxed">Relaxed</string>
-    <string name="settings_sensitivity_hint">Strict counts only cars that get very close. Relaxed also counts cars that were closing in but dropped off the radar early.</string>
+    <string name="settings_sensitivity_desc">Counts a car once it has come within %1$d m (%2$d ft) of you, or if it was still closing in when it dropped off the radar inside %3$d m (%4$d ft).</string>
+    <string name="settings_sensitivity_strict_note">Fewest false counts; may miss cars that pass wide.</string>
+    <string name="settings_sensitivity_normal_note">Recommended for most roads.</string>
+    <string name="settings_sensitivity_relaxed_note">Catches wide passes on open roads; may count cars that turn off before reaching you.</string>
     <string name="settings_reset_on_ride_start">Reset count when a ride starts</string>
-    <string name="settings_reset_lap">Reset lap count on each lap</string>
     <string name="settings_reset_defaults">Restore defaults</string>
     <string name="settings_back">Back</string>
     <string name="settings_version">Version %s</string>

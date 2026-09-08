@@ -7,6 +7,8 @@ import io.github.aryeh95.radarcount.datatypes.glance.ApproachSpeedGlanceDataType
 import io.github.aryeh95.radarcount.datatypes.glance.ComboGlanceDataType
 import io.github.aryeh95.radarcount.datatypes.glance.ClosestDistanceGlanceDataType
 import io.github.aryeh95.radarcount.datatypes.glance.VehicleCountGlanceDataType
+import io.github.aryeh95.radarcount.datatypes.glance.VehiclesPerHourGlanceDataType
+import io.github.aryeh95.radarcount.engine.FitRecordWriter
 import io.github.aryeh95.radarcount.engine.RadarEngine
 import io.hammerhead.karooext.KarooSystemService
 import io.hammerhead.karooext.extension.KarooExtension
@@ -15,7 +17,7 @@ import io.hammerhead.karooext.models.DataType
 import io.hammerhead.karooext.models.DeveloperField
 import io.hammerhead.karooext.models.FieldValue
 import io.hammerhead.karooext.models.FitEffect
-import io.hammerhead.karooext.models.Lap
+import io.hammerhead.karooext.models.OnLocationChanged
 import io.hammerhead.karooext.models.OnStreamState
 import io.hammerhead.karooext.models.RideState
 import io.hammerhead.karooext.models.StreamState
@@ -23,6 +25,7 @@ import io.hammerhead.karooext.models.UserProfile
 import io.hammerhead.karooext.models.WriteToRecordMesg
 import io.hammerhead.karooext.models.WriteToSessionMesg
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -57,15 +60,6 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
         private const val FIT_BASE_TYPE_SINT16: Short = 131
         private const val FIT_BASE_TYPE_UINT16: Short = 132
 
-        // Sentinels used by the Garmin MyBikeTraffic field when the radar is off
-        private const val MBT_RANGE_RADAR_OFF = -1.0
-        private const val MBT_SPEED_RADAR_OFF = 255.0
-        private const val MBT_SPEED_MAX = 254.0
-        /** Range written on the record where a pass is counted (car alongside) */
-        private const val MBT_PASS_RANGE_M = 3.0
-        /** mybiketraffic.com counts a run as a car only if its last range is under this */
-        private const val MBT_PASS_CLOSE_M = 10.0
-
         private const val FIT_WRITE_INTERVAL_MS = 1000L
 
         @Volatile
@@ -73,10 +67,8 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
             private set
 
         /** m/s to the rider's speed unit, rounded, never negative. */
-        internal fun toUserSpeedUnits(metersPerSecond: Double, imperial: Boolean): Int {
-            val v = if (imperial) metersPerSecond * 2.23694 else metersPerSecond * 3.6
-            return v.roundToInt().coerceAtLeast(0)
-        }
+        internal fun toUserSpeedUnits(metersPerSecond: Double, imperial: Boolean): Int =
+            FitRecordWriter.toUserSpeedUnits(metersPerSecond, imperial)
     }
 
     lateinit var karooSystem: KarooSystemService
@@ -111,7 +103,15 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
 
     private var rideRecording = false
 
-    // Demand-driven sensor streams: radar/speed/lap are only open while a
+    // Time spent recording this ride (paused time excluded), ticked once a
+    // second while recording, for the vehicles-per-hour field.
+    private val _rideTimeMs = MutableStateFlow(0L)
+    val rideTimeMs: StateFlow<Long> = _rideTimeMs.asStateFlow()
+    private var rideTimeBaseMs = 0L
+    private var recordingSinceMs = 0L
+    private var rideTimeJob: Job? = null
+
+    // Demand-driven sensor streams: radar and speed are only open while a
     // ride is recording, a data field is on screen, the FIT writer is
     // active, or the status screen is open. At boot nothing runs except
     // the cheap ride-state and profile consumers.
@@ -121,9 +121,9 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
 
     // Consumer IDs for cleanup
     private var rideStateConsumerId: String? = null
-    private var lapConsumerId: String? = null
     private var userProfileConsumerId: String? = null
     private var speedConsumerId: String? = null
+    private var locationConsumerId: String? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -190,19 +190,19 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
     private fun startSensorsLocked() {
         if (sensorsRunning) return
         sensorsRunning = true
-        android.util.Log.i(TAG, "Starting radar/speed/lap streams")
+        android.util.Log.i(TAG, "Starting radar/speed streams")
         _radarEngine?.startStreaming()
         startSpeedTracking()
-        startLapTracking()
+        startHeadingTracking()
     }
 
     private fun stopSensorsLocked() {
         if (!sensorsRunning) return
         sensorsRunning = false
-        android.util.Log.i(TAG, "Stopping radar/speed/lap streams")
+        android.util.Log.i(TAG, "Stopping radar/speed streams")
         _radarEngine?.stopStreaming()
         stopSpeedTracking()
-        stopLapTracking()
+        stopHeadingTracking()
         _riderSpeedMps.value = 0.0
     }
 
@@ -214,15 +214,21 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
         rideStateConsumerId = karooSystem.addConsumer(RideState.Params) { event: RideState ->
             when (event) {
                 is RideState.Recording -> {
+                    _radarEngine?.setCountingEnabled(true)
                     if (!rideRecording) {
                         android.util.Log.i(TAG, "Ride recording started")
                         rideRecording = true
                         if (settings.value.resetOnRideStart) _radarEngine?.resetPassCounts()
                         acquireRadar()
                     }
+                    resumeRideTime()
                 }
                 is RideState.Idle -> {
                     android.util.Log.i(TAG, "Ride idle")
+                    _radarEngine?.setCountingEnabled(true)
+                    pauseRideTime()
+                    rideTimeBaseMs = 0L
+                    _rideTimeMs.value = 0L
                     if (rideRecording) {
                         rideRecording = false
                         releaseRadar()
@@ -230,6 +236,10 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
                 }
                 is RideState.Paused -> {
                     android.util.Log.d(TAG, "Ride paused (auto=${event.auto})")
+                    // Nothing is written to the FIT file while paused, so a pass counted now
+                    // would never reach the site. Keep tracking, stop counting.
+                    _radarEngine?.setCountingEnabled(false)
+                    pauseRideTime()
                 }
             }
         }
@@ -238,21 +248,27 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
     private fun stopRideStateTracking() {
         rideStateConsumerId?.let { karooSystem.removeConsumer(it) }
         rideStateConsumerId = null
+        pauseRideTime()
     }
 
-    /**
-     * Reset the lap pass counter whenever the Karoo records a new lap.
-     */
-    private fun startLapTracking() {
-        lapConsumerId = karooSystem.addConsumer(Lap.Params) { lap: Lap ->
-            android.util.Log.d(TAG, "Lap ${lap.number} (${lap.trigger})")
-            if (settings.value.resetLapOnLap) _radarEngine?.resetLapPassCount()
+    private fun resumeRideTime() {
+        if (rideTimeJob != null) return
+        recordingSinceMs = System.currentTimeMillis()
+        rideTimeJob = serviceScope.launch {
+            while (isActive) {
+                _rideTimeMs.value = rideTimeBaseMs + (System.currentTimeMillis() - recordingSinceMs)
+                delay(1000L)
+            }
         }
     }
 
-    private fun stopLapTracking() {
-        lapConsumerId?.let { karooSystem.removeConsumer(it) }
-        lapConsumerId = null
+    private fun pauseRideTime() {
+        rideTimeJob?.let {
+            it.cancel()
+            rideTimeJob = null
+            rideTimeBaseMs += System.currentTimeMillis() - recordingSinceMs
+            _rideTimeMs.value = rideTimeBaseMs
+        }
     }
 
     /**
@@ -287,6 +303,21 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
     private fun stopSpeedTracking() {
         speedConsumerId?.let { karooSystem.removeConsumer(it) }
         speedConsumerId = null
+    }
+
+    /**
+     * Track the rider's heading so the pass counter can tell a car that
+     * went straight on at a turn from one that passed.
+     */
+    private fun startHeadingTracking() {
+        locationConsumerId = karooSystem.addConsumer(OnLocationChanged.Params) { event: OnLocationChanged ->
+            event.orientation?.let { _radarEngine?.updateHeading(it) }
+        }
+    }
+
+    private fun stopHeadingTracking() {
+        locationConsumerId?.let { karooSystem.removeConsumer(it) }
+        locationConsumerId = null
     }
 
     /**
@@ -329,17 +360,7 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
         val fitScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         fitScope.launch {
             var lastSessionTotal = -1
-            var lastRecordTotal = -1
-            var passSignatureLeft = 0
-            // How the last run of non-zero radar_ranges values ended, to tell
-            // whether the current car's run already closed the way the site
-            // expects: lastRunEndRange is the final non-zero value written and
-            // runOpen is true until a 0 has been written after it.
-            var lastRunEndRange = -1.0
-            var runOpen = false
-            var lastSpeedMps = 0.0
-            var lastPassingSpeed = 0
-            var lastPassingSpeedAbs = 0
+            val writer = FitRecordWriter()
             while (isActive) {
                 delay(FIT_WRITE_INTERVAL_MS)
                 try {
@@ -348,96 +369,33 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
                     val vehicleCount = engine.vehicleCount.value
                     val nearestM = engine.nearestDistanceM.value
                     val passTotal = engine.passCount.value
-                    val closingMps = engine.closingSpeedMps.value
-                    val imperial = useImperial.value
+
+                    val record = writer.next(FitRecordWriter.Sample(
+                        connected = connected,
+                        vehicleCount = vehicleCount,
+                        nearestM = nearestM,
+                        passTotal = passTotal,
+                        closingMps = engine.closingSpeedMps.value,
+                        riderMps = _riderSpeedMps.value,
+                        imperial = useImperial.value
+                    ))
 
                     val values = ArrayList<FieldValue>(12)
-
-                    // Mimic the Garmin field's pass signature, which
-                    // mybiketraffic.com relies on to split cars: a car is a run
-                    // of non-zero slot-0 ranges that ends below 10 m followed
-                    // by a 0. Our nearest-range value would already show the
-                    // next car by the time the pass is counted, so on a pass we
-                    // write one record at 3 m (car alongside) and then one
-                    // record at 0 before resuming the live nearest range.
-                    //
-                    // Skip that when the run already ended on its own with a
-                    // value under 10 m followed by one or more 0s (the pass is
-                    // usually counted a couple of seconds after the car drops
-                    // off the radar): the site counts that run as the car, and
-                    // an extra marker would count it twice.
-                    if (passTotal > lastRecordTotal && lastRecordTotal >= 0) {
-                        val runAlreadyClosed = !runOpen &&
-                            lastRunEndRange > 0.0 && lastRunEndRange < MBT_PASS_CLOSE_M
-                        if (!runAlreadyClosed) passSignatureLeft = 2
-                    }
-                    lastRecordTotal = passTotal
-                    val signature = passSignatureLeft
-                    if (signature > 0) passSignatureLeft--
+                    values.add(FieldValue(mbtRangesField, record.rangeM))
+                    values.add(FieldValue(mbtSpeedsField, record.speedMps))
+                    values.add(FieldValue(mbtPassingSpeedField, record.passingSpeed.toDouble()))
+                    values.add(FieldValue(mbtPassingSpeedAbsField, record.passingSpeedAbs.toDouble()))
 
                     if (connected) {
-                        val tracked = vehicleCount > 0
-                        val passingSpeed = if (tracked) toUserSpeedUnits(closingMps, imperial) else 0
-                        val passingSpeedAbs = if (passingSpeed > 0) {
-                            passingSpeed + toUserSpeedUnits(_riderSpeedMps.value, imperial)
-                        } else {
-                            0
-                        }
-
-                        val rangeValue = when (signature) {
-                            2 -> MBT_PASS_RANGE_M
-                            1 -> 0.0
-                            else -> if (tracked) nearestM.toDouble() else 0.0
-                        }
-                        val speedValue = when (signature) {
-                            2 -> lastSpeedMps.coerceIn(0.0, MBT_SPEED_MAX)
-                            1 -> 0.0
-                            else -> if (tracked) closingMps.coerceIn(0.0, MBT_SPEED_MAX) else 0.0
-                        }
-                        val psValue = when (signature) {
-                            2 -> lastPassingSpeed
-                            1 -> 0
-                            else -> passingSpeed
-                        }
-                        val psAbsValue = when (signature) {
-                            2 -> lastPassingSpeedAbs
-                            1 -> 0
-                            else -> passingSpeedAbs
-                        }
-                        if (tracked && signature == 0) {
-                            lastSpeedMps = closingMps
-                            lastPassingSpeed = passingSpeed
-                            lastPassingSpeedAbs = passingSpeedAbs
-                        }
-
-                        if (rangeValue > 0.0) {
-                            lastRunEndRange = rangeValue
-                            runOpen = true
-                        } else {
-                            runOpen = false
-                        }
-
-                        values.add(FieldValue(mbtRangesField, rangeValue))
-                        values.add(FieldValue(mbtSpeedsField, speedValue))
-                        values.add(FieldValue(mbtPassingSpeedField, psValue.toDouble().coerceAtMost(MBT_SPEED_MAX)))
-                        values.add(FieldValue(mbtPassingSpeedAbsField, psAbsValue.toDouble().coerceAtMost(MBT_SPEED_MAX)))
-
                         values.add(FieldValue(threatField, engine.threatLevel.value.ordinal.toDouble()))
                         values.add(FieldValue(vehicleCountField, vehicleCount.toDouble()))
-                        if (tracked) {
+                        if (vehicleCount > 0) {
                             values.add(FieldValue(nearestDistanceField, nearestM.toDouble()))
                             val sorted = engine.targetDistances.value.sorted()
                             for ((i, field) in extraRangeFields.withIndex()) {
                                 sorted.getOrNull(i + 1)?.let { values.add(FieldValue(field, it.toDouble())) }
                             }
                         }
-                    } else {
-                        lastRunEndRange = -1.0
-                        runOpen = false
-                        values.add(FieldValue(mbtRangesField, MBT_RANGE_RADAR_OFF))
-                        values.add(FieldValue(mbtSpeedsField, MBT_SPEED_RADAR_OFF))
-                        values.add(FieldValue(mbtPassingSpeedField, 0.0))
-                        values.add(FieldValue(mbtPassingSpeedAbsField, 0.0))
                     }
                     values.add(FieldValue(mbtCurrentField, passTotal.toDouble()))
 
@@ -493,7 +451,8 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
             ComboGlanceDataType(this),
             VehicleCountGlanceDataType(this),
             ApproachSpeedGlanceDataType(this),
-            ClosestDistanceGlanceDataType(this)
+            ClosestDistanceGlanceDataType(this),
+            VehiclesPerHourGlanceDataType(this)
         )
     }
 }

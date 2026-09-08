@@ -18,9 +18,9 @@ class TargetTrackerTest {
     }
 
     /** Feed one packet per second; returns passes counted. */
-    private fun feed(vararg ranges: Int, dtMs: Long = 1000L): Int {
+    private fun feed(vararg ranges: Int, dtMs: Long = 1000L, threat: Int = 0): Int {
         now += dtMs
-        return tracker.update(ranges.toList(), now)
+        return tracker.update(ranges.toList(), now, threat)
     }
 
     /** Feed an empty packet until the lost timeout has elapsed. */
@@ -39,12 +39,76 @@ class TargetTrackerTest {
     }
 
     @Test
-    @DisplayName("a threat-without-ranges packet before the drop does not lose the pass")
+    @DisplayName("a threat-without-ranges packet before the drop counts the car exactly once")
     fun noRangePacketBeforeDrop() {
         for (r in listOf(46, 34, 25, 12)) feed(r)
-        feed() // Karoo sends threat but no target ranges
-        feed(3, dtMs = 200) // burst packet with the range again
-        assertThat(gone()).isEqualTo(1)
+        var passed = feed() // Karoo sends threat but no target ranges
+        passed += feed(3, dtMs = 200) // burst packet with the range again
+        passed += gone()
+        assertThat(passed).isEqualTo(1)
+    }
+
+    @Test
+    @DisplayName("a close car is counted on the first packet it is missing from")
+    fun closeCarCountsImmediately() {
+        for (r in listOf(46, 34, 25, 12, 6)) feed(r)
+        assertThat(feed()).isEqualTo(1)
+        assertThat(tracker.activeCount).isEqualTo(0)
+        assertThat(tracker.nearestRangeM()).isEqualTo(0)
+        assertThat(gone()).isEqualTo(0)
+    }
+
+    @Test
+    @DisplayName("a burst packet a few ms after the car vanished does not count it early")
+    fun burstDoesNotCountEarly() {
+        for (r in listOf(46, 34, 25, 12)) feed(r)
+        assertThat(feed(dtMs = 5)).isEqualTo(0)
+        assertThat(feed(9, dtMs = 5)).isEqualTo(0)
+        assertThat(feed(3)).isEqualTo(0)
+        assertThat(feed()).isEqualTo(1)
+    }
+
+    @Test
+    @DisplayName("a counted car that reappears alongside after a dropout is not counted twice")
+    fun ghostAbsorbsDropout() {
+        for (r in listOf(46, 34, 25, 12, 6)) feed(r)
+        var passed = feed()      // dropout: counted now
+        passed += feed(3)        // radar sees it again, right where it vanished
+        passed += feed(3)
+        passed += gone()
+        assertThat(passed).isEqualTo(1)
+    }
+
+    @Test
+    @DisplayName("a new car appearing behind a counted one starts its own track")
+    fun newCarAfterGhost() {
+        for (r in listOf(46, 34, 25, 12, 6)) feed(r)
+        var passed = feed()      // first car counted
+        passed += feed(40)       // second car, well behind the ghost
+        passed += feed(25)
+        passed += feed(12)
+        passed += feed(5)
+        passed += gone()
+        assertThat(passed).isEqualTo(2)
+    }
+
+    @Test
+    @DisplayName("a far car still waits the full lost timeout before counting")
+    fun farCarStillWaits() {
+        for (r in listOf(120, 85, 45)) feed(r)
+        assertThat(feed()).isEqualTo(0)
+        assertThat(feed()).isEqualTo(1)
+    }
+
+    @Test
+    @DisplayName("closing speed freezes at the approach value inside 10 m")
+    fun speedFreezesClose() {
+        for (r in listOf(84, 72, 60, 48, 36, 24, 12)) feed(r) // 12 m/s
+        val approach = tracker.nearestClosingSpeedMps()
+        feed(3)   // radar quantisation: 12 -> 3 would read as 9 m/s
+        feed(3)   // and 3 -> 3 as a stall
+        assertThat(tracker.nearestClosingSpeedMps()).isEqualTo(approach)
+        assertThat(approach).isWithin(1.0).of(12.0)
     }
 
     @Test
@@ -131,6 +195,100 @@ class TargetTrackerTest {
     fun speedNeedsHistory() {
         feed(84)
         assertThat(tracker.nearestClosingSpeedMps()).isEqualTo(0.0)
+    }
+
+    @Test
+    @DisplayName("a car that follows at the rider's speed and then drops off is not a pass")
+    fun followerNotCounted() {
+        // From a ride: 31 m down to 12 m over 12 s at ~1 m/s, threat level 1 throughout, then gone
+        for (r in listOf(31, 28, 28, 25, 21, 18, 18, 15, 15, 12, 12, 12)) feed(r, threat = 1)
+        assertThat(gone()).isEqualTo(0)
+    }
+
+    @Test
+    @DisplayName("a follower that gets to 6 m and drops off is still not a pass")
+    fun closeFollowerNotCounted() {
+        for (r in listOf(21, 18, 15, 15, 15, 12, 9, 6, 9, 6, 6)) feed(r, threat = 1)
+        assertThat(gone()).isEqualTo(0)
+    }
+
+    @Test
+    @DisplayName("a slow car the radar flagged as approaching fast counts")
+    fun slowButFlagged() {
+        for (r in listOf(21, 18, 15, 15, 12, 12, 9)) feed(r, threat = 2)
+        assertThat(gone()).isEqualTo(1)
+    }
+
+    @Test
+    @DisplayName("a slow car seen alongside at 3 m counts")
+    fun slowAlongside() {
+        for (r in listOf(12, 12, 9, 6, 6, 3)) feed(r, threat = 1)
+        assertThat(gone()).isEqualTo(1)
+    }
+
+    /** Rider heading sample at the current time. */
+    private fun heading(deg: Double) = tracker.updateHeading(deg, now)
+
+    @Test
+    @DisplayName("a car that vanishes as the rider turns off the road is not a pass")
+    fun vanishesAtTurn() {
+        // From a ride: car closes 15 m to 3 m at 2 m/s while the rider brakes and turns right
+        heading(90.0)
+        for ((i, r) in listOf(15, 15, 12, 9, 6, 3).withIndex()) {
+            feed(r, threat = 1)
+            heading(90.0 + i * 5)   // gentle drift while braking
+        }
+        heading(150.0); feed(); heading(175.0); feed(); heading(180.0)
+        assertThat(tracker.turnedSince(now - 3000)).isTrue()
+        assertThat(gone()).isEqualTo(0)
+    }
+
+    @Test
+    @DisplayName("a brief fast target right after a turn is a car crossing the cone, not a pass")
+    fun crossingAfterTurn() {
+        heading(90.0); feed()
+        heading(135.0); feed(); heading(180.0); feed()   // the turn
+        feed(); feed(); feed()
+        feed(21, threat = 2); feed(3, threat = 2)         // two samples, 18 m/s closing
+        assertThat(gone()).isEqualTo(0)
+    }
+
+    @Test
+    @DisplayName("a car on the new road that passes as the rider completes a turn counts")
+    fun passWhileMergingOntoBusyRoad() {
+        heading(90.0); feed()
+        heading(120.0); feed()
+        heading(150.0); feed(84, threat = 2)     // car on the new road appears mid-turn
+        heading(175.0); feed(59, threat = 2)     // turn detected here
+        heading(180.0); feed(34, threat = 2)
+        heading(180.0); feed(12, threat = 2)
+        heading(180.0); feed(3, threat = 2)
+        assertThat(gone()).isEqualTo(1)
+    }
+
+    @Test
+    @DisplayName("a fast car first seen at normal range right after a turn counts even if brief")
+    fun fastPassRightAfterTurn() {
+        heading(90.0); feed(); heading(180.0); feed()
+        feed(); feed()
+        feed(96, threat = 2); feed(46, threat = 2); feed(6, threat = 2)   // three samples from 96 m
+        assertThat(gone()).isEqualTo(1)
+    }
+
+    @Test
+    @DisplayName("a real pass on a straight road still counts with heading fed")
+    fun straightRoadPassWithHeading() {
+        for (r in listOf(84, 68, 59, 46, 34, 25, 12, 3)) { feed(r, threat = 2); heading(90.0) }
+        assertThat(gone()).isEqualTo(1)
+    }
+
+    @Test
+    @DisplayName("a pass well after a turn counts")
+    fun passAfterTurn() {
+        heading(90.0); feed(); heading(180.0); feed()
+        repeat(15) { feed(); heading(180.0) }
+        for (r in listOf(84, 68, 59, 46, 34, 25, 12, 3)) { feed(r, threat = 2); heading(180.0) }
+        assertThat(gone()).isEqualTo(1)
     }
 
     @Test

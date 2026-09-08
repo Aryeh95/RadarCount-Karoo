@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -38,7 +40,6 @@ import io.github.aryeh95.radarcount.ui.theme.RadarColors
 fun DashboardScreen(extension: RadarCountExtension?, onSettingsClick: () -> Unit, onResetCount: () -> Unit) {
     val state = extension?.radarEngine?.widgetState?.collectAsState()?.value ?: WidgetState.NotConnected
     val passCount = extension?.radarEngine?.passCount?.collectAsState()?.value ?: 0
-    val lapCount = extension?.radarEngine?.lapPassCount?.collectAsState()?.value ?: 0
     val closing = extension?.radarEngine?.closingSpeedMps?.collectAsState()?.value ?: 0.0
     val rider = extension?.riderSpeedMps?.collectAsState()?.value ?: 0.0
     val imperial = extension?.useImperial?.collectAsState()?.value ?: false
@@ -72,9 +73,9 @@ fun DashboardScreen(extension: RadarCountExtension?, onSettingsClick: () -> Unit
         modifier = Modifier
             .fillMaxSize()
             .background(RadarColors.background)
+            .verticalScroll(rememberScrollState())
             .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -100,7 +101,7 @@ fun DashboardScreen(extension: RadarCountExtension?, onSettingsClick: () -> Unit
         )
         Spacer(modifier = Modifier.height(20.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            Stat(stringResource(R.string.widget_count_label), passCount.toString(), stringResource(R.string.widget_lap_label, lapCount))
+            Stat(stringResource(R.string.widget_count_label), passCount.toString(), "")
             Stat(
                 stringResource(R.string.widget_approach_label, unit),
                 if (state is WidgetState.Threat) relative.toString() else "--",
@@ -114,7 +115,7 @@ fun DashboardScreen(extension: RadarCountExtension?, onSettingsClick: () -> Unit
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = stringResource(R.string.dashboard_hint),
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodySmall,
             color = RadarColors.textSecondary,
             textAlign = TextAlign.Center
         )
