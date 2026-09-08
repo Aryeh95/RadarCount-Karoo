@@ -4,21 +4,23 @@
     <string name="extension_name">RadarCount</string>
 
     <!-- Data types -->
-    <string name="datatype_count">Vehicle Count</string>
+    <string name="datatype_count">Vehicles</string>
     <string name="datatype_count_desc">Vehicles passed this ride and lap</string>
-    <string name="datatype_speed">Approach Speed</string>
+    <string name="datatype_speed">Vehicle Speed</string>
     <string name="datatype_speed_desc">Relative and absolute speed of nearest vehicle</string>
-    <string name="datatype_distance">Closest Vehicle</string>
+    <string name="datatype_distance">Vehicle Distance</string>
     <string name="datatype_distance_desc">Distance to nearest vehicle</string>
-    <string name="datatype_combo">Radar Combo</string>
+    <string name="datatype_combo">Radar</string>
     <string name="datatype_combo_desc">Count, approach speed and distance in one field</string>
     <string name="combo_count">COUNT</string>
     <string name="combo_dist">DIST</string>
+    <string name="combo_speed">SPEED</string>
 
     <!-- Widget text -->
     <string name="widget_count_label">PASSED</string>
     <string name="widget_lap_label">Lap %d</string>
     <string name="widget_approach_label">APPROACH %s</string>
+    <string name="widget_approach_short">APPR %s</string>
     <string name="widget_absolute_label">Abs %1$d %2$s</string>
     <string name="widget_no_vehicle">No vehicle</string>
     <string name="widget_distance_label">CLOSEST</string>
@@ -35,7 +37,7 @@
     <string name="dashboard_searching">Searching…</string>
     <string name="dashboard_clear">Clear</string>
     <string name="dashboard_connection_lost">Radar lost</string>
-    <string name="dashboard_hint">Add the Radar Combo, Vehicle Count, Approach Speed or Closest Vehicle data fields to a ride page. Rides record FIT fields compatible with mybiketraffic.com automatically.</string>
+    <string name="dashboard_hint">Add the Radar, Vehicles, Vehicle Speed or Vehicle Distance data fields to a ride page. Rides record FIT fields compatible with mybiketraffic.com automatically.</string>
     <string name="dashboard_reset_count">Reset count</string>
     <string name="settings_title">Settings</string>
     <string name="settings_units">Units</string>
@@ -46,6 +48,11 @@
     <string name="settings_theme_auto">Match device</string>
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_dark">Dark</string>
+    <string name="settings_speed">Vehicle speed shown</string>
+    <string name="settings_speed_relative">Relative to you</string>
+    <string name="settings_speed_absolute">Absolute</string>
+    <string name="settings_speed_hint">Relative is how fast the vehicle is closing on you. Absolute adds your own speed, giving its road speed.</string>
+    <string name="widget_relative_label">Rel %1$d %2$s</string>
     <string name="settings_sensitivity">Count sensitivity</string>
     <string name="settings_sensitivity_strict">Strict</string>
     <string name="settings_sensitivity_normal">Normal</string>

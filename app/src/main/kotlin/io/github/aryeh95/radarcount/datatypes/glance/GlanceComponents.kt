@@ -6,11 +6,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceModifier
 import androidx.glance.color.ColorProvider as DayNightColorProvider
-import androidx.glance.background
+import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.fillMaxSize
-import androidx.glance.layout.fillMaxWidth
-import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
@@ -70,29 +68,8 @@ fun DataFieldContainer(
     modifier: GlanceModifier = GlanceModifier,
     content: @Composable () -> Unit
 ) {
-    Box(modifier = modifier.fillMaxSize().padding(2.dp)) {
+    Box(modifier = modifier.fillMaxSize().padding(horizontal = 2.dp), contentAlignment = Alignment.TopCenter) {
         content()
-    }
-}
-
-/**
- * Thin coloured bar indicating radar state (green clear, orange/red threat,
- * grey disconnected).
- */
-@Composable
-fun StatusBar(state: WidgetState, height: Int = 5) {
-    Box(
-        modifier = GlanceModifier
-            .fillMaxWidth()
-            .height(height.dp)
-            .padding(horizontal = 4.dp)
-    ) {
-        Box(
-            modifier = GlanceModifier
-                .fillMaxWidth()
-                .height(height.dp)
-                .background(GlanceColors.forState(state))
-        ) {}
     }
 }
 

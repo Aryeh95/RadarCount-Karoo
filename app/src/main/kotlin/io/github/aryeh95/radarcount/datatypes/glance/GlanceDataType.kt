@@ -13,6 +13,7 @@ import io.hammerhead.karooext.extension.DataTypeImpl
 import io.hammerhead.karooext.internal.Emitter
 import io.hammerhead.karooext.internal.ViewEmitter
 import io.hammerhead.karooext.models.DataPoint
+import io.hammerhead.karooext.models.ShowCustomStreamState
 import io.hammerhead.karooext.models.StreamState
 import io.hammerhead.karooext.models.UpdateGraphicConfig
 import io.hammerhead.karooext.models.ViewConfig
@@ -73,6 +74,10 @@ abstract class GlanceDataType(
 
     private val glance = GlanceRemoteViews()
 
+    /** Screen density, captured from the first view so sizes can be computed in dp. */
+    @Volatile
+    protected var density: Float = 1f
+
     @Composable
     protected abstract fun Content(input: RenderInput, config: ViewConfig)
 
@@ -106,9 +111,15 @@ abstract class GlanceDataType(
     }
 
     override fun startView(context: Context, config: ViewConfig, emitter: ViewEmitter) {
-        emitter.onNext(UpdateGraphicConfig(showHeader = false))
+        // Same setup as other extensions (e.g. ki2) whose custom fields render
+        // like the Karoo's own: standard header on, and an empty custom
+        // stream state so the Karoo does not draw its own placeholder over
+        // the value area.
+        emitter.onNext(UpdateGraphicConfig(showHeader = true))
+        emitter.onNext(ShowCustomStreamState(message = "", color = null))
+        density = context.resources.displayMetrics.density
 
-        android.util.Log.d(TAG, "[$dataTypeId] Starting view: grid=${config.gridSize}, size=${config.viewSize}, preview=${config.preview}")
+        android.util.Log.d(TAG, "[$dataTypeId] Starting view: grid=${config.gridSize}, size=${config.viewSize}, text=${config.textSize}, density=$density, preview=${config.preview}")
 
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 

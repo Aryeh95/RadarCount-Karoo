@@ -1,40 +1,75 @@
 package io.github.aryeh95.radarcount.datatypes.glance
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceModifier
+import androidx.glance.appwidget.background
+import androidx.glance.color.ColorProvider as DayNightColorProvider
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxSize
-import androidx.glance.layout.fillMaxWidth
-import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.width
+import androidx.glance.text.FontFamily
+import androidx.glance.text.Text
+import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import io.github.aryeh95.radarcount.R
 import io.github.aryeh95.radarcount.RadarCountExtension
+import io.github.aryeh95.radarcount.data.SpeedSetting
+import io.github.aryeh95.radarcount.data.ThemeSetting
 import io.github.aryeh95.radarcount.data.models.WidgetState
 import io.github.aryeh95.radarcount.engine.Units
 import io.hammerhead.karooext.models.ViewConfig
 
 /**
- * Font sizes derived from the Karoo's own numeric size for this grid
- * cell, so the field scales like the built-in ones.
+ * Value text laid out exactly like ki2's TextView, which renders custom
+ * fields indistinguishably from the Karoo's built-in ones: the whole cell,
+ * vertically centred, horizontally aligned per the field setting, at 97%
+ * of the Karoo's numeric size, monospace, nudged up slightly.
  */
-private class Sizes(config: ViewConfig) {
-    /** Karoo's standard numeric font size for this cell, in sp */
-    private val base = config.textSize.coerceIn(18, 72)
-    val value = base
-    val medium = (base * 0.55).toInt().coerceAtLeast(16)
-    val label = (base * 0.32).toInt().coerceIn(11, 20)
-    val rows = config.gridSize.second     // of 60
-    val cols = config.gridSize.first      // of 60
-    val tall = rows >= 30
-    val wide = cols >= 60
-    val tiny = rows <= 15 && cols < 60
+@Composable
+private fun KarooValue(
+    text: String,
+    config: ViewConfig,
+    theme: ThemeSetting,
+    color: ColorProvider? = null,
+    density: Float,
+    fontSize: Int = config.textSize
+) {
+    val fitted = minOf(fontSize, fitFontSp(text.length.toFloat(), config.viewSize.first, 10, density))
+    val horizontal = when (config.alignment) {
+        ViewConfig.Alignment.LEFT -> Alignment.Horizontal.Start
+        ViewConfig.Alignment.CENTER -> Alignment.Horizontal.CenterHorizontally
+        ViewConfig.Alignment.RIGHT -> Alignment.Horizontal.End
+    }
+    Box(
+        modifier = GlanceModifier.fillMaxSize().padding(start = 5.dp, top = 0.dp, end = 5.dp, bottom = 0.dp),
+        contentAlignment = Alignment(vertical = Alignment.Vertical.CenterVertically, horizontal = horizontal)
+    ) {
+        KarooText(text, theme, color, fitted)
+    }
+}
+
+@Composable
+private fun KarooText(text: String, theme: ThemeSetting, color: ColorProvider?, fontSize: Int) {
+    Text(
+        text = text,
+        style = TextStyle(
+            color = color ?: GlanceColors.text(theme),
+            fontSize = (fontSize * 0.97).sp,
+            fontFamily = FontFamily.Monospace
+        ),
+        modifier = GlanceModifier
+            .background(Color(1f, 1f, 1f, 1f), Color(0f, 0f, 0f, 1f))
+            .padding(top = (-fontSize * 0.09).dp),
+        maxLines = 1
+    )
 }
 
 private data class Derived(
@@ -43,7 +78,9 @@ private data class Derived(
     val absolute: Int,
     val unit: String,
     val distance: String?,
-    val behind: Int
+    val behind: Int,
+    val shownSpeed: Int,
+    val showsAbsolute: Boolean
 )
 
 private fun derive(input: GlanceDataType.RenderInput): Derived {
@@ -60,78 +97,41 @@ private fun derive(input: GlanceDataType.RenderInput): Derived {
     } else {
         null
     }
-    return Derived(tracked, relative, absolute, Units.speedUnitLabel(input.useImperial), distance, threat?.vehicleCount ?: 0)
+    val showsAbsolute = input.settings.speed == SpeedSetting.ABSOLUTE
+    return Derived(
+        tracked, relative, absolute, Units.speedUnitLabel(input.useImperial), distance, threat?.vehicleCount ?: 0,
+        shownSpeed = if (showsAbsolute) absolute else relative,
+        showsAbsolute = showsAbsolute
+    )
 }
 
-/** Shared layout: status bar, small label, big value, small footer. */
-@Composable
-private fun LabelValueFooter(
-    input: GlanceDataType.RenderInput,
-    config: ViewConfig,
-    label: String,
-    value: String,
-    valueColor: ColorProvider,
-    footer: String?
-) {
-    val sz = Sizes(config)
-    val theme = input.settings.theme
-    DataFieldContainer {
-        Column(modifier = GlanceModifier.fillMaxSize()) {
-            StatusBar(input.state)
-            Box(
-                modifier = GlanceModifier.fillMaxSize().padding(horizontal = 6.dp, vertical = 2.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                if (sz.tiny) {
-                    // One line: label and value side by side
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        LabelText(text = label, color = GlanceColors.label(theme), fontSize = sz.label)
-                        Spacer(modifier = GlanceModifier.width(8.dp))
-                        ValueText(text = value, color = valueColor, fontSize = sz.medium)
-                    }
-                } else {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        LabelText(text = label, color = GlanceColors.label(theme), fontSize = sz.label)
-                        ValueText(text = value, color = valueColor, fontSize = sz.value)
-                        if (footer != null) {
-                            LabelText(text = footer, color = GlanceColors.label(theme), fontSize = sz.label)
-                        }
-                    }
-                }
-            }
-        }
-    }
+private const val CAPTION_RATIO = 0.4f
+
+/** Largest monospace font (sp) whose [chars] characters fit in [widthPx] minus [paddingDp]. */
+private fun fitFontSp(chars: Float, widthPx: Int, paddingDp: Int, density: Float): Int {
+    if (widthPx <= 0 || chars <= 0f) return Int.MAX_VALUE
+    val availablePx = widthPx - paddingDp * density
+    return (availablePx / (0.62f * chars * density)).toInt()
 }
 
-/**
- * Vehicles that have passed the rider this ride, with the lap count below.
- */
+/** Vehicles that have passed the rider this ride. */
 class VehicleCountGlanceDataType(
     radarExtension: RadarCountExtension
 ) : GlanceDataType(radarExtension, "vehicle-count") {
 
     @Composable
     override fun Content(input: RenderInput, config: ViewConfig) {
-        val theme = input.settings.theme
-        LabelValueFooter(
-            input = input,
+        KarooValue(
+            text = if (input.connected) input.passCount.toString() else "--",
             config = config,
-            label = radarExtension.getString(R.string.widget_count_label),
-            value = if (input.connected) input.passCount.toString() else "--",
-            valueColor = if (input.connected) GlanceColors.text(theme) else ColorProvider(GlanceColors.Neutral),
-            footer = if (input.settings.showLapCount) {
-                radarExtension.getString(R.string.widget_lap_label, input.lapPassCount)
-            } else {
-                null
-            }
+            theme = input.settings.theme,
+            density = density,
+            color = if (input.connected) null else ColorProvider(GlanceColors.Neutral)
         )
     }
 }
 
-/**
- * Approach (relative) speed of the nearest vehicle, with its absolute
- * speed (relative + rider speed) below. Both in the rider's units.
- */
+/** Speed of the nearest vehicle, relative or absolute per settings. */
 class ApproachSpeedGlanceDataType(
     radarExtension: RadarCountExtension
 ) : GlanceDataType(radarExtension, "approach-speed") {
@@ -139,24 +139,17 @@ class ApproachSpeedGlanceDataType(
     @Composable
     override fun Content(input: RenderInput, config: ViewConfig) {
         val d = derive(input)
-        LabelValueFooter(
-            input = input,
+        KarooValue(
+            text = if (d.tracked) "${d.shownSpeed}${d.unit}" else "--",
             config = config,
-            label = radarExtension.getString(R.string.widget_approach_label, d.unit),
-            value = if (d.tracked) d.relative.toString() else "--",
-            valueColor = if (d.tracked) ColorProvider(GlanceColors.forState(input.state)) else ColorProvider(GlanceColors.Neutral),
-            footer = if (d.tracked) {
-                radarExtension.getString(R.string.widget_absolute_label, d.absolute, d.unit)
-            } else {
-                radarExtension.getString(R.string.widget_no_vehicle)
-            }
+            theme = input.settings.theme,
+            density = density,
+            color = if (input.connected) null else ColorProvider(GlanceColors.Neutral)
         )
     }
 }
 
-/**
- * Distance to the closest vehicle, with the number of vehicles behind below.
- */
+/** Distance to the closest vehicle. */
 class ClosestDistanceGlanceDataType(
     radarExtension: RadarCountExtension
 ) : GlanceDataType(radarExtension, "closest-distance") {
@@ -164,27 +157,19 @@ class ClosestDistanceGlanceDataType(
     @Composable
     override fun Content(input: RenderInput, config: ViewConfig) {
         val d = derive(input)
-        LabelValueFooter(
-            input = input,
+        KarooValue(
+            text = d.distance ?: "--",
             config = config,
-            label = radarExtension.getString(R.string.widget_distance_label),
-            value = d.distance ?: "--",
-            valueColor = if (d.tracked) ColorProvider(GlanceColors.forState(input.state)) else ColorProvider(GlanceColors.Neutral),
-            footer = when {
-                d.tracked -> radarExtension.resources.getQuantityString(R.plurals.widget_vehicles_behind, d.behind, d.behind)
-                input.state is WidgetState.Clear -> radarExtension.getString(R.string.widget_road_clear)
-                else -> radarExtension.getString(R.string.widget_no_radar)
-            }
+            theme = input.settings.theme,
+            density = density,
+            color = if (input.connected) null else ColorProvider(GlanceColors.Neutral)
         )
     }
 }
 
 /**
- * Combined field: pass count, approach speed and closest distance in one
- * cell. Layout adapts to the cell's grid size:
- *  - quarter-height or narrower: one row of three values
- *  - half height: big count on the left, speed and distance stacked right
- *  - full height: big count, then speed and distance, then lap and status
+ * Combined field: count, speed and distance side by side, each captioned,
+ * in the same style as the single fields at a reduced size.
  */
 class ComboGlanceDataType(
     radarExtension: RadarCountExtension
@@ -192,103 +177,45 @@ class ComboGlanceDataType(
 
     @Composable
     override fun Content(input: RenderInput, config: ViewConfig) {
-        val sz = Sizes(config)
         val theme = input.settings.theme
         val d = derive(input)
-        val text = GlanceColors.text(theme)
-        val label = GlanceColors.label(theme)
-        val stateColor = ColorProvider(GlanceColors.forState(input.state))
-        val neutral = ColorProvider(GlanceColors.Neutral)
-
+        val live = if (input.connected) null else ColorProvider(GlanceColors.Neutral)
         val countText = if (input.connected) input.passCount.toString() else "--"
-        val speedText = if (d.tracked) "${d.relative}" else "--"
+        val speedText = if (d.tracked) "${d.shownSpeed}${d.unit}" else "--"
         val distText = d.distance ?: "--"
-        val unit = d.unit
+        val gapDp = if (config.gridSize.first >= 60) 14 else 8
+        // Shrink the value font so all three cells fit the field width (monospace ~0.6em per char).
+        val captions = listOf(R.string.combo_count, R.string.combo_speed, R.string.combo_dist).map { radarExtension.getString(it) }
+        val chars = listOf(countText, speedText, distText).zip(captions).sumOf { (v, c) ->
+            maxOf(v.length.toFloat(), c.length * CAPTION_RATIO).toDouble()
+        }.toFloat()
+        val valueSize = minOf((config.textSize * 0.6f).toInt(), fitFontSp(chars, config.viewSize.first, 10 + 2 * gapDp, density)).coerceAtLeast(12)
+        val captionSize = (valueSize * CAPTION_RATIO).toInt().coerceIn(9, 16)
+        val gap = gapDp.dp
 
-        DataFieldContainer {
-            Column(modifier = GlanceModifier.fillMaxSize()) {
-                StatusBar(input.state)
-                Box(
-                    modifier = GlanceModifier.fillMaxSize().padding(horizontal = 6.dp, vertical = 2.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    when {
-                        sz.tiny || (!sz.tall && !sz.wide) -> {
-                            // Single row: count | speed | distance
-                            Row(
-                                modifier = GlanceModifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Cell(radarExtension.getString(R.string.combo_count), countText, text, label, sz.medium, sz.label)
-                                Spacer(modifier = GlanceModifier.width(10.dp))
-                                Cell(unit, speedText, if (d.tracked) stateColor else neutral, label, sz.medium, sz.label)
-                                Spacer(modifier = GlanceModifier.width(10.dp))
-                                Cell(radarExtension.getString(R.string.combo_dist), distText, if (d.tracked) stateColor else neutral, label, sz.medium, sz.label)
-                            }
-                        }
-                        !sz.tall -> {
-                            // Half height: count left, speed + distance stacked right
-                            Row(
-                                modifier = GlanceModifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Cell(radarExtension.getString(R.string.widget_count_label), countText, text, label, sz.value, sz.label)
-                                Spacer(modifier = GlanceModifier.width(14.dp))
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Cell(radarExtension.getString(R.string.widget_approach_label, unit), speedText, if (d.tracked) stateColor else neutral, label, sz.medium, sz.label)
-                                    Spacer(modifier = GlanceModifier.height(2.dp))
-                                    Cell(radarExtension.getString(R.string.widget_distance_label), distText, if (d.tracked) stateColor else neutral, label, sz.medium, sz.label)
-                                }
-                            }
-                        }
-                        else -> {
-                            // Full height: everything
-                            Column(
-                                modifier = GlanceModifier.fillMaxWidth(),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Cell(radarExtension.getString(R.string.widget_count_label), countText, text, label, sz.value, sz.label)
-                                Spacer(modifier = GlanceModifier.height(4.dp))
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Cell(radarExtension.getString(R.string.widget_approach_label, unit), speedText, if (d.tracked) stateColor else neutral, label, sz.medium, sz.label)
-                                    Spacer(modifier = GlanceModifier.width(16.dp))
-                                    Cell(radarExtension.getString(R.string.widget_distance_label), distText, if (d.tracked) stateColor else neutral, label, sz.medium, sz.label)
-                                }
-                                Spacer(modifier = GlanceModifier.height(4.dp))
-                                val footer = when {
-                                    d.tracked -> radarExtension.getString(R.string.widget_absolute_label, d.absolute, unit) +
-                                        "  ·  " + radarExtension.resources.getQuantityString(R.plurals.widget_vehicles_behind, d.behind, d.behind)
-                                    input.state is WidgetState.Clear -> radarExtension.getString(R.string.widget_road_clear)
-                                    else -> radarExtension.getString(R.string.widget_no_radar)
-                                }
-                                val lapText = if (input.settings.showLapCount) {
-                                    radarExtension.getString(R.string.widget_lap_label, input.lapPassCount) + "  ·  "
-                                } else {
-                                    ""
-                                }
-                                LabelText(text = lapText + footer, color = label, fontSize = sz.label)
-                            }
-                        }
-                    }
-                }
+        Box(
+            modifier = GlanceModifier.fillMaxSize().padding(start = 5.dp, end = 5.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Cell(radarExtension.getString(R.string.combo_count), countText, theme, null, valueSize, captionSize)
+                Spacer(modifier = GlanceModifier.width(gap))
+                Cell(radarExtension.getString(R.string.combo_speed), speedText, theme, live, valueSize, captionSize)
+                Spacer(modifier = GlanceModifier.width(gap))
+                Cell(radarExtension.getString(R.string.combo_dist), distText, theme, live, valueSize, captionSize)
             }
         }
     }
 
     @Composable
-    private fun Cell(
-        label: String,
-        value: String,
-        valueColor: ColorProvider,
-        labelColor: ColorProvider,
-        valueSize: Int,
-        labelSize: Int
-    ) {
+    private fun Cell(caption: String, value: String, theme: ThemeSetting, color: ColorProvider?, valueSize: Int, captionSize: Int) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            LabelText(text = label, color = labelColor, fontSize = labelSize)
-            ValueText(text = value, color = valueColor, fontSize = valueSize)
+            Text(
+                text = caption,
+                style = TextStyle(color = GlanceColors.label(theme), fontSize = captionSize.sp),
+                maxLines = 1
+            )
+            KarooText(value, theme, color, valueSize)
         }
     }
 }

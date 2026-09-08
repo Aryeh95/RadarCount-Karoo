@@ -18,14 +18,15 @@ Add any of these to a ride page from the Karoo's data field picker under **Radar
 
 | Data Field | Shows |
 |------------|-------|
-| **Radar Combo** | Pass count, approach speed and closest distance in one field. The layout adapts to the field size: one row when small, count beside speed and distance at half height, everything including lap and status at full height |
-| **Vehicle Count** | Vehicles that have passed you this ride, with the current lap count underneath |
-| **Approach Speed** | Relative speed of the nearest vehicle, with its absolute speed (relative + your speed) underneath |
-| **Closest Vehicle** | Distance to the nearest vehicle, with how many vehicles are behind you |
+| **Radar** | Pass count, approach speed and closest distance in one field. The layout adapts to the field size: one row when small, count beside speed and distance at half height, everything including lap and status at full height |
+| **Vehicles** | Vehicles that have passed you this ride, with the current lap count underneath |
+| **Vehicle Speed** | Relative speed of the nearest vehicle, with its absolute speed (relative + your speed) underneath |
+| **Vehicle Distance** | Distance to the nearest vehicle, with how many vehicles are behind you |
 
-Fields draw no background of their own, so they match the Karoo's light or dark
-theme like the built-in fields. Text colour follows the device theme
-automatically and can be forced in settings.
+Fields use the Karoo's standard header (icon and name at the top) and draw no
+background of their own, so they look like the built-in fields in both the
+light and dark theme. Text colour follows the device theme automatically and
+can be forced in settings.
 
 ## Settings
 
@@ -35,6 +36,7 @@ Open the RadarCount app on the Karoo and tap Settings.
 |---------|---------|
 | Units | Karoo profile (default), Metric, Imperial |
 | Field colours | Match device (default), Light, Dark |
+| Vehicle speed shown | Relative to you (default), or Absolute (relative plus your own speed). Applies to the Vehicle Speed field and the Radar combo; the other value shows on the small line where there is room. |
 | Count sensitivity | Strict (12 m / 40 m), Normal (20 m / 60 m), Relaxed (30 m / 90 m). The first number is how close a car must come to count outright; the second is how close a car that was still closing in may drop off the radar and still count. |
 | Reset count when a ride starts | On by default. Off keeps a running total across rides; use Reset count on the status screen to clear it. |
 | Reset lap count on each lap | On by default |
@@ -89,8 +91,24 @@ from consecutive range samples. Treat them as ballpark figures.
 ## Install
 
 Download the APK from [Releases](../../releases) and install with
-`adb install radarcount-karoo.apk`, or share it to the Hammerhead companion
+`adb install radarcount-karoo-<version>.apk`, or share it to the Hammerhead companion
 app. Works on Karoo 2 and Karoo 3 with any ANT+ radar the Karoo pairs with.
+
+The Karoo shows a "not verified by Hammerhead" warning for every sideloaded
+extension; that is expected. Updates install over the previous version and
+keep your settings and field placements.
+
+## Privacy
+
+RadarCount has no network access and no accounts. It reads radar, speed and
+ride state from the Karoo and writes radar fields into the ride's FIT file on
+the device. Nothing leaves the Karoo unless you upload the ride yourself.
+
+## Feedback
+
+Bugs, ideas and ride files that counted wrong are welcome as
+[issues](../../issues). A FIT file from the ride plus what you saw on the road
+is the most useful report.
 
 ## Release signing
 
@@ -117,6 +135,10 @@ Then:
 ./gradlew testDebugUnitTest assembleRelease
 ```
 
-## License
+## Credits and license
 
-MIT, same as eiRadar. See [LICENSE](LICENSE).
+Built on the radar and Karoo plumbing of [eiRadar](https://github.com/yrkan/eiradar)
+by yrkan, and on the FIT field layout of [My Bike Radar Traffic](https://github.com/kartoone/mybiketraffic)
+by Brian Toone. Not affiliated with Hammerhead or mybiketraffic.com.
+
+MIT license, see [LICENSE](LICENSE).
