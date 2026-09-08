@@ -13,8 +13,8 @@ android {
         applicationId = "io.github.aryeh95.radarcount"
         minSdk = 26
         targetSdk = 35
-        versionCode = 8
-        versionName = "0.2.2"
+        versionCode = 17
+        versionName = "0.2.11"
     }
 
     // Release signing: a permanent keystore supplied via environment
@@ -49,7 +49,7 @@ android {
     applicationVariants.all {
         outputs.all {
             val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-            output.outputFileName = "radarcount-karoo.apk"
+            output.outputFileName = "radarcount-karoo-${defaultConfig.versionName}.apk"
         }
     }
 
