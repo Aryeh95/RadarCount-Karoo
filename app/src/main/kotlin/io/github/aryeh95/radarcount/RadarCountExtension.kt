@@ -232,6 +232,10 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
                     if (rideRecording) {
                         rideRecording = false
                         releaseRadar()
+                        // Upload probe: can the service reach the network right after a ride?
+                        io.github.aryeh95.radarcount.probe.ProbeRunner.sendRideEndPing(
+                            this@RadarCountExtension, io.github.aryeh95.radarcount.probe.ProbeStore(this@RadarCountExtension)
+                        )
                     }
                 }
                 is RideState.Paused -> {

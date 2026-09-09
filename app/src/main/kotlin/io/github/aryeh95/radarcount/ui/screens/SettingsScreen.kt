@@ -41,7 +41,7 @@ import kotlinx.coroutines.launch
  * Designed for the Karoo's small touch screen: big rows, no dialogs.
  */
 @Composable
-fun SettingsScreen(repository: SettingsRepository, onBack: () -> Unit) {
+fun SettingsScreen(repository: SettingsRepository, onBack: () -> Unit, onProbe: () -> Unit = {}) {
     val settings by repository.settings.collectAsState()
     val scope = rememberCoroutineScope()
     fun save(s: Settings) = scope.launch { repository.update(s) }
@@ -133,6 +133,9 @@ fun SettingsScreen(repository: SettingsRepository, onBack: () -> Unit) {
         Spacer(modifier = Modifier.height(12.dp))
         TextButton(onClick = { scope.launch { repository.resetToDefaults() } }) {
             Text(stringResource(R.string.settings_reset_defaults), color = RadarColors.accent)
+        }
+        TextButton(onClick = onProbe) {
+            Text("Connection test (upload probe)", color = RadarColors.accent)
         }
         Spacer(modifier = Modifier.height(8.dp))
         Text(
