@@ -140,6 +140,11 @@ reads a little low.
 
 ## Install
 
+RadarCount is not in Hammerhead's extension library yet. The manifest the
+library reads is at
+`https://raw.githubusercontent.com/Aryeh95/RadarCount-Karoo/main/manifest.json`
+and is kept in step with each release by a CI check. Until it is listed:
+
 Download the APK from [Releases](../../releases) and install with
 `adb install radarcount-karoo-<version>.apk`, or share it to the Hammerhead companion
 app. Works on Karoo 2 and Karoo 3 with any ANT+ radar the Karoo pairs with.

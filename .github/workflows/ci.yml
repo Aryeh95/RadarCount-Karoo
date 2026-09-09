@@ -18,6 +18,9 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      - name: Extension manifest matches the build version
+        run: python3 scripts/check_manifest.py
+
       - name: Unit tests
         # settings.gradle.kts falls back to USERNAME/TOKEN for the Karoo SDK
         # GitHub Packages repository. GITHUB_TOKEN can read public packages.
