@@ -21,7 +21,7 @@ Add any of these to a ride page from the Karoo's data field picker under **Radar
 | **Radar** | Pass count, vehicle speed and distance side by side in one field, captioned COUNT, REL SPEED or ABS SPEED, and DIST |
 | **Vehicles** | Vehicles that have passed you this ride |
 | **Vehicles per Hour** | Pass count divided by recording time (paused time excluded). Shows `--` for the first two minutes of a ride |
-| **Vehicle Speed** | Speed of the nearest vehicle, with its unit (for example `36mph` or `58km/h`) and a RELATIVE or ABSOLUTE tag underneath |
+| **Vehicle Speed** | Speed of the nearest vehicle, with its unit (for example `36mph` or `58km/h`) and a RELATIVE or ABSOLUTE tag underneath. Shows `--` for the first second, until there is enough range history to estimate a speed; a shown `0` means the vehicle is not gaining on you |
 | **Vehicle Distance** | Distance to the nearest vehicle, with its unit (for example `148ft` or `45m`) |
 
 Fields look like the Karoo's own: the standard header with icon and name at

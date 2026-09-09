@@ -87,24 +87,28 @@ private fun KarooText(text: String, theme: ThemeSetting, color: ColorProvider?, 
 
 private data class Derived(
     val tracked: Boolean,
-    val relative: Int,
-    val absolute: Int,
+    /** Null while the closing speed is not yet known (first second of a track). */
+    val relative: Int?,
+    val absolute: Int?,
     val unit: String,
     val distance: String?,
     val behind: Int,
-    val shownSpeed: Int,
+    val shownSpeed: Int?,
     val showsAbsolute: Boolean
 )
 
 private fun derive(input: GlanceDataType.RenderInput): Derived {
     val threat = input.state as? WidgetState.Threat
     val tracked = threat != null
-    val relative = RadarCountExtension.toUserSpeedUnits(input.closingSpeedMps, input.useImperial)
-    val absolute = if (relative > 0) {
-        relative + RadarCountExtension.toUserSpeedUnits(input.riderSpeedMps, input.useImperial)
-    } else {
-        0
+    // A known 0 (car holding station) is not the same as no estimate yet.
+    // Absolute is the car's road speed, so it adds the rider's speed even
+    // when the car is not gaining.
+    val relative = input.closingSpeedMps?.let {
+        RadarCountExtension.toUserSpeedUnits(it, input.useImperial)
     }
+    val absolute = relative?.plus(
+        RadarCountExtension.toUserSpeedUnits(input.riderSpeedMps, input.useImperial)
+    )
     val distance = if (threat != null && threat.nearestDistanceM > 0) {
         Units.formatDistance(threat.nearestDistanceM, input.useImperial)
     } else {
@@ -154,7 +158,11 @@ class ApproachSpeedGlanceDataType(
     override fun Content(input: RenderInput, config: ViewConfig) {
         val d = derive(input)
         KarooValue(
-            text = if (!input.connected) noRadarText() else if (d.tracked) "${d.shownSpeed}${d.unit}" else "--",
+            text = when {
+                !input.connected -> noRadarText()
+                d.tracked && d.shownSpeed != null -> "${d.shownSpeed}${d.unit}"
+                else -> "--"
+            },
             config = config,
             theme = input.settings.theme,
             density = density,
@@ -228,7 +236,7 @@ class ComboGlanceDataType(
         val d = derive(input)
         val live: ColorProvider? = null
         val countText = input.passCount.toString()
-        val speedText = if (d.tracked) "${d.shownSpeed}${d.unit}" else "--"
+        val speedText = if (d.tracked && d.shownSpeed != null) "${d.shownSpeed}${d.unit}" else "--"
         val distText = d.distance ?: "--"
         val gapDp = if (config.gridSize.first >= 60) 14 else 8
         // Shrink the value font so all three cells fit the field width (monospace ~0.6em per char).

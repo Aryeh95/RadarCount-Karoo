@@ -375,7 +375,9 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
                         vehicleCount = vehicleCount,
                         nearestM = nearestM,
                         passTotal = passTotal,
-                        closingMps = engine.closingSpeedMps.value,
+                        // The FIT field has no "unknown", and the Garmin app writes 0
+                        // for a non-closing target, so an unknown speed writes 0 too.
+                        closingMps = engine.closingSpeedMps.value ?: 0.0,
                         riderMps = _riderSpeedMps.value,
                         imperial = useImperial.value
                     ))

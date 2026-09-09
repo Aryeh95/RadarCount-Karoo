@@ -40,7 +40,7 @@ import io.github.aryeh95.radarcount.ui.theme.RadarColors
 fun DashboardScreen(extension: RadarCountExtension?, onSettingsClick: () -> Unit, onResetCount: () -> Unit) {
     val state = extension?.radarEngine?.widgetState?.collectAsState()?.value ?: WidgetState.NotConnected
     val passCount = extension?.radarEngine?.passCount?.collectAsState()?.value ?: 0
-    val closing = extension?.radarEngine?.closingSpeedMps?.collectAsState()?.value ?: 0.0
+    val closing = extension?.radarEngine?.closingSpeedMps?.collectAsState()?.value
     val rider = extension?.riderSpeedMps?.collectAsState()?.value ?: 0.0
     val imperial = extension?.useImperial?.collectAsState()?.value ?: false
 
@@ -65,8 +65,8 @@ fun DashboardScreen(extension: RadarCountExtension?, onSettingsClick: () -> Unit
         is WidgetState.ConnectionLost -> stringResource(R.string.dashboard_connection_lost)
     }
 
-    val relative = RadarCountExtension.toUserSpeedUnits(closing, imperial)
-    val absolute = if (relative > 0) relative + RadarCountExtension.toUserSpeedUnits(rider, imperial) else 0
+    val relative = closing?.let { RadarCountExtension.toUserSpeedUnits(it, imperial) }
+    val absolute = relative?.plus(RadarCountExtension.toUserSpeedUnits(rider, imperial))
     val unit = Units.speedUnitLabel(imperial)
 
     Column(
@@ -104,8 +104,8 @@ fun DashboardScreen(extension: RadarCountExtension?, onSettingsClick: () -> Unit
             Stat(stringResource(R.string.widget_count_label), passCount.toString(), "")
             Stat(
                 stringResource(R.string.widget_approach_label, unit),
-                if (state is WidgetState.Threat) relative.toString() else "--",
-                if (state is WidgetState.Threat) stringResource(R.string.widget_absolute_label, absolute, unit) else ""
+                if (state is WidgetState.Threat && relative != null) relative.toString() else "--",
+                if (state is WidgetState.Threat && absolute != null) stringResource(R.string.widget_absolute_label, absolute, unit) else ""
             )
         }
         Spacer(modifier = Modifier.height(12.dp))

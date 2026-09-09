@@ -62,7 +62,7 @@ abstract class GlanceDataType(
     data class RenderInput(
         val state: WidgetState,
         val passCount: Int,
-        val closingSpeedMps: Double,
+        val closingSpeedMps: Double?,
         val riderSpeedMps: Double,
         val useImperial: Boolean,
         val settings: Settings,
@@ -104,7 +104,7 @@ abstract class GlanceDataType(
             RenderInput(
                 state = values[0] as WidgetState,
                 passCount = values[1] as Int,
-                closingSpeedMps = values[2] as Double,
+                closingSpeedMps = values[2] as Double?,
                 riderSpeedMps = values[3] as Double,
                 useImperial = values[4] as Boolean,
                 settings = values[5] as Settings,

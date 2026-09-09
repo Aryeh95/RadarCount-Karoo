@@ -255,15 +255,22 @@ class TargetTracker(
 
     /**
      * Estimated closing speed of the nearest target in m/s (positive =
-     * approaching). Returns 0 if there is not yet enough history. Once the
-     * car is inside [speedFreezeRangeM] the estimate holds at its approach
-     * value instead of chasing the noisy last samples.
+     * approaching), or null when there is no target or not yet enough
+     * history to fit a slope. Null means "not known yet" and is distinct
+     * from a real 0, which means the car is holding station or falling
+     * back. Once the car is inside [speedFreezeRangeM] the estimate holds
+     * at its approach value instead of chasing the noisy last samples.
      */
-    fun nearestClosingSpeedMps(): Double {
-        val t = nearestTrack() ?: return 0.0
+    fun nearestClosingSpeedMps(): Double? {
+        val t = nearestTrack() ?: return null
         t.frozenSpeedMps?.let { return it }
+        if (!hasSpeedEstimate(t.history)) return null
         return estimateClosingSpeed(t.history)
     }
+
+    /** True once [h] spans enough time to fit a slope. */
+    private fun hasSpeedEstimate(h: ArrayDeque<Pair<Long, Int>>): Boolean =
+        h.size >= 2 && h.last().first - h.first().first >= minSpeedSpanMs
 
     private fun estimateClosingSpeed(h: ArrayDeque<Pair<Long, Int>>): Double {
         if (h.size < 2) return 0.0
@@ -281,7 +288,8 @@ class TargetTracker(
         val denom = n * sumTT - sumT * sumT
         if (denom <= 0.0) return 0.0
         val slope = (n * sumTR - sumT * sumR) / denom
-        return (-slope).coerceIn(0.0, maxSpeedMps)
+        // + 0.0 normalises the -0.0 that a flat slope produces.
+        return (-slope).coerceIn(0.0, maxSpeedMps) + 0.0
     }
 
     /**

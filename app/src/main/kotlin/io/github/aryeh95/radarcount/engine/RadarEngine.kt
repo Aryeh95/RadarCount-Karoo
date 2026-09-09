@@ -106,8 +106,8 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
      * consecutive range samples (the Karoo SDK does not expose target speed).
      * 0 when no target is tracked or the target is holding/receding.
      */
-    private val _closingSpeedMps = MutableStateFlow(0.0)
-    val closingSpeedMps: StateFlow<Double> = _closingSpeedMps.asStateFlow()
+    private val _closingSpeedMps = MutableStateFlow<Double?>(null)
+    val closingSpeedMps: StateFlow<Double?> = _closingSpeedMps.asStateFlow()
 
     // Computed widget state (deduplicated: only changes are emitted)
     private val _widgetState = MutableStateFlow<WidgetState>(WidgetState.NotConnected)
@@ -159,7 +159,7 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
         synchronized(lock) {
             _isRadarConnected.value = false
             targetTracker.clear()
-            _closingSpeedMps.value = 0.0
+            _closingSpeedMps.value = null
             _widgetState.value = WidgetState.NotConnected
         }
     }
@@ -170,7 +170,7 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
                 android.util.Log.w(TAG, "Radar error reported: ${result.code}")
                 _isRadarConnected.value = false
                 targetTracker.clear()
-                _closingSpeedMps.value = 0.0
+                _closingSpeedMps.value = null
                 _widgetState.value = WidgetState.ConnectionLost
                 _packets.tryEmit(WidgetState.ConnectionLost)
                 return
@@ -203,7 +203,7 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
     private fun handleDisconnection() {
         _isRadarConnected.value = false
         targetTracker.clear()
-        _closingSpeedMps.value = 0.0
+        _closingSpeedMps.value = null
         val state = if (wasEverConnected) WidgetState.ConnectionLost else WidgetState.NotConnected
         _widgetState.value = state
         _packets.tryEmit(state)

@@ -191,10 +191,39 @@ class TargetTrackerTest {
     }
 
     @Test
-    @DisplayName("closing speed is zero with less than 1 s of history")
+    @DisplayName("closing speed is unknown with less than 1 s of history")
     fun speedNeedsHistory() {
         feed(84)
+        assertThat(tracker.nearestClosingSpeedMps()).isNull()
+    }
+
+    @Test
+    @DisplayName("closing speed is unknown when nothing is tracked")
+    fun speedUnknownWithNoTarget() {
+        assertThat(tracker.nearestClosingSpeedMps()).isNull()
+    }
+
+    @Test
+    @DisplayName("a car holding station reads a real zero, not unknown")
+    fun holdingStationReadsZero() {
+        for (r in listOf(30, 30, 30, 30)) feed(r, threat = 1)
         assertThat(tracker.nearestClosingSpeedMps()).isEqualTo(0.0)
+    }
+
+    @Test
+    @DisplayName("a receding car reads a real zero, not unknown")
+    fun recedingReadsZero() {
+        for (r in listOf(30, 40, 50, 60)) feed(r, threat = 1)
+        assertThat(tracker.nearestClosingSpeedMps()).isEqualTo(0.0)
+    }
+
+    @Test
+    @DisplayName("the estimate becomes known on the second sample a second later")
+    fun estimateKnownAfterOneSecond() {
+        feed(84)
+        assertThat(tracker.nearestClosingSpeedMps()).isNull()
+        feed(72)
+        assertThat(tracker.nearestClosingSpeedMps()).isNotNull()
     }
 
     @Test
