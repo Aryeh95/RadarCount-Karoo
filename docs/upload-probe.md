@@ -30,7 +30,12 @@ also works and skips the tunnel.
 ## On the Karoo
 
 Sideload the probe APK, open RadarCount → Settings → **Connection test
-(upload probe)**, enter the server URL, and tap **Run checks**. Grant
+(upload probe)**, check the server URL, and tap **Run checks**. To avoid
+typing on the device, set the URL over adb:
+
+    adb shell am start -d "radarcount://probe?url=https://<your-tunnel>.trycloudflare.com"
+
+(Probe builds also carry a default URL baked in at build time.) Grant
 storage access if asked. Each check reports ✓ / ✗ with details.
 
 | Check | What it tells us |

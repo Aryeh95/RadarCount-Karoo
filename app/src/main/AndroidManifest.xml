@@ -50,6 +50,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="radarcount" android:host="oauth" />
+                <data android:scheme="radarcount" android:host="probe" />
             </intent-filter>
         </activity>
 

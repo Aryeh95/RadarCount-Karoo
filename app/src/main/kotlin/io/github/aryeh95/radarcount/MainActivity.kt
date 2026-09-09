@@ -38,10 +38,13 @@ class MainActivity : ComponentActivity() {
 
     private fun handleRedirect(intent: Intent?) {
         val data = intent?.data ?: return
-        if (data.scheme == ProbeRunner.REDIRECT_URI.substringBefore("://")) {
-            ProbeStore(this).lastRedirect = data.toString()
-            redirectTick.value++
+        if (data.scheme != ProbeRunner.REDIRECT_URI.substringBefore("://")) return
+        when (data.host) {
+            // adb shell am start -d "radarcount://probe?url=https://..."
+            "probe" -> data.getQueryParameter("url")?.let { ProbeStore(this).serverUrl = it }
+            "oauth" -> ProbeStore(this).lastRedirect = data.toString()
         }
+        redirectTick.value++
     }
 
     override fun onStart() {

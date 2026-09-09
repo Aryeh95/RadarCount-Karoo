@@ -11,7 +11,7 @@ class ProbeStore(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("radarcount_probe", Context.MODE_PRIVATE)
 
     var serverUrl: String
-        get() = prefs.getString("server_url", "") ?: ""
+        get() = prefs.getString("server_url", null) ?: io.github.aryeh95.radarcount.BuildConfig.PROBE_DEFAULT_URL
         set(v) { prefs.edit().putString("server_url", v.trim().trimEnd('/')).apply() }
 
     var pkceVerifier: String?

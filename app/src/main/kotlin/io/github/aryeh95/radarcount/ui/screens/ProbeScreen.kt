@@ -75,6 +75,7 @@ fun ProbeScreen(store: ProbeStore, redirectTick: Int, onBack: () -> Unit) {
 
     // A redirect from the browser landed in MainActivity: finish the exchange.
     LaunchedEffect(redirectTick) {
+        url = store.serverUrl
         if (redirectTick > 0 && store.lastRedirect != null) add(runner.finishBrowserLogin())
     }
 
