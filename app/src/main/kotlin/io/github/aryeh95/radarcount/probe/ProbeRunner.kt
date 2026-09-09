@@ -244,7 +244,7 @@ class ProbeRunner(
         val last = store.lastRideEndPing
         return ProbeResult(
             "Ride-end ping from service", if (last == null) null else last.contains("HTTP 200"),
-            last ?: "none yet — record and end a ride with the server running, then rerun"
+            last ?: "none yet — record and end a ride with the server running, wait ~1 min, then rerun"
         )
     }
 
@@ -352,22 +352,54 @@ class ProbeRunner(
     companion object {
         const val REDIRECT_URI = "radarcount://oauth"
 
-        /** Fire-and-forget ping from the service when a ride ends; result lands in the store. */
+        /**
+         * Ride-end timeline from the service: the Karoo appears to bring wifi
+         * back only after the ride goes idle, so keep trying for a while and
+         * record when the network returns and when the newest FIT stops growing.
+         */
         fun sendRideEndPing(context: Context, store: ProbeStore) {
             val base = store.serverUrl
             if (base.isEmpty()) return
             Thread {
-                val result = try {
+                val t0 = System.currentTimeMillis()
+                val lines = StringBuilder()
+                var pingOk = false
+                var lastSize = -1L
+                var stableSince = -1L
+                val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+                fun net(): String {
+                    val caps = cm.activeNetwork?.let { cm.getNetworkCapabilities(it) } ?: return "none"
+                    val t = when {
+                        caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "wifi"
+                        caps.hasTransport(NetworkCapabilities.TRANSPORT_BLUETOOTH) -> "bt"
+                        caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "cell"
+                        else -> "other"
+                    }
+                    return t + if (caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) "+validated" else ""
+                }
+                var attempt = 0
+                while (System.currentTimeMillis() - t0 < 180_000 && !(pingOk && stableSince >= 0 && System.currentTimeMillis() - stableSince > 20_000)) {
+                    val el = (System.currentTimeMillis() - t0) / 1000
                     val newest = File(Environment.getExternalStorageDirectory(), "FitFiles")
                         .listFiles { f -> f.name.endsWith(".fit", true) }?.maxByOrNull { it.lastModified() }
-                    val r = ProbeHttp.get("$base/ping?event=ride_end&fit=${Uri.encode(newest?.name ?: "none")}&size=${newest?.length() ?: 0}")
-                    "HTTP ${r.status} in ${r.millis} ms"
-                } catch (e: Exception) {
-                    "${e.javaClass.simpleName}: ${e.message}"
+                    val size = newest?.length() ?: -1
+                    if (size != lastSize) { lastSize = size; stableSince = System.currentTimeMillis() }
+                    val fit = "fit ${size / 1024} KB" + if (size == lastSize && System.currentTimeMillis() - stableSince > 20_000) " (stable)" else ""
+                    val result = if (pingOk) "already ok" else try {
+                        val r = ProbeHttp.get("$base/ping?event=ride_end&attempt=$attempt&elapsed_s=$el&fit=${Uri.encode(newest?.name ?: "none")}&size=$size")
+                        if (r.status == 200) pingOk = true
+                        "HTTP ${r.status} in ${r.millis} ms"
+                    } catch (e: Exception) {
+                        e.javaClass.simpleName
+                    }
+                    lines.append("+${el}s ${net()}, $fit, $result\n")
+                    android.util.Log.i("RadarCountProbe", "ride-end +${el}s ${net()} $fit $result")
+                    store.lastRideEndPing = lines.toString().trimEnd()
+                    attempt++
+                    Thread.sleep(10_000)
                 }
-                store.lastRideEndPing = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(java.util.Date()) + " " + result
-                android.util.Log.i("RadarCountProbe", "ride-end ping: $result")
-            }.start()
-        }
+                lines.append(if (pingOk) "done: first success after ${lines.lines().indexOfFirst { it.contains("HTTP 200") } * 10}s" else "gave up after 3 min")
+                store.lastRideEndPing = lines.toString()
+            }.start()        }
     }
 }

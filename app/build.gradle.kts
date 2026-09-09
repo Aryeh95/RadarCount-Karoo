@@ -13,8 +13,8 @@ android {
         applicationId = "io.github.aryeh95.radarcount"
         minSdk = 26
         targetSdk = 35
-        versionCode = 29
-        versionName = "0.3.0-probe3"
+        versionCode = 30
+        versionName = "0.3.0-probe4"
         // Upload probe: pre-filled server URL so nothing has to be typed on the device.
         buildConfigField("String", "PROBE_DEFAULT_URL", "\"https://copper-qualifications-zoning-dog.trycloudflare.com\"")
     }
