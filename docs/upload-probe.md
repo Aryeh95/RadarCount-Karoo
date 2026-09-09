@@ -50,6 +50,18 @@ storage access if asked. Each check reports ✓ / ✗ with details.
 | Browser available | Something on the Karoo handles `https://` links |
 | Ride-end ping | See below |
 
+Ride files and scoped storage: on Android 11+ an app cannot see other
+apps' non-media files in shared storage, so `/sdcard/FitFiles` lists as
+empty. Two buttons try the two ways round that:
+
+- **All-files access** — opens the system page for the
+  `MANAGE_EXTERNAL_STORAGE` permission, if the Karoo has one. Flip the
+  switch, come back, rerun checks.
+- **Pick FitFiles folder** — opens the system folder picker (Storage
+  Access Framework), if the Karoo has one. Pick `FitFiles`; the grant
+  persists. The "via folder picker" checks then list and upload
+  through it.
+
 Then two separate buttons:
 
 - **Browser login** — opens the fake login page in whatever browser the

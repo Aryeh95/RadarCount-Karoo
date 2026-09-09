@@ -44,9 +44,10 @@ class ProbeRunner(
         emit(safely("karoo-ext POST 150 KB") { karooExtPost(150_000) })
         emit(safely("Direct POST 512 KB raw") { directPostLarge(gzip = false) })
         emit(safely("Direct POST 512 KB gzip") { directPostLarge(gzip = true) })
-        val newest = safely("FIT files on /sdcard") { fitFiles() }
-        emit(newest)
+        emit(safely("FIT files on /sdcard") { fitFiles() })
         emit(safely("Upload newest FIT (multipart)") { uploadNewestFit() })
+        emit(safely("FIT files via folder picker") { safFiles() })
+        emit(safely("Upload newest FIT via picker") { uploadViaSaf() })
         emit(safely("Browser available") { browserAvailable() })
         emit(rideEndPing())
     }
@@ -129,10 +130,69 @@ class ProbeRunner(
     private fun newestFit(): File? = fitDir().listFiles { f -> f.name.endsWith(".fit", ignoreCase = true) }
         ?.maxByOrNull { it.lastModified() }
 
+    /** Newest FIT through the Storage Access Framework tree the user picked, if any. */
+    private fun newestFitViaSaf(): Pair<androidx.documentfile.provider.DocumentFile, Int>? {
+        val tree = store.safTreeUri?.let { Uri.parse(it) } ?: return null
+        val root = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, tree) ?: return null
+        val fits = root.listFiles().filter { it.name?.endsWith(".fit", true) == true }
+        return fits.maxByOrNull { it.lastModified() }?.let { it to fits.size }
+    }
+
+    private fun safFiles(): ProbeResult {
+        val name = "FIT files via folder picker"
+        val tree = store.safTreeUri ?: return ProbeResult(name, null, "no folder picked yet — tap 'Pick FitFiles folder'")
+        val hit = newestFitViaSaf() ?: return ProbeResult(name, false, "picked $tree but no .fit files listed")
+        val (f, n) = hit
+        return ProbeResult(name, true, "$n .fit in $tree, newest ${f.name} (${f.length() / 1024} KB)")
+    }
+
+    private fun uploadViaSaf(): ProbeResult {
+        val name = "Upload newest FIT via picker"
+        val (f, _) = newestFitViaSaf() ?: return ProbeResult(name, null, "no folder picked")
+        val bytes = context.contentResolver.openInputStream(f.uri)?.use { it.readBytes() } ?: return ProbeResult(name, false, "cannot open ${f.uri}")
+        val md5 = MessageDigest.getInstance("MD5").digest(bytes).joinToString("") { "%02x".format(it) }
+        val r = ProbeHttp.postMultipart("$base/api/addride?via=saf-multipart", mapOf("Authorization" to "Bearer probe-token"),
+            "file", f.name ?: "ride.fit", bytes, mapOf("device" to "karoo"))
+        val serverMd5 = runCatching { JSONObject(r.body).optString("md5") }.getOrNull()
+        return ProbeResult(name, r.status == 200 && serverMd5 == md5,
+            "${f.name} ${bytes.size / 1024} KB in ${r.millis} ms, HTTP ${r.status}, md5 ${if (serverMd5 == md5) "matches" else "MISMATCH"}")
+    }
+
+    /** Can the Karoo show the "All files access" settings page? */
+    fun requestAllFilesAccess(): ProbeResult {
+        val name = "All-files access settings"
+        if (Build.VERSION.SDK_INT < 30) return ProbeResult(name, null, "not needed below Android 11")
+        if (Environment.isExternalStorageManager()) return ProbeResult(name, true, "already granted")
+        val intents = listOf(
+            Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:${context.packageName}")),
+            Intent(android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION),
+        )
+        for (i in intents) {
+            val handler = i.resolveActivity(context.packageManager)
+            if (handler != null) {
+                return try {
+                    context.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    ProbeResult(name, null, "opened ${handler.packageName}; flip the switch for RadarCount, come back, rerun checks")
+                } catch (e: Exception) {
+                    ProbeResult(name, false, "${e.javaClass.simpleName}: ${e.message}")
+                }
+            }
+        }
+        return ProbeResult(name, false, "no settings page handles the all-files-access intent on this device")
+    }
+
     private fun fitFiles(): ProbeResult {
         val dir = fitDir()
         val granted = context.checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+        val allFiles = if (Build.VERSION.SDK_INT >= 30) Environment.isExternalStorageManager() else true
         val all = dir.listFiles()
+        if (all != null && all.none { it.name.endsWith(".fit", true) }) {
+            return ProbeResult(
+                "FIT files on /sdcard", false,
+                "${dir.path}: no .fit visible (scoped storage). entries: ${all.joinToString { it.name + if (it.isDirectory) "/" else "" }.take(120)}; " +
+                    "all-files access=$allFiles, READ_EXTERNAL_STORAGE=$granted"
+            )
+        }
         if (all == null) {
             return ProbeResult(
                 "FIT files on /sdcard", false,
@@ -141,10 +201,11 @@ class ProbeRunner(
         }
         val fits = all.filter { it.name.endsWith(".fit", ignoreCase = true) }
         val newest = fits.maxByOrNull { it.lastModified() }
+        val allFilesNote = if (Build.VERSION.SDK_INT >= 30) " all-files access=${Environment.isExternalStorageManager()}" else ""
         val when_ = newest?.let { java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).format(java.util.Date(it.lastModified())) }
         return ProbeResult(
             "FIT files on /sdcard", fits.isNotEmpty(),
-            "${dir.path}: ${fits.size} .fit of ${all.size} files, newest ${newest?.name} (${(newest?.length() ?: 0) / 1024} KB, $when_)"
+            "${dir.path}: ${fits.size} .fit of ${all.size} files, newest ${newest?.name} (${(newest?.length() ?: 0) / 1024} KB, $when_)$allFilesNote"
         )
     }
 

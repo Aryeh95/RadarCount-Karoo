@@ -13,8 +13,8 @@ android {
         applicationId = "io.github.aryeh95.radarcount"
         minSdk = 26
         targetSdk = 35
-        versionCode = 28
-        versionName = "0.3.0-probe2"
+        versionCode = 29
+        versionName = "0.3.0-probe3"
         // Upload probe: pre-filled server URL so nothing has to be typed on the device.
         buildConfigField("String", "PROBE_DEFAULT_URL", "\"https://copper-qualifications-zoning-dog.trycloudflare.com\"")
     }
@@ -94,6 +94,9 @@ dependencies {
 
     // Glance for Karoo DataType widgets
     implementation("androidx.glance:glance-appwidget:1.1.1")
+
+    // Upload probe: Storage Access Framework
+    implementation("androidx.documentfile:documentfile:1.0.1")
 
     // DataStore for settings
     implementation("androidx.datastore:datastore-preferences:1.1.2")

@@ -22,6 +22,11 @@ class ProbeStore(context: Context) {
         get() = prefs.getString("pkce_state", null)
         set(v) { prefs.edit().putString("pkce_state", v).apply() }
 
+    /** Storage Access Framework tree the user picked for FitFiles. */
+    var safTreeUri: String?
+        get() = prefs.getString("saf_tree", null)
+        set(v) { prefs.edit().putString("saf_tree", v).apply() }
+
     /** Raw redirect URI received by MainActivity, if any. */
     var lastRedirect: String?
         get() = prefs.getString("last_redirect", null)

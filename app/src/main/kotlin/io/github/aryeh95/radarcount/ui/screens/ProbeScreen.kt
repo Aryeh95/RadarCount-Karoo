@@ -73,6 +73,20 @@ fun ProbeScreen(store: ProbeStore, redirectTick: Int, onBack: () -> Unit) {
 
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { runAll() }
 
+    val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri == null) {
+            add(ProbeResult("Folder picker", false, "picker returned nothing (cancelled, or no picker on this device)"))
+        } else {
+            try {
+                context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                store.safTreeUri = uri.toString()
+                add(ProbeResult("Folder picker", true, "picked $uri; rerun checks"))
+            } catch (e: Exception) {
+                add(ProbeResult("Folder picker", false, "${e.javaClass.simpleName}: ${e.message}"))
+            }
+        }
+    }
+
     // A redirect from the browser landed in MainActivity: finish the exchange.
     LaunchedEffect(redirectTick) {
         url = store.serverUrl
@@ -124,6 +138,18 @@ fun ProbeScreen(store: ProbeStore, redirectTick: Int, onBack: () -> Unit) {
                     scope.launch { runner.deviceCodeLogin(::add); running = false }
                 }
             ) { Text("Device code", color = RadarColors.accent) }
+        }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextButton(onClick = { add(runner.requestAllFilesAccess()) }) {
+                Text("All-files access", color = RadarColors.accent)
+            }
+            TextButton(onClick = {
+                try {
+                    pickFolder.launch(android.net.Uri.parse("content://com.android.externalstorage.documents/document/primary%3AFitFiles"))
+                } catch (e: Exception) {
+                    add(ProbeResult("Folder picker", false, "cannot launch picker: ${e.javaClass.simpleName} ${e.message}"))
+                }
+            }) { Text("Pick FitFiles folder", color = RadarColors.accent) }
         }
         Spacer(Modifier.height(8.dp))
         results.forEach { r ->
