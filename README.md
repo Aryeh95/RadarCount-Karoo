@@ -6,8 +6,10 @@ to the ride FIT file using the same developer fields as the Garmin
 [My Bike Radar Traffic](https://github.com/kartoone/mybiketraffic) Connect IQ
 field, so rides can be uploaded to [mybiketraffic.com](https://www.mybiketraffic.com/rides/import).
 
-No alerts and no sounds. The radar plumbing started from [eiRadar](https://github.com/yrkan/eiradar)
-with everything except counting and recording removed.
+Runs on the Karoo 2 and Karoo 3, with any ANT+ rear radar the Karoo pairs with.
+No alerts and no sounds. The radar plumbing started from
+[eiRadar](https://github.com/yrkan/eiradar) with everything except counting and
+recording removed.
 
 RadarCount is an independent project. It is not affiliated with or endorsed by
 MyBikeTraffic or Hammerhead; the names are used only to describe compatibility.
@@ -147,7 +149,7 @@ and is kept in step with each release by a CI check. Until it is listed:
 
 Download the APK from [Releases](../../releases) and install with
 `adb install radarcount-karoo-<version>.apk`, or share it to the Hammerhead companion
-app. Works on Karoo 2 and Karoo 3 with any ANT+ radar the Karoo pairs with.
+app.
 
 The Karoo shows a "not verified by Hammerhead" warning for every sideloaded
 extension; that is expected. Updates install over the previous version and
