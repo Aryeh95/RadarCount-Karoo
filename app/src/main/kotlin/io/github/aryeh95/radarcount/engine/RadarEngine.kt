@@ -78,6 +78,29 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
     private var passTotal = 0
     /** False while the ride is paused: passes are still tracked but not counted, since the FIT file cannot carry them. */
     @Volatile private var countingEnabled = true
+
+    // Diagnostics written to the FIT file in beta builds so a missed count can
+    // be explained from the ride file rather than reconstructed.
+    /** Times the tracker was wiped by a radar error or disconnect this ride. */
+    @Volatile var trackerClears = 0
+        private set
+    /** Radar packets since the FIT writer last asked. */
+    private val packetsSinceRead = java.util.concurrent.atomic.AtomicInteger(0)
+    /** Last heading fed to the tracker, or -1 if none yet. */
+    @Volatile var lastHeadingDeg = -1.0
+        private set
+
+    /** Packets received since the previous call; the FIT writer calls this once a second. */
+    fun takePacketCount(): Int = packetsSinceRead.getAndSet(0)
+    val turnCount: Int get() = targetTracker.turnCount
+    val rejectedTurnedAway: Int get() = targetTracker.rejectedTurnedAway
+    val rejectedCrossingAfterTurn: Int get() = targetTracker.rejectedCrossingAfterTurn
+    val rejectedNotPass: Int get() = targetTracker.rejectedNotPass
+
+    private fun clearTracksOnFault() {
+        targetTracker.clear()
+        trackerClears++
+    }
     private val lock = Any()
 
     // Consumer ID for cleanup
@@ -165,11 +188,12 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
     }
 
     private fun processRadarData(values: Map<String, Double>) {
+        packetsSinceRead.incrementAndGet()
         val snapshot = when (val result = parser.parse(values)) {
             is RadarParseResult.Error -> {
                 android.util.Log.w(TAG, "Radar error reported: ${result.code}")
                 _isRadarConnected.value = false
-                targetTracker.clear()
+                clearTracksOnFault()
                 _closingSpeedMps.value = null
                 _widgetState.value = WidgetState.ConnectionLost
                 _packets.tryEmit(WidgetState.ConnectionLost)
@@ -202,7 +226,7 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
 
     private fun handleDisconnection() {
         _isRadarConnected.value = false
-        targetTracker.clear()
+        clearTracksOnFault()
         _closingSpeedMps.value = null
         val state = if (wasEverConnected) WidgetState.ConnectionLost else WidgetState.NotConnected
         _widgetState.value = state
@@ -216,6 +240,7 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
 
     /** Feed the rider's heading so the tracker can tell a turn from a pass. */
     fun updateHeading(degrees: Double) {
+        lastHeadingDeg = degrees
         synchronized(lock) { targetTracker.updateHeading(degrees, System.currentTimeMillis()) }
     }
 
@@ -229,6 +254,8 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
     fun resetPassCounts() {
         synchronized(lock) {
             targetTracker.clear()
+            targetTracker.resetDiagnostics()
+            trackerClears = 0
             passTotal = 0
             _passCount.value = 0
         }

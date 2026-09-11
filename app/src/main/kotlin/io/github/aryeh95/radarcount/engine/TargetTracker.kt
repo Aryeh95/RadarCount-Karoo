@@ -152,6 +152,16 @@ class TargetTracker(
     private class Turn(val startMs: Long, val detectedMs: Long)
     private val turns = ArrayDeque<Turn>()
 
+    /** Diagnostics for ride-file analysis: how often each veto fires. */
+    var turnCount = 0
+        private set
+    var rejectedTurnedAway = 0
+        private set
+    var rejectedCrossingAfterTurn = 0
+        private set
+    var rejectedNotPass = 0
+        private set
+
     /** Feed the rider's heading (0-360). Call whenever the Karoo reports it. */
     fun updateHeading(degrees: Double, nowMs: Long) {
         headings.addLast(nowMs to degrees)
@@ -162,6 +172,7 @@ class TargetTracker(
                 // The turn started at the last sample still on the old heading.
                 val start = headings.lastOrNull { angleDiff(oldest, it.second) < TURN_START_DEG }?.first ?: headings.first().first
                 turns.addLast(Turn(start, nowMs))
+                turnCount++
             }
         }
         while (turns.isNotEmpty() && nowMs - turns.first().detectedMs > afterTurnMs + turnWindowMs + 60_000L) turns.removeFirst()
@@ -243,9 +254,12 @@ class TargetTracker(
                     // Brief, first seen close, right after a turn: a car crossing the cone on the road just left.
                     val crossingAfterTurn = t.samples <= 3 && t.firstRange <= crossingFirstRangeM &&
                         turnedBetween(t.firstSeenMs - afterTurnMs, t.firstSeenMs)
-                    val pass = !turnedAway && !crossingAfterTurn &&
-                        t.isPass(closeThresholdM, closingThresholdM, minSamples, minPassClosingMps, alongsideRangeM, fastThreatLevel)
+                    val looksLikePass = t.isPass(closeThresholdM, closingThresholdM, minSamples, minPassClosingMps, alongsideRangeM, fastThreatLevel)
+                    val pass = !turnedAway && !crossingAfterTurn && looksLikePass
                     if (pass) passed++
+                    else if (turnedAway) rejectedTurnedAway++
+                    else if (crossingAfterTurn) rejectedCrossingAfterTurn++
+                    else rejectedNotPass++
                     t.resolved = true
                 }
             }
@@ -312,6 +326,14 @@ class TargetTracker(
      */
     fun clear() {
         tracks.clear()
+    }
+
+    /** Reset the diagnostic counters (start of a ride). */
+    fun resetDiagnostics() {
+        turnCount = 0
+        rejectedTurnedAway = 0
+        rejectedCrossingAfterTurn = 0
+        rejectedNotPass = 0
     }
 
     /** Test hook: has a turn been detected at or after [sinceMs]? */

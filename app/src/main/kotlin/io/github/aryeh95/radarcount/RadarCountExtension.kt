@@ -357,6 +357,15 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
             DeveloperField(12, FIT_BASE_TYPE_UINT16, "radar_range_4", "m")
         )
 
+        // Diagnostics (beta): enough to explain a missed count from the file.
+        val dbgClearsField = DeveloperField(13, FIT_BASE_TYPE_UINT16, "radar_dbg_clears", "")
+        val dbgHeadingField = DeveloperField(14, FIT_BASE_TYPE_UINT16, "radar_dbg_heading", "deg")
+        val dbgPacketsField = DeveloperField(15, FIT_BASE_TYPE_UINT8, "radar_dbg_packets", "/s")
+        val dbgTurnsField = DeveloperField(16, FIT_BASE_TYPE_UINT16, "radar_dbg_turns", "")
+        val dbgRejTurnField = DeveloperField(17, FIT_BASE_TYPE_UINT16, "radar_dbg_rej_turn", "")
+        val dbgRejCrossField = DeveloperField(18, FIT_BASE_TYPE_UINT16, "radar_dbg_rej_cross", "")
+        val dbgRejNoPassField = DeveloperField(19, FIT_BASE_TYPE_UINT16, "radar_dbg_rej_nopass", "")
+
         val fitScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         fitScope.launch {
             var lastSessionTotal = -1
@@ -400,6 +409,15 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
                         }
                     }
                     values.add(FieldValue(mbtCurrentField, passTotal.toDouble()))
+
+                    values.add(FieldValue(dbgClearsField, engine.trackerClears.toDouble()))
+                    val hdg = engine.lastHeadingDeg
+                    if (hdg >= 0.0) values.add(FieldValue(dbgHeadingField, hdg.roundToInt().coerceIn(0, 359).toDouble()))
+                    values.add(FieldValue(dbgPacketsField, engine.takePacketCount().coerceAtMost(255).toDouble()))
+                    values.add(FieldValue(dbgTurnsField, engine.turnCount.toDouble()))
+                    values.add(FieldValue(dbgRejTurnField, engine.rejectedTurnedAway.toDouble()))
+                    values.add(FieldValue(dbgRejCrossField, engine.rejectedCrossingAfterTurn.toDouble()))
+                    values.add(FieldValue(dbgRejNoPassField, engine.rejectedNotPass.toDouble()))
 
                     emitter.onNext(WriteToRecordMesg(values = values))
 
