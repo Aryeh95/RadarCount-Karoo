@@ -218,6 +218,7 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
                     if (!rideRecording) {
                         android.util.Log.i(TAG, "Ride recording started")
                         rideRecording = true
+                        startTrackTrace()
                         if (settings.value.resetOnRideStart) _radarEngine?.resetPassCounts()
                         acquireRadar()
                     }
@@ -232,6 +233,7 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
                     if (rideRecording) {
                         rideRecording = false
                         releaseRadar()
+                        stopTrackTrace()
                     }
                 }
                 is RideState.Paused -> {
@@ -242,6 +244,41 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
                     pauseRideTime()
                 }
             }
+        }
+    }
+
+    // Diagnostic (beta): one CSV line per track decision, in app-private
+    // storage so it needs no permission. Pull with
+    //   adb pull /sdcard/Android/data/io.github.aryeh95.radarcount/files/tracks/
+    private var traceWriter: java.io.BufferedWriter? = null
+    private val traceLock = Any()
+
+    private fun startTrackTrace() {
+        try {
+            val dir = java.io.File(getExternalFilesDir(null), "tracks").also { it.mkdirs() }
+            val name = java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US).format(java.util.Date())
+            val w = java.io.File(dir, "tracks-$name.csv").bufferedWriter()
+            w.write("kind,ms,first,min,last,samples,durMs,threat,speedMps,decision\n")
+            synchronized(traceLock) { traceWriter = w }
+            _radarEngine?.setTrace { line ->
+                synchronized(traceLock) { traceWriter?.let { it.write(line); it.newLine() } }
+            }
+            serviceScope.launch {
+                while (isActive && traceWriter != null) {
+                    delay(10_000L)
+                    synchronized(traceLock) { runCatching { traceWriter?.flush() } }
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.w(TAG, "track trace unavailable: ${e.message}")
+        }
+    }
+
+    private fun stopTrackTrace() {
+        _radarEngine?.setTrace(null)
+        synchronized(traceLock) {
+            runCatching { traceWriter?.close() }
+            traceWriter = null
         }
     }
 

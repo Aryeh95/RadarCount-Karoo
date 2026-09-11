@@ -152,6 +152,9 @@ class TargetTracker(
     private class Turn(val startMs: Long, val detectedMs: Long)
     private val turns = ArrayDeque<Turn>()
 
+    /** Diagnostic sink: one line per track decision or ghost re-attach. */
+    @Volatile var trace: ((String) -> Unit)? = null
+
     /** Diagnostics for ride-file analysis: how often each veto fires. */
     var turnCount = 0
         private set
@@ -228,6 +231,7 @@ class TargetTracker(
                 }
             }
             if (bestTrack == null) break
+            if (bestTrack.resolved) trace?.invoke("REATTACH,${nowMs},${bestTrack.range},${bestRange},${nowMs - bestTrack.lastSeenMs}")
             bestTrack.observe(bestRange, nowMs, threat, speedFreezeRangeM, ::estimateClosingSpeed)
             matched.add(bestTrack)
             unmatchedRanges.remove(bestRange)
@@ -256,6 +260,10 @@ class TargetTracker(
                         turnedBetween(t.firstSeenMs - afterTurnMs, t.firstSeenMs)
                     val looksLikePass = t.isPass(closeThresholdM, closingThresholdM, minSamples, minPassClosingMps, alongsideRangeM, fastThreatLevel)
                     val pass = !turnedAway && !crossingAfterTurn && looksLikePass
+                    trace?.invoke(
+                        "TRACK,${nowMs},${t.firstRange},${t.minRange},${t.range},${t.samples},${t.lastSeenMs - t.firstSeenMs}," +
+                            "${t.maxThreat},${"%.2f".format(t.lastSpeedMps)},${if (pass) "pass" else if (turnedAway) "turnedAway" else if (crossingAfterTurn) "crossing" else "notPass"}"
+                    )
                     if (pass) passed++
                     else if (turnedAway) rejectedTurnedAway++
                     else if (crossingAfterTurn) rejectedCrossingAfterTurn++

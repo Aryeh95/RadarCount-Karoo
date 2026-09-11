@@ -97,6 +97,11 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
     val rejectedCrossingAfterTurn: Int get() = targetTracker.rejectedCrossingAfterTurn
     val rejectedNotPass: Int get() = targetTracker.rejectedNotPass
 
+    /** Route tracker trace lines to a sink (a file, in beta builds). */
+    fun setTrace(sink: ((String) -> Unit)?) {
+        targetTracker.trace = sink
+    }
+
     private fun clearTracksOnFault() {
         targetTracker.clear()
         trackerClears++
