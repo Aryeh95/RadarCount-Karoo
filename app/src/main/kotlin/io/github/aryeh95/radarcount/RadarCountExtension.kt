@@ -218,6 +218,7 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
                     if (!rideRecording) {
                         android.util.Log.i(TAG, "Ride recording started")
                         rideRecording = true
+                        startTrackTrace()
                         if (settings.value.resetOnRideStart) _radarEngine?.resetPassCounts()
                         acquireRadar()
                     }
@@ -232,6 +233,7 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
                     if (rideRecording) {
                         rideRecording = false
                         releaseRadar()
+                        stopTrackTrace()
                     }
                 }
                 is RideState.Paused -> {
@@ -242,6 +244,48 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
                     pauseRideTime()
                 }
             }
+        }
+    }
+
+    // Diagnostic (beta): one CSV line per track decision, in app-private
+    // storage so it needs no permission. Pull with
+    //   adb pull /sdcard/Android/data/io.github.aryeh95.radarcount/files/tracks/
+    private var traceWriter: java.io.BufferedWriter? = null
+    private val traceLock = Any()
+
+    private fun startTrackTrace() {
+        try {
+            val dir = java.io.File(getExternalFilesDir(null), "tracks").also { it.mkdirs() }
+            // Keep the last few rides; a file is a few KB.
+            dir.listFiles { f -> f.name.startsWith("tracks-") }?.sortedBy { it.name }?.dropLast(9)?.forEach { it.delete() }
+            val name = java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US).format(java.util.Date())
+            val w = java.io.File(dir, "tracks-$name.csv").bufferedWriter()
+            w.write("kind,ms,first,min,last,samples,durMs,threat,speedMps,decision\n")
+            synchronized(traceLock) { traceWriter = w }
+            // The sink runs inside the tracker's update; it must never throw into it.
+            _radarEngine?.setTrace { line ->
+                try {
+                    synchronized(traceLock) { traceWriter?.let { it.write(line); it.newLine() } }
+                } catch (_: Exception) {
+                    synchronized(traceLock) { traceWriter = null }
+                }
+            }
+            serviceScope.launch {
+                while (isActive && traceWriter != null) {
+                    delay(10_000L)
+                    synchronized(traceLock) { runCatching { traceWriter?.flush() } }
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.w(TAG, "track trace unavailable: ${e.message}")
+        }
+    }
+
+    private fun stopTrackTrace() {
+        _radarEngine?.setTrace(null)
+        synchronized(traceLock) {
+            runCatching { traceWriter?.close() }
+            traceWriter = null
         }
     }
 
@@ -357,6 +401,15 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
             DeveloperField(12, FIT_BASE_TYPE_UINT16, "radar_range_4", "m")
         )
 
+        // Diagnostics (beta): enough to explain a missed count from the file.
+        val dbgClearsField = DeveloperField(13, FIT_BASE_TYPE_UINT16, "radar_dbg_clears", "")
+        val dbgHeadingField = DeveloperField(14, FIT_BASE_TYPE_UINT16, "radar_dbg_heading", "deg")
+        val dbgPacketsField = DeveloperField(15, FIT_BASE_TYPE_UINT8, "radar_dbg_packets", "/s")
+        val dbgTurnsField = DeveloperField(16, FIT_BASE_TYPE_UINT16, "radar_dbg_turns", "")
+        val dbgRejTurnField = DeveloperField(17, FIT_BASE_TYPE_UINT16, "radar_dbg_rej_turn", "")
+        val dbgRejCrossField = DeveloperField(18, FIT_BASE_TYPE_UINT16, "radar_dbg_rej_cross", "")
+        val dbgRejNoPassField = DeveloperField(19, FIT_BASE_TYPE_UINT16, "radar_dbg_rej_nopass", "")
+
         val fitScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         fitScope.launch {
             var lastSessionTotal = -1
@@ -400,6 +453,15 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
                         }
                     }
                     values.add(FieldValue(mbtCurrentField, passTotal.toDouble()))
+
+                    values.add(FieldValue(dbgClearsField, engine.trackerClears.toDouble()))
+                    val hdg = engine.lastHeadingDeg
+                    if (hdg >= 0.0) values.add(FieldValue(dbgHeadingField, hdg.roundToInt().coerceIn(0, 359).toDouble()))
+                    values.add(FieldValue(dbgPacketsField, engine.takePacketCount().coerceAtMost(255).toDouble()))
+                    values.add(FieldValue(dbgTurnsField, engine.turnCount.toDouble()))
+                    values.add(FieldValue(dbgRejTurnField, engine.rejectedTurnedAway.toDouble()))
+                    values.add(FieldValue(dbgRejCrossField, engine.rejectedCrossingAfterTurn.toDouble()))
+                    values.add(FieldValue(dbgRejNoPassField, engine.rejectedNotPass.toDouble()))
 
                     emitter.onNext(WriteToRecordMesg(values = values))
 
