@@ -20,8 +20,21 @@ import kotlin.math.abs
  * point: the radar flagged it as approaching fast (threat level 2 or
  * more), or it was closing at [minPassClosingMps] or more when last seen,
  * or it was seen alongside at [alongsideRangeM]. A car that sits behind
- * the rider at the rider's speed and then drops off the radar without
- * doing any of those is a follower, not a pass.
+ * the rider at the rider's speed farther back than that, and then drops
+ * off the radar without doing any of those, is a follower, not a pass.
+ *
+ * [alongsideRangeM] is set by the beam, not by how fast the car was
+ * going. The radar is Doppler: it reports a target only while the range
+ * is changing, so a car matching the rider's speed vanishes without ever
+ * passing, and a genuine pass can creep up with no closing speed and no
+ * threat flag. What a pass cannot avoid is driving the range down. As the
+ * car draws level its bearing swings out of the rear beam, so with the
+ * metre or two of lateral separation an overtake actually uses, the last
+ * range the radar reports is a few metres, and the sensor's own floor is
+ * about three. Only an overtake gets that close behind a moving bicycle,
+ * so a car seen there counts whatever its speed. Past about six metres
+ * both explanations reopen, and a car that waits there for a gap has to
+ * close again to pass, which the radar will see.
  *
  * Turns are handled with the rider's heading, when [updateHeading] is fed:
  * a target that was already behind the rider before a turn through
@@ -58,7 +71,8 @@ class TargetTracker(
     private val maxSpeedMps: Double = 40.0,
     private val speedFreezeRangeM: Int = 10,
     private val minPassClosingMps: Double = 2.5,
-    private val alongsideRangeM: Int = 3,
+    /** Range at which a car is alongside: set by the beam edge, not by speed. */
+    private val alongsideRangeM: Int = 6,
     private val fastThreatLevel: Int = 2,
     private val turnThresholdDeg: Double = 45.0,
     private val turnWindowMs: Long = 6_000L,

@@ -235,9 +235,35 @@ class TargetTrackerTest {
     }
 
     @Test
-    @DisplayName("a follower that gets to 6 m and drops off is still not a pass")
-    fun closeFollowerNotCounted() {
+    @DisplayName("a slow car that works its way down to 6 m and drops off has passed")
+    fun slowCarToAlongsideCounted() {
+        // From a ride, and the reason this expectation was inverted: the rider
+        // confirmed a car that sat at 12-6 m at his own speed for several
+        // seconds and then overtook. On a Doppler radar a pass at low relative
+        // speed carries no threat flag and no closing speed; the one thing it
+        // cannot fake is getting alongside.
         for (r in listOf(21, 18, 15, 15, 15, 12, 9, 6, 9, 6, 6)) feed(r, threat = 1)
+        assertThat(gone()).isEqualTo(1)
+    }
+
+    @Test
+    @DisplayName("a follower that settles at 9 m and drops off is not a pass")
+    fun nineMetreFollowerNotCounted() {
+        // From a ride: closes steadily to 9 m, holds it, then goes quiet at a
+        // junction. Nine metres is past the beam edge, so this is a car keeping
+        // station. If it does overtake it has to close again, and the radar
+        // will see that.
+        for (r in listOf(25, 25, 21, 18, 15, 15, 12, 12, 9, 9)) feed(r, threat = 1)
+        assertThat(gone()).isEqualTo(0)
+    }
+
+    @Test
+    @DisplayName("a car that holds 12 m for four seconds and drops off is not a pass")
+    fun twelveMetreFollowerNotCounted() {
+        // From a ride: after this track vanished the radar saw nothing at all
+        // for eleven seconds, then a car closed from 25 m and was counted.
+        // Counting the plateau as well would count the same traffic twice.
+        for (r in listOf(46, 40, 37, 31, 28, 25, 21, 18, 18, 12, 12, 12, 12)) feed(r, threat = 1)
         assertThat(gone()).isEqualTo(0)
     }
 
