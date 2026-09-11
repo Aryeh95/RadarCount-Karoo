@@ -58,7 +58,8 @@ class TargetTracker(
     private val maxSpeedMps: Double = 40.0,
     private val speedFreezeRangeM: Int = 10,
     private val minPassClosingMps: Double = 2.5,
-    private val alongsideRangeM: Int = 3,
+    /** Range at which a car is alongside: set by the beam edge, not by speed. */
+    private val alongsideRangeM: Int = 6,
     private val fastThreatLevel: Int = 2,
     private val turnThresholdDeg: Double = 45.0,
     private val turnWindowMs: Long = 6_000L,
