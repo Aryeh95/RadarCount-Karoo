@@ -247,14 +247,40 @@ class TargetTrackerTest {
     }
 
     @Test
-    @DisplayName("a follower that settles at 9 m and drops off is not a pass")
-    fun nineMetreFollowerNotCounted() {
-        // From a ride: closes steadily to 9 m, holds it, then goes quiet at a
-        // junction. Nine metres is past the beam edge, so this is a car keeping
-        // station. If it does overtake it has to close again, and the radar
-        // will see that.
+    @DisplayName("a car that settles at 9 m and drops off counts, as it does on mybiketraffic.com")
+    fun nineMetreVanishCounted() {
+        // From a ride: closes steadily to 9 m, holds it, then goes quiet. It is
+        // either a wide pass leaving the beam or a follower matching speed; the
+        // radar cannot tell, and the site counts a run ending under ten metres,
+        // so the device does too. Accepted as the false-positive side of the
+        // trade.
         for (r in listOf(25, 25, 21, 18, 15, 15, 12, 12, 9, 9)) feed(r, threat = 1)
-        assertThat(gone()).isEqualTo(0)
+        assertThat(gone()).isEqualTo(1)
+    }
+
+    @Test
+    @DisplayName("a car that appears alongside for a single sample has passed")
+    fun singleSampleAlongsideCounted() {
+        // From a rush-hour ride: the lead car of a queue sits at the rider's
+        // speed, invisible to Doppler, pulls out, and is seen once at 3 m
+        // before leaving the beam. The car behind it was counted; this one
+        // was not.
+        feed(3, threat = 2)
+        assertThat(gone()).isEqualTo(1)
+    }
+
+    @Test
+    @DisplayName("a counted car's ghost does not swallow the next car in the queue")
+    fun ghostDoesNotTakeFollowingCar() {
+        // From the same ride: a car counted at 3 m, then a target at 9 m for
+        // two seconds, then gone. The 9 m readings belong to the next car,
+        // not to a dropout of the first.
+        for (r in listOf(18, 12, 6, 3)) feed(r, threat = 2)
+        var passed = feed()                      // first car gone: counted, ghost lingers
+        assertThat(passed).isEqualTo(1)
+        for (r in listOf(9, 9)) passed += feed(r, threat = 1)
+        passed += gone()
+        assertThat(passed).isEqualTo(2)
     }
 
     @Test
@@ -301,7 +327,7 @@ class TargetTrackerTest {
     @Test
     @DisplayName("a brief fast target right after a turn is a car crossing the cone, not a pass")
     fun crossingAfterTurn() {
-        heading(90.0); feed()
+        repeat(7) { heading(90.0); feed() }               // heading window full: steady road before the turn
         heading(135.0); feed(); heading(180.0); feed()   // the turn
         feed(); feed(); feed()
         feed(21, threat = 2); feed(3, threat = 2)         // two samples, 18 m/s closing

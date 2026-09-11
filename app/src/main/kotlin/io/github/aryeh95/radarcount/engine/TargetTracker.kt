@@ -32,9 +32,16 @@ import kotlin.math.abs
  * metre or two of lateral separation an overtake actually uses, the last
  * range the radar reports is a few metres, and the sensor's own floor is
  * about three. Only an overtake gets that close behind a moving bicycle,
- * so a car seen there counts whatever its speed. Past about six metres
- * both explanations reopen, and a car that waits there for a gap has to
- * close again to pass, which the radar will see.
+ * so a car seen there counts whatever its speed. Nine metres matches
+ * mybiketraffic.com, which counts a run of ranges that ends under ten,
+ * so the device and the site agree; the price is a car that settles
+ * nine metres back and goes quiet, which counts once as if it passed.
+ *
+ * A car that first appears inside [alongsideRangeM] counts on a single
+ * sample. It was following at the rider's speed, invisible to a Doppler
+ * radar, and has just pulled out; the beam loses it within a few
+ * hundred milliseconds, which is fewer packets than [minSamples] asks
+ * for. A queue's lead car is missed without this.
  *
  * Turns are handled with the rider's heading, when [updateHeading] is fed:
  * a target that was already behind the rider before a turn through
@@ -72,7 +79,7 @@ class TargetTracker(
     private val speedFreezeRangeM: Int = 10,
     private val minPassClosingMps: Double = 2.5,
     /** Range at which a car is alongside: set by the beam edge, not by speed. */
-    private val alongsideRangeM: Int = 6,
+    private val alongsideRangeM: Int = 9,
     private val fastThreatLevel: Int = 2,
     private val turnThresholdDeg: Double = 45.0,
     private val turnWindowMs: Long = 6_000L,
@@ -126,7 +133,7 @@ class TargetTracker(
             closeThresholdM: Int, closingThresholdM: Int, minSamples: Int,
             minClosingMps: Double, alongsideM: Int, fastThreat: Int
         ): Boolean {
-            if (samples < minSamples) return false
+            if (samples < minSamples && firstRange > alongsideM) return false
             val lookedLikePass = maxThreat >= fastThreat || lastSpeedMps >= minClosingMps || minRange <= alongsideM
             if (!lookedLikePass) return false
             if (minRange <= closeThresholdM) return true
@@ -140,6 +147,8 @@ class TargetTracker(
         private const val TURN_START_DEG = 10.0
         /** Base matching tolerance; ranges are quantised to ~3 m */
         private const val MATCH_BASE_M = 12.0
+        /** How much farther back than its last range a ghost may re-attach a target. */
+        private const val GHOST_BEHIND_M = 2
         /** Extra tolerance per second elapsed (a relative speed of 30 m/s) */
         private const val MATCH_PER_SEC_M = 30.0
     }
@@ -170,7 +179,10 @@ class TargetTracker(
         headings.addLast(nowMs to degrees)
         while (headings.size > 1 && nowMs - headings.first().first > turnWindowMs) headings.removeFirst()
         val oldest = headings.first().second
-        if (angleDiff(oldest, degrees) >= turnThresholdDeg) {
+        // Until the window has filled, "oldest" is the first sample of the
+        // ride and a heading fix settling in reads as a turn.
+        val windowFull = nowMs - headings.first().first >= turnWindowMs
+        if (windowFull && angleDiff(oldest, degrees) >= turnThresholdDeg) {
             if (turns.isEmpty() || nowMs - turns.last().detectedMs > 1_000L) {
                 // The turn started at the last sample still on the old heading.
                 val start = headings.lastOrNull { angleDiff(oldest, it.second) < TURN_START_DEG }?.first ?: headings.first().first
@@ -225,6 +237,10 @@ class TargetTracker(
                     // range increase is penalised so a new closer car is
                     // not mistaken for an old one jumping backwards.
                     val d = if (r > t.range) (r - t.range) * 2.0 else (t.range - r).toDouble()
+                    // A counted car's ghost only takes back a dropout, which
+                    // reappears where it was or nearer. A range one bin or
+                    // more farther back is the next car in the queue.
+                    if (t.resolved && r - t.range > GHOST_BEHIND_M) continue
                     if (abs(r - t.range) <= tol && d < bestDelta) {
                         bestDelta = d; bestTrack = t; bestRange = r
                     }
