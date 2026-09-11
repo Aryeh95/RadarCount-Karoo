@@ -256,12 +256,19 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
     private fun startTrackTrace() {
         try {
             val dir = java.io.File(getExternalFilesDir(null), "tracks").also { it.mkdirs() }
+            // Keep the last few rides; a file is a few KB.
+            dir.listFiles { f -> f.name.startsWith("tracks-") }?.sortedBy { it.name }?.dropLast(9)?.forEach { it.delete() }
             val name = java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US).format(java.util.Date())
             val w = java.io.File(dir, "tracks-$name.csv").bufferedWriter()
             w.write("kind,ms,first,min,last,samples,durMs,threat,speedMps,decision\n")
             synchronized(traceLock) { traceWriter = w }
+            // The sink runs inside the tracker's update; it must never throw into it.
             _radarEngine?.setTrace { line ->
-                synchronized(traceLock) { traceWriter?.let { it.write(line); it.newLine() } }
+                try {
+                    synchronized(traceLock) { traceWriter?.let { it.write(line); it.newLine() } }
+                } catch (_: Exception) {
+                    synchronized(traceLock) { traceWriter = null }
+                }
             }
             serviceScope.launch {
                 while (isActive && traceWriter != null) {
