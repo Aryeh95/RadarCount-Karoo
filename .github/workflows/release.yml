@@ -58,12 +58,24 @@ jobs:
           SIGNING_KEY_ALIAS: radarcount
         run: ./gradlew --no-daemon assembleRelease
 
+      # The release description is the matching CHANGELOG.md section. A
+      # pre-release (no section) gets a one-line note instead.
+      - name: Release notes from CHANGELOG.md
+        env:
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          version="${TAG#v}"
+          if ! python3 scripts/release_notes.py "$version" > release-notes.md; then
+            echo "Pre-release build $TAG. See CHANGELOG.md for the next stable release." > release-notes.md
+          fi
+          cat release-notes.md
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
           name: ${{ github.event.inputs.tag || github.ref_name }}
           prerelease: ${{ github.event.inputs.prerelease || false }}
-          generate_release_notes: true
+          body_path: release-notes.md
           target_commitish: ${{ github.sha }}
           files: app/build/outputs/apk/release/*.apk

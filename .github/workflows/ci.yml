@@ -21,6 +21,14 @@ jobs:
       - name: Extension manifest matches the build version
         run: python3 scripts/check_manifest.py
 
+      - name: Stable versions have release notes in CHANGELOG.md
+        run: |
+          version=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts)
+          case "$version" in
+            *-*) echo "pre-release $version; no changelog section required" ;;
+            *)   python3 scripts/release_notes.py --check "$version" ;;
+          esac
+
       - name: Unit tests
         # settings.gradle.kts falls back to USERNAME/TOKEN for the Karoo SDK
         # GitHub Packages repository. GITHUB_TOKEN can read public packages.
