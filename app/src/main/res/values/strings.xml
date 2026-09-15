@@ -70,4 +70,8 @@
     <string name="settings_reset_defaults">Restore defaults</string>
     <string name="settings_back">Back</string>
     <string name="settings_version">Version %s</string>
+    <string name="settings_developer">Developer</string>
+    <string name="settings_trace_tracks">Record track trace</string>
+    <string name="settings_trace_tracks_hint">Writes one line per radar track decision to a file during rides, for diagnosing counts. Files are in the app\'s private storage under tracks/.</string>
+    <string name="settings_developer_hide">Hide developer settings</string>
 </resources>

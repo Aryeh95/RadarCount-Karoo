@@ -259,6 +259,7 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
     fun resetPassCounts() {
         synchronized(lock) {
             targetTracker.clear()
+            targetTracker.resetHeading()
             targetTracker.resetDiagnostics()
             trackerClears = 0
             passTotal = 0

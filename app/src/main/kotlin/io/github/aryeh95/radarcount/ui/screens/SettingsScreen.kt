@@ -19,6 +19,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -135,12 +138,45 @@ fun SettingsScreen(repository: SettingsRepository, onBack: () -> Unit) {
             Text(stringResource(R.string.settings_reset_defaults), color = RadarColors.accent)
         }
         Spacer(modifier = Modifier.height(8.dp))
+        // Five taps on the version line unlock a Developer section, as on
+        // Android. It holds diagnostics for ride-file analysis.
+        var versionTaps by remember { mutableIntStateOf(0) }
         Text(
             text = stringResource(R.string.settings_version, BuildConfig.VERSION_NAME),
             style = MaterialTheme.typography.bodySmall,
             color = RadarColors.neutral,
-            modifier = Modifier.padding(4.dp)
+            modifier = Modifier
+                .padding(4.dp)
+                .clickable {
+                    versionTaps++
+                    if (versionTaps >= 5) {
+                        versionTaps = 0
+                        if (!settings.developerMode) save(settings.copy(developerMode = true))
+                    }
+                }
         )
+
+        if (settings.developerMode) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = stringResource(R.string.settings_developer),
+                style = MaterialTheme.typography.titleMedium,
+                color = RadarColors.textPrimary,
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
+            )
+            ToggleRow(stringResource(R.string.settings_trace_tracks), settings.traceTracks) {
+                save(settings.copy(traceTracks = it))
+            }
+            Text(
+                text = stringResource(R.string.settings_trace_tracks_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = RadarColors.textSecondary,
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
+            )
+            TextButton(onClick = { save(settings.copy(developerMode = false, traceTracks = false)) }) {
+                Text(stringResource(R.string.settings_developer_hide), color = RadarColors.accent)
+            }
+        }
     }
 }
 

@@ -37,8 +37,8 @@ import kotlin.math.abs
  * so the device and the site agree; the price is a car that settles
  * nine metres back and goes quiet, which counts once as if it passed.
  *
- * A car that first appears inside [alongsideRangeM] counts on a single
- * sample. It was following at the rider's speed, invisible to a Doppler
+ * A car that gets inside [alongsideRangeM] counts on a single sample,
+ * whichever bin its first echo landed in. It was following at the rider's speed, invisible to a Doppler
  * radar, and has just pulled out; the beam loses it within a few
  * hundred milliseconds, which is fewer packets than [minSamples] asks
  * for. A queue's lead car is missed without this.
@@ -133,7 +133,7 @@ class TargetTracker(
             closeThresholdM: Int, closingThresholdM: Int, minSamples: Int,
             minClosingMps: Double, alongsideM: Int, fastThreat: Int
         ): Boolean {
-            if (samples < minSamples && firstRange > alongsideM) return false
+            if (samples < minSamples && minRange > alongsideM) return false
             val lookedLikePass = maxThreat >= fastThreat || lastSpeedMps >= minClosingMps || minRange <= alongsideM
             if (!lookedLikePass) return false
             if (minRange <= closeThresholdM) return true
@@ -157,6 +157,8 @@ class TargetTracker(
 
     /** (timestampMs, heading in degrees) over the last [turnWindowMs]. */
     private val headings = ArrayDeque<Pair<Long, Double>>()
+    /** When the first heading of the ride arrived; turns are not judged until a full window has passed. */
+    private var firstHeadingMs = -1L
     /** A detected turn: when the heading started to swing, and when it passed [turnThresholdDeg]. */
     private class Turn(val startMs: Long, val detectedMs: Long)
     private val turns = ArrayDeque<Turn>()
@@ -176,12 +178,16 @@ class TargetTracker(
 
     /** Feed the rider's heading (0-360). Call whenever the Karoo reports it. */
     fun updateHeading(degrees: Double, nowMs: Long) {
+        if (firstHeadingMs < 0) firstHeadingMs = nowMs
         headings.addLast(nowMs to degrees)
         while (headings.size > 1 && nowMs - headings.first().first > turnWindowMs) headings.removeFirst()
         val oldest = headings.first().second
-        // Until the window has filled, "oldest" is the first sample of the
-        // ride and a heading fix settling in reads as a turn.
-        val windowFull = nowMs - headings.first().first >= turnWindowMs
+        // Until a full window has elapsed since the first heading, "oldest"
+        // is the first sample of the ride and a heading fix settling in reads
+        // as a turn. Measured from the first sample, not the oldest kept one:
+        // the deque is trimmed to the window, so the oldest kept sample is
+        // never older than the window and that test would never pass.
+        val windowFull = nowMs - firstHeadingMs >= turnWindowMs
         if (windowFull && angleDiff(oldest, degrees) >= turnThresholdDeg) {
             if (turns.isEmpty() || nowMs - turns.last().detectedMs > 1_000L) {
                 // The turn started at the last sample still on the old heading.
@@ -350,6 +356,13 @@ class TargetTracker(
      */
     fun clear() {
         tracks.clear()
+    }
+
+    /** Forget the heading history (ride start). */
+    fun resetHeading() {
+        headings.clear()
+        turns.clear()
+        firstHeadingMs = -1L
     }
 
     /** Reset the diagnostic counters (start of a ride). */

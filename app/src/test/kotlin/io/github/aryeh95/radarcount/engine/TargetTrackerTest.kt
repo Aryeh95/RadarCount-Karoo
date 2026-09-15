@@ -270,6 +270,18 @@ class TargetTrackerTest {
     }
 
     @Test
+    @DisplayName("a car whose first echo is just outside alongside but gets inside on one sample counts")
+    fun briefCarReachingAlongsideCounted() {
+        // From a ride: first echo in the 12 m bin, the next in the 6 m bin a
+        // fraction of a second later, then out of the beam. One sample by the
+        // 250 ms rule. 0.2.15 waived the sample minimum only on the first
+        // range and missed it; the Garmin counted it.
+        feed(12, threat = 2)
+        feed(6, dtMs = 200L, threat = 2)
+        assertThat(gone()).isEqualTo(1)
+    }
+
+    @Test
     @DisplayName("a counted car's ghost does not swallow the next car in the queue")
     fun ghostDoesNotTakeFollowingCar() {
         // From the same ride: a car counted at 3 m, then a target at 9 m for
@@ -322,6 +334,20 @@ class TargetTrackerTest {
         heading(150.0); feed(); heading(175.0); feed(); heading(180.0)
         assertThat(tracker.turnedSince(now - 3000)).isTrue()
         assertThat(gone()).isEqualTo(0)
+    }
+
+    @Test
+    @DisplayName("a turn is detected when headings arrive at irregular intervals")
+    fun turnDetectedWithIrregularHeadings() {
+        // The device feeds headings about once a second but never on an exact
+        // boundary. 0.2.15 judged the window full only when the oldest kept
+        // sample was exactly the window's age, which never happened on the
+        // road, so no turn was ever detected and the turn vetoes were dead.
+        var t = 0L
+        repeat(8) { t += 1_100L; tracker.updateHeading(90.0, t) }
+        t += 1_100L; tracker.updateHeading(135.0, t)
+        t += 1_100L; tracker.updateHeading(180.0, t)
+        assertThat(tracker.turnedSince(0L)).isTrue()
     }
 
     @Test

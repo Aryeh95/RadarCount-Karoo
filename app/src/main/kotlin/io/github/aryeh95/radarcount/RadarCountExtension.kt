@@ -247,13 +247,15 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
         }
     }
 
-    // Diagnostic (beta): one CSV line per track decision, in app-private
-    // storage so it needs no permission. Pull with
+    // Diagnostic, off unless enabled with five taps on the version line in
+    // Settings: one CSV line per track decision, in app-private storage so
+    // it needs no permission. Pull with
     //   adb pull /sdcard/Android/data/io.github.aryeh95.radarcount/files/tracks/
     private var traceWriter: java.io.BufferedWriter? = null
     private val traceLock = Any()
 
     private fun startTrackTrace() {
+        if (!settingsRepository.settings.value.traceTracks) return
         try {
             val dir = java.io.File(getExternalFilesDir(null), "tracks").also { it.mkdirs() }
             // Keep the last few rides; a file is a few KB.
