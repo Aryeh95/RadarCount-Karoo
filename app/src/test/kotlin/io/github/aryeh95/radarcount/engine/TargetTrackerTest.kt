@@ -325,6 +325,20 @@ class TargetTrackerTest {
     }
 
     @Test
+    @DisplayName("a turn is detected when headings arrive at irregular intervals")
+    fun turnDetectedWithIrregularHeadings() {
+        // The device feeds headings about once a second but never on an exact
+        // boundary. 0.2.15 judged the window full only when the oldest kept
+        // sample was exactly the window's age, which never happened on the
+        // road, so no turn was ever detected and the turn vetoes were dead.
+        var t = 0L
+        repeat(8) { t += 1_100L; tracker.updateHeading(90.0, t) }
+        t += 1_100L; tracker.updateHeading(135.0, t)
+        t += 1_100L; tracker.updateHeading(180.0, t)
+        assertThat(tracker.turnedSince(0L)).isTrue()
+    }
+
+    @Test
     @DisplayName("a brief fast target right after a turn is a car crossing the cone, not a pass")
     fun crossingAfterTurn() {
         repeat(7) { heading(90.0); feed() }               // heading window full: steady road before the turn
