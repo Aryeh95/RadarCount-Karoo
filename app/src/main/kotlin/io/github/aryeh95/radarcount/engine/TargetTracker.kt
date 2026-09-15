@@ -37,8 +37,8 @@ import kotlin.math.abs
  * so the device and the site agree; the price is a car that settles
  * nine metres back and goes quiet, which counts once as if it passed.
  *
- * A car that first appears inside [alongsideRangeM] counts on a single
- * sample. It was following at the rider's speed, invisible to a Doppler
+ * A car that gets inside [alongsideRangeM] counts on a single sample,
+ * whichever bin its first echo landed in. It was following at the rider's speed, invisible to a Doppler
  * radar, and has just pulled out; the beam loses it within a few
  * hundred milliseconds, which is fewer packets than [minSamples] asks
  * for. A queue's lead car is missed without this.
@@ -133,7 +133,7 @@ class TargetTracker(
             closeThresholdM: Int, closingThresholdM: Int, minSamples: Int,
             minClosingMps: Double, alongsideM: Int, fastThreat: Int
         ): Boolean {
-            if (samples < minSamples && firstRange > alongsideM) return false
+            if (samples < minSamples && minRange > alongsideM) return false
             val lookedLikePass = maxThreat >= fastThreat || lastSpeedMps >= minClosingMps || minRange <= alongsideM
             if (!lookedLikePass) return false
             if (minRange <= closeThresholdM) return true

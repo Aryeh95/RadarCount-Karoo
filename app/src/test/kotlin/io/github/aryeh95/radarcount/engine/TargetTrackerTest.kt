@@ -270,6 +270,18 @@ class TargetTrackerTest {
     }
 
     @Test
+    @DisplayName("a car whose first echo is just outside alongside but gets inside on one sample counts")
+    fun briefCarReachingAlongsideCounted() {
+        // From a ride: first echo in the 12 m bin, the next in the 6 m bin a
+        // fraction of a second later, then out of the beam. One sample by the
+        // 250 ms rule. 0.2.15 waived the sample minimum only on the first
+        // range and missed it; the Garmin counted it.
+        feed(12, threat = 2)
+        feed(6, dtMs = 200L, threat = 2)
+        assertThat(gone()).isEqualTo(1)
+    }
+
+    @Test
     @DisplayName("a counted car's ghost does not swallow the next car in the queue")
     fun ghostDoesNotTakeFollowingCar() {
         // From the same ride: a car counted at 3 m, then a target at 9 m for

@@ -39,6 +39,8 @@ class SettingsRepository private constructor(private val context: Context) {
         private val KEY_SENSITIVITY = stringPreferencesKey("sensitivity")
         private val KEY_SPEED = stringPreferencesKey("speed")
         private val KEY_RESET_ON_RIDE_START = booleanPreferencesKey("reset_on_ride_start")
+        private val KEY_DEVELOPER_MODE = booleanPreferencesKey("developer_mode")
+        private val KEY_TRACE_TRACKS = booleanPreferencesKey("trace_tracks")
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -50,7 +52,9 @@ class SettingsRepository private constructor(private val context: Context) {
                 theme = parseEnum(p[KEY_THEME], ThemeSetting.AUTO),
                 sensitivity = parseEnum(p[KEY_SENSITIVITY], SensitivitySetting.NORMAL),
                 speed = parseEnum(p[KEY_SPEED], SpeedSetting.RELATIVE),
-                resetOnRideStart = p[KEY_RESET_ON_RIDE_START] ?: true
+                resetOnRideStart = p[KEY_RESET_ON_RIDE_START] ?: true,
+                developerMode = p[KEY_DEVELOPER_MODE] ?: false,
+                traceTracks = p[KEY_TRACE_TRACKS] ?: false
             )
         }
         .distinctUntilChanged()
@@ -63,6 +67,8 @@ class SettingsRepository private constructor(private val context: Context) {
             p[KEY_SENSITIVITY] = settings.sensitivity.name
             p[KEY_SPEED] = settings.speed.name
             p[KEY_RESET_ON_RIDE_START] = settings.resetOnRideStart
+            p[KEY_DEVELOPER_MODE] = settings.developerMode
+            p[KEY_TRACE_TRACKS] = settings.traceTracks
         }
     }
 

@@ -23,5 +23,9 @@ data class Settings(
     val sensitivity: SensitivitySetting = SensitivitySetting.NORMAL,
     val speed: SpeedSetting = SpeedSetting.RELATIVE,
     /** Reset the ride count when a ride starts recording. */
-    val resetOnRideStart: Boolean = true
+    val resetOnRideStart: Boolean = true,
+    /** Developer section shown in Settings; unlocked with five taps on the version line. */
+    val developerMode: Boolean = false,
+    /** Write a per-track decision log during rides. Developer setting; off by default. */
+    val traceTracks: Boolean = false
 )
