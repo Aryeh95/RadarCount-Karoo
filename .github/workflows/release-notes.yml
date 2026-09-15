@@ -1,0 +1,38 @@
+name: Sync release notes
+
+# Rewrites the description of existing GitHub releases from CHANGELOG.md.
+# Run by hand; the release workflow writes notes for new releases itself.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "One tag to update (e.g. v0.2.16), or 'all'"
+        required: true
+        default: all
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update release descriptions
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ONLY: ${{ github.event.inputs.tag }}
+        run: |
+          set -e
+          for version in $(python3 scripts/release_notes.py --list); do
+            tag="v$version"
+            if [ "$ONLY" != "all" ] && [ "$ONLY" != "$tag" ]; then continue; fi
+            if ! gh release view "$tag" >/dev/null 2>&1; then
+              echo "no release for $tag; skipping"; continue
+            fi
+            python3 scripts/release_notes.py "$version" > notes.md
+            gh release edit "$tag" --notes-file notes.md
+            echo "updated $tag"
+          done
