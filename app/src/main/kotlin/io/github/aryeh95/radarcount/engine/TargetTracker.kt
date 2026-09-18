@@ -15,13 +15,20 @@ import kotlin.math.abs
  * Instead each reported range is matched to a track from the previous
  * packet (closest range within a tolerance that grows with elapsed time).
  * A track counts as a pass if it was observed at least [minSamples] times
- * and either came within [closeThresholdM] or was closing and last seen
- * within [closingThresholdM]. It must also have looked like a pass at some
- * point: the radar flagged it as approaching fast (threat level 2 or
- * more), or it was closing at [minPassClosingMps] or more when last seen,
- * or it was seen alongside at [alongsideRangeM]. A car that sits behind
- * the rider at the rider's speed farther back than that, and then drops
- * off the radar without doing any of those, is a follower, not a pass.
+ * and came within [closeThresholdM]. It must also have looked like a pass
+ * at some point: the radar flagged it as approaching fast (threat level 2
+ * or more), or it was closing at [minPassClosingMps] or more when last
+ * seen, or it was seen alongside at [alongsideRangeM]. A car that sits
+ * behind the rider at the rider's speed farther back than that, and then
+ * drops off the radar without doing any of those, is a follower, not a
+ * pass.
+ *
+ * There is deliberately no "was still closing when it vanished" rule. A car
+ * that closes to 15 or 37 m and then drops off the radar has not passed: it
+ * has stopped in a queue behind the rider, settled in to follow, turned off,
+ * or been lost because the rider turned. Side-by-side video showed every
+ * count made that way to be a car that never came alongside, and a car
+ * that really passes always drives the range down to a few metres first.
  *
  * [alongsideRangeM] is set by the beam, not by how fast the car was
  * going. The radar is Doppler: it reports a target only while the range
@@ -59,6 +66,13 @@ import kotlin.math.abs
  * vanish farther out keep the full [lostMs] wait, because there a dropout
  * and a pass look alike.
  *
+ * A ghost takes back a range at or nearer than where the car vanished. One
+ * range bin farther back is allowed only within [GHOST_FLICKER_MS] of the
+ * last echo: a long vehicle's reflection wobbles between the 3 m and 6 m
+ * bins as its body goes by, and without this a semi counts twice. After a
+ * longer gap a range one bin back is treated as the next car, so a queued
+ * car that pulls out right behind a counted one still gets its own track.
+ *
  * The closing speed of the nearest track is estimated from its range
  * history over at least [minSpeedSpanMs], which filters the burst-timing
  * artefacts that produced nonsense speeds before. The estimate freezes
@@ -68,8 +82,7 @@ import kotlin.math.abs
  * Not thread-safe: call from a single thread.
  */
 class TargetTracker(
-    @Volatile var closeThresholdM: Int = 20,
-    @Volatile var closingThresholdM: Int = 60,
+    @Volatile var closeThresholdM: Int = 9,
     private val minSamples: Int = 2,
     private val lostMs: Long = 1_800L,
     private val closeLostMs: Long = 700L,
@@ -95,7 +108,6 @@ class TargetTracker(
         var firstSeenMs = nowMs
         var lastSeenMs = nowMs
         var samples = 1
-        var closing = false
         /** Pass decision already made (counted or rejected); the track is a ghost. */
         var resolved = false
         /** Closing speed captured when the car came inside the freeze range. */
@@ -120,7 +132,6 @@ class TargetTracker(
                 val v = estimate(history)
                 if (v > 0.0) frozenSpeedMps = v
             }
-            closing = newRange < range
             range = newRange
             if (newRange < minRange) minRange = newRange
             lastSeenMs = nowMs
@@ -130,14 +141,13 @@ class TargetTracker(
         }
 
         fun isPass(
-            closeThresholdM: Int, closingThresholdM: Int, minSamples: Int,
+            closeThresholdM: Int, minSamples: Int,
             minClosingMps: Double, alongsideM: Int, fastThreat: Int
         ): Boolean {
             if (samples < minSamples && minRange > alongsideM) return false
             val lookedLikePass = maxThreat >= fastThreat || lastSpeedMps >= minClosingMps || minRange <= alongsideM
             if (!lookedLikePass) return false
-            if (minRange <= closeThresholdM) return true
-            return closing && range <= closingThresholdM
+            return minRange <= closeThresholdM
         }
     }
 
@@ -149,6 +159,10 @@ class TargetTracker(
         private const val MATCH_BASE_M = 12.0
         /** How much farther back than its last range a ghost may re-attach a target. */
         private const val GHOST_BEHIND_M = 2
+        /** Within this gap a ghost may also take a range one bin farther back (a long vehicle's flicker). */
+        private const val GHOST_FLICKER_MS = 500L
+        /** One range bin (3.125 m) farther back, with rounding slack. */
+        private const val GHOST_FLICKER_BEHIND_M = 4
         /** Extra tolerance per second elapsed (a relative speed of 30 m/s) */
         private const val MATCH_PER_SEC_M = 30.0
     }
@@ -228,12 +242,16 @@ class TargetTracker(
         val unmatchedRanges = rangesM.filter { it > 0 }.toMutableList()
         val matched = HashSet<Track>()
 
-        while (unmatchedRanges.isNotEmpty()) {
+        // Live tracks are matched first; ghosts of counted cars only get the
+        // ranges no live track could take. Otherwise a ghost sitting at 3 m
+        // steals the final alongside reading of the car behind it, and that
+        // car ends up looking as if it never came alongside.
+        for (ghostPhase in listOf(false, true)) while (unmatchedRanges.isNotEmpty()) {
             var bestTrack: Track? = null
             var bestRange = -1
             var bestDelta = Double.MAX_VALUE
             for (t in tracks) {
-                if (t in matched) continue
+                if (t in matched || t.resolved != ghostPhase) continue
                 val dtSec = (nowMs - t.lastSeenMs).coerceAtLeast(0) / 1000.0
                 // A ghost only re-attaches a range right next to where the
                 // car vanished; a new car farther out must start a new track.
@@ -244,9 +262,15 @@ class TargetTracker(
                     // not mistaken for an old one jumping backwards.
                     val d = if (r > t.range) (r - t.range) * 2.0 else (t.range - r).toDouble()
                     // A counted car's ghost only takes back a dropout, which
-                    // reappears where it was or nearer. A range one bin or
-                    // more farther back is the next car in the queue.
-                    if (t.resolved && r - t.range > GHOST_BEHIND_M) continue
+                    // reappears where it was or nearer. One bin farther back
+                    // is still the same vehicle if the gap is short (a long
+                    // body flickering between bins); after a longer gap it is
+                    // the next car in the queue.
+                    if (t.resolved) {
+                        val gapMs = nowMs - t.lastSeenMs
+                        val maxBehind = if (gapMs <= GHOST_FLICKER_MS) GHOST_FLICKER_BEHIND_M else GHOST_BEHIND_M
+                        if (r - t.range > maxBehind) continue
+                    }
                     if (abs(r - t.range) <= tol && d < bestDelta) {
                         bestDelta = d; bestTrack = t; bestRange = r
                     }
@@ -280,7 +304,7 @@ class TargetTracker(
                     // Brief, first seen close, right after a turn: a car crossing the cone on the road just left.
                     val crossingAfterTurn = t.samples <= 3 && t.firstRange <= crossingFirstRangeM &&
                         turnedBetween(t.firstSeenMs - afterTurnMs, t.firstSeenMs)
-                    val looksLikePass = t.isPass(closeThresholdM, closingThresholdM, minSamples, minPassClosingMps, alongsideRangeM, fastThreatLevel)
+                    val looksLikePass = t.isPass(closeThresholdM, minSamples, minPassClosingMps, alongsideRangeM, fastThreatLevel)
                     val pass = !turnedAway && !crossingAfterTurn && looksLikePass
                     trace?.invoke(
                         "TRACK,${nowMs},${t.firstRange},${t.minRange},${t.range},${t.samples},${t.lastSeenMs - t.firstSeenMs}," +

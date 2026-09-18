@@ -62,10 +62,10 @@
     <string name="settings_sensitivity_strict">Strict</string>
     <string name="settings_sensitivity_normal">Normal</string>
     <string name="settings_sensitivity_relaxed">Relaxed</string>
-    <string name="settings_sensitivity_desc">Counts a car once it has come within %1$d m (%2$d ft) of you, or if it was still closing in when it dropped off the radar inside %3$d m (%4$d ft).</string>
+    <string name="settings_sensitivity_desc">Counts a car once it has come within %1$d m (%2$d ft) of you before dropping off the radar.</string>
     <string name="settings_sensitivity_strict_note">Fewest false counts; may miss cars that pass wide.</string>
-    <string name="settings_sensitivity_normal_note">Recommended for most roads.</string>
-    <string name="settings_sensitivity_relaxed_note">Catches wide passes on open roads; may count cars that turn off before reaching you.</string>
+    <string name="settings_sensitivity_normal_note">Recommended. Matches the rule mybiketraffic.com uses, so device and site agree.</string>
+    <string name="settings_sensitivity_relaxed_note">Catches wide passes on open roads; may count a car that stops close behind you.</string>
     <string name="settings_reset_on_ride_start">Reset count when a ride starts</string>
     <string name="settings_reset_defaults">Restore defaults</string>
     <string name="settings_back">Back</string>

@@ -43,7 +43,7 @@ Open the RadarCount app on the Karoo and tap Settings.
 | Units | Karoo profile (default), Metric, Imperial |
 | Field colours | Match device (default), Light, Dark |
 | Vehicle speed shown | Relative to you (default), or Absolute (relative plus your own speed). Applies to the Vehicle Speed field and the Radar field. |
-| Count sensitivity | Strict, Normal (default) or Relaxed. A car counts once it has come within 12 / 20 / 30 m of you, or if it was still closing in when it dropped off the radar inside 40 / 60 / 90 m. The settings screen spells out the rule for the selected option. |
+| Count sensitivity | Strict, Normal (default) or Relaxed. A car counts once it has come within 6 / 9 / 12 m of you before dropping off the radar. Normal matches the rule mybiketraffic.com uses. |
 | Reset count when a ride starts | On by default. Off keeps a running total across rides; use Reset count on the status screen to clear it. |
 
 The extension is idle at boot. It only opens the radar, speed and heading
@@ -51,14 +51,19 @@ streams while a ride is recording, one of its data fields is on screen, or its
 status screen is open, and closes them again afterwards.
 
 Each radar target is tracked individually across packets. A target counts as a
-pass when it drops off the radar after either coming within 20 m, or closing in
-and being last seen within 60 m, and only if it was seen more than once (the
-Karoo's target list jitters, so one-packet blips are ignored). A car that has
-come within 20 m is counted on the first packet it is missing from, since the
-radar cannot see a car alongside you; it lingers as a ghost for two seconds so
-a range that reappears right where it vanished (a radar dropout) re-attaches
-without counting again. A car that vanishes farther out waits the full two
-seconds, because there a dropout and a pass look alike.
+pass when it drops off the radar after coming within 9 m, which is where the
+rear beam loses a car as it draws level with your back wheel and the same
+distance mybiketraffic.com uses. A car that got no closer than that has not
+passed: it stopped in a queue behind you, settled in to follow, turned off, or
+was lost because you turned. A car that has come within 9 m is counted on the
+first packet it is missing from, since the radar cannot see a car alongside
+you; it lingers as a ghost for two seconds so a range that reappears right
+where it vanished (a radar dropout) re-attaches without counting again. A
+long vehicle's reading wobbles between the 3 m and 6 m bins as its body goes
+by, so within half a second the ghost also takes back a range one bin farther
+out; after a longer gap that is the next car in the queue. A target farther
+out that vanishes waits the full two seconds, because there a dropout and a
+pass look alike, and one-packet blips far out are ignored.
 
 Two kinds of target are deliberately not counted:
 
