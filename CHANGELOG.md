@@ -3,6 +3,41 @@
 Release notes for RadarCount for Karoo. Each GitHub release carries the
 matching section below as its description.
 
+## 0.2.17 — 2026-09-18
+
+Counting is tightened to the rule mybiketraffic.com uses, after a side-by-side
+video comparison against the Garmin app showed where the extra counts came
+from. Expect a few fewer counts per ride than 0.2.16, all of them cars that
+never came alongside.
+
+### Changed
+- **A car must come within 9 m to count.** Previously a car counted once it
+  had been within 20 m, or if it was still closing when it dropped off the
+  radar inside 60 m. Both rules counted cars that never passed: a car that
+  stopped in the queue behind you at 15 m, one that followed at 30 m for a
+  while and then turned off, and one lost at 37 m because you turned. Nine
+  metres is where the rear beam loses a car as it draws level with your back
+  wheel, and it is the distance the site uses, so device and site now agree
+  on the rule.
+- **Count sensitivity** options are now Strict 6 m, Normal 9 m and Relaxed
+  12 m, one radar range bin apart. Normal is the default and matches the site.
+  The old "still closing within N m" half of the setting is gone.
+
+### Fixed
+- **Long vehicles counted twice.** A semi or trailer's radar reading wobbles
+  between the 3 m and 6 m bins as its body goes by. The guard added in 0.2.15
+  to stop a counted car's ghost swallowing the next car in the queue refused
+  the reading one bin farther back, so the rest of the vehicle started a new
+  track and counted again. The ghost now takes back a reading one bin farther
+  out when it arrives within half a second of the last echo; after a longer
+  gap it is still treated as the next car.
+- **A ghost could steal the final reading of the car behind it.** When two
+  cars pass in a line, the counted car's ghost at 3 m matched the second car's
+  own 3 m reading in preference to that car's live track, so the second car
+  looked as if it never came alongside. Live tracks are now matched before
+  ghosts. Under the old 20 m rule this was masked; under the 9 m rule it
+  would have lost the second car.
+
 ## 0.2.16 — 2026-09-15
 
 ### Fixed

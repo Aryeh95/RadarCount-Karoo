@@ -93,11 +93,13 @@ class TargetTrackerTest {
     }
 
     @Test
-    @DisplayName("a far car still waits the full lost timeout before counting")
+    @DisplayName("a car that vanishes at 12 m waits the full lost timeout before it is decided")
     fun farCarStillWaits() {
-        for (r in listOf(120, 85, 45)) feed(r)
+        for (r in listOf(120, 85, 45, 12)) feed(r)
         assertThat(feed()).isEqualTo(0)
-        assertThat(feed()).isEqualTo(1)
+        assertThat(tracker.rejectedNotPass).isEqualTo(0)
+        assertThat(feed()).isEqualTo(0)
+        assertThat(tracker.rejectedNotPass).isEqualTo(1)
     }
 
     @Test
@@ -112,10 +114,69 @@ class TargetTrackerTest {
     }
 
     @Test
-    @DisplayName("fast pass lost between 45 m and gone still counts when closing")
-    fun fastPass() {
-        for (r in listOf(120, 85, 45)) feed(r)
-        assertThat(gone()).isEqualTo(1)
+    @DisplayName("a fast car lost at 37 m as the rider turns off is not a pass")
+    fun fastCarLostFarOutNotCounted() {
+        // From a side-by-side ride: closed from 93 m to 37 m in twelve seconds
+        // and vanished with two other targets when the rider swung 34 degrees
+        // off the road. It never came alongside; 0.2.16 counted it.
+        for (r in listOf(93, 90, 87, 81, 78, 78, 68, 65, 59, 56, 50, 43, 37, 37)) feed(r, threat = 1)
+        assertThat(gone()).isEqualTo(0)
+        assertThat(tracker.rejectedNotPass).isEqualTo(1)
+    }
+
+    @Test
+    @DisplayName("a car that stops in the queue at 15 m behind a stopped truck is not a pass")
+    fun queuedCarBehindTruckNotCounted() {
+        // From a side-by-side ride: truck held 12 m while the rider slowed to a
+        // give-way; the car behind it closed 28, 21, 15 and stopped. Neither
+        // passed. 0.2.16 counted the car through the 20 m threshold.
+        for (r in listOf(28, 21, 15)) feed(12, r, threat = 2)
+        var passed = feed(12)           // car stopped: Doppler-invisible
+        passed += feed(12)
+        for (r in listOf(15, 21)) passed += feed(r)   // rider turns off, truck recedes
+        passed += gone()
+        assertThat(passed).isEqualTo(0)
+    }
+
+    @Test
+    @DisplayName("a car that follows at 28 to 37 m for eight seconds and turns off is not a pass")
+    fun followerThatTurnsOffNotCounted() {
+        // From a side-by-side ride: closed from 71 m to 28 m, hung there, gone.
+        for (r in listOf(71, 71, 62, 59, 53, 46, 43, 37, 28, 31, 28, 28, 31, 34, 37, 34)) feed(r, threat = 1)
+        assertThat(gone()).isEqualTo(0)
+    }
+
+    @Test
+    @DisplayName("a long vehicle whose reading flickers 3, 6, 3 m counts once")
+    fun longVehicleFlickerCountsOnce() {
+        // From a side-by-side ride: a semi at 6 m for four seconds counted twice
+        // in 0.2.16 because a reading one bin farther back was refused by the
+        // ghost and started a new track.
+        for (r in listOf(31, 28, 21, 18, 12, 9, 6)) feed(r, threat = 2)
+        var passed = feed(dtMs = 400)          // body gap
+        passed += feed(dtMs = 400)             // counted here (missing > 700 ms)
+        assertThat(passed).isEqualTo(1)
+        passed += feed(3, dtMs = 300)          // reflection back, nearer
+        passed += feed(dtMs = 300)
+        passed += feed(6, dtMs = 200)          // one bin farther back, 500 ms after last echo
+        passed += feed(6, dtMs = 300)
+        passed += feed(3, dtMs = 300)
+        passed += gone()
+        assertThat(passed).isEqualTo(1)
+    }
+
+    @Test
+    @DisplayName("a car first seen one bin behind a ghost after a longer gap is the next car")
+    fun tailgaterAfterGapCounted() {
+        // The flicker allowance must not swallow a queued car that pulls out
+        // right behind a counted one a second later.
+        for (r in listOf(18, 12, 6, 3)) feed(r, threat = 2)
+        var passed = feed()                    // first car counted, ghost at 3 m
+        assertThat(passed).isEqualTo(1)
+        passed += feed(6, dtMs = 1000)         // 2 s after last echo: new car
+        passed += feed(3)
+        passed += gone()
+        assertThat(passed).isEqualTo(2)
     }
 
     @Test
@@ -306,10 +367,17 @@ class TargetTrackerTest {
     }
 
     @Test
-    @DisplayName("a slow car the radar flagged as approaching fast counts")
+    @DisplayName("a slow car the radar flagged as approaching fast counts once it reaches 9 m")
     fun slowButFlagged() {
         for (r in listOf(21, 18, 15, 15, 12, 12, 9)) feed(r, threat = 2)
         assertThat(gone()).isEqualTo(1)
+    }
+
+    @Test
+    @DisplayName("a flagged car that only reaches 12 m before vanishing does not count")
+    fun flaggedButNotAlongsideNotCounted() {
+        for (r in listOf(21, 18, 15, 15, 12, 12)) feed(r, threat = 2)
+        assertThat(gone()).isEqualTo(0)
     }
 
     @Test

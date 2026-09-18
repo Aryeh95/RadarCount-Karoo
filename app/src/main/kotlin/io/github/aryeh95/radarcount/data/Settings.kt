@@ -8,13 +8,14 @@ enum class ThemeSetting { AUTO, LIGHT, DARK }
 enum class SpeedSetting { RELATIVE, ABSOLUTE }
 
 /**
- * How eager the pass counter is. Thresholds are the "came within" distance
- * and the "was closing and last seen within" distance, in metres.
+ * How eager the pass counter is: the distance a car must have come within
+ * before it dropped off the radar, in metres. Ranges arrive in 3.125 m bins,
+ * so the three options are one bin apart around the beam edge.
  */
-enum class SensitivitySetting(val closeThresholdM: Int, val closingThresholdM: Int) {
-    STRICT(12, 40),
-    NORMAL(20, 60),
-    RELAXED(30, 90)
+enum class SensitivitySetting(val closeThresholdM: Int) {
+    STRICT(6),
+    NORMAL(9),
+    RELAXED(12)
 }
 
 data class Settings(

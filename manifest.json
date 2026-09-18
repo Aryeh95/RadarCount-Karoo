@@ -2,12 +2,14 @@
   "label": "RadarCount",
   "packageName": "io.github.aryeh95.radarcount",
   "iconUrl": "https://raw.githubusercontent.com/Aryeh95/RadarCount-Karoo/main/store/icon.png",
-  "latestApkUrl": "https://github.com/Aryeh95/RadarCount-Karoo/releases/download/v0.2.16/radarcount-karoo-0.2.16.apk",
-  "latestVersion": "0.2.16",
-  "latestVersionCode": 32,
+  "latestApkUrl": "https://github.com/Aryeh95/RadarCount-Karoo/releases/download/v0.2.17/radarcount-karoo-0.2.17.apk",
+  "latestVersion": "0.2.17",
+  "latestVersionCode": 33,
   "developer": "github.com/Aryeh95",
   "description": "Counts the vehicles that pass you using your ANT+ rear radar and shows their speed and distance in data fields styled like the Karoo's own. Writes the same developer fields to the ride FIT file as the Garmin MyBikeTraffic app, so rides upload to mybiketraffic.com. No alerts, no sounds, no network access. Open source, MIT licensed.",
-  "releaseNotes": "* A vehicle's speed shows -- until it is actually known, instead of 0\n* A shown 0 now always means the vehicle is not gaining on you\n* Absolute mode shows a vehicle's road speed even when it is matching your speed",
+  "releaseNotes": "* A car now has to come within 9 m before dropping off the radar to count, the same rule mybiketraffic.com uses
+* Cars that stop in a queue behind you, follow and turn off, or are lost when you turn are no longer counted
+* Long vehicles no longer count twice",,
   "screenshotUrls": [
     "https://raw.githubusercontent.com/Aryeh95/RadarCount-Karoo/main/store/screenshot-fields.png",
     "https://raw.githubusercontent.com/Aryeh95/RadarCount-Karoo/main/store/screenshot-ride-page.png"

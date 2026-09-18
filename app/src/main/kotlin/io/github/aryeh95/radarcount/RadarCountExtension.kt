@@ -145,7 +145,7 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
 
         serviceScope.launch {
             settingsRepository.settings.collect { s ->
-                _radarEngine?.setSensitivity(s.sensitivity.closeThresholdM, s.sensitivity.closingThresholdM)
+                _radarEngine?.setSensitivity(s.sensitivity.closeThresholdM)
             }
         }
 

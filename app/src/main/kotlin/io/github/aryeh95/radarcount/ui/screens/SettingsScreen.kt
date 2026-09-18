@@ -115,8 +115,7 @@ fun SettingsScreen(repository: SettingsRepository, onBack: () -> Unit) {
         Text(
             text = stringResource(
                 R.string.settings_sensitivity_desc,
-                sens.closeThresholdM, metersToFeet(sens.closeThresholdM),
-                sens.closingThresholdM, metersToFeet(sens.closingThresholdM)
+                sens.closeThresholdM, metersToFeet(sens.closeThresholdM)
             ) + " " + stringResource(
                 when (sens) {
                     SensitivitySetting.STRICT -> R.string.settings_sensitivity_strict_note
