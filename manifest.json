@@ -7,9 +7,7 @@
   "latestVersionCode": 33,
   "developer": "github.com/Aryeh95",
   "description": "Counts the vehicles that pass you using your ANT+ rear radar and shows their speed and distance in data fields styled like the Karoo's own. Writes the same developer fields to the ride FIT file as the Garmin MyBikeTraffic app, so rides upload to mybiketraffic.com. No alerts, no sounds, no network access. Open source, MIT licensed.",
-  "releaseNotes": "* A car now has to come within 9 m before dropping off the radar to count, the same rule mybiketraffic.com uses
-* Cars that stop in a queue behind you, follow and turn off, or are lost when you turn are no longer counted
-* Long vehicles no longer count twice",,
+  "releaseNotes": "* A car now has to come within 9 m before dropping off the radar to count, the same rule mybiketraffic.com uses\n* Cars that stop in a queue behind you, follow and turn off, or are lost when you turn are no longer counted\n* Long vehicles no longer count twice",
   "screenshotUrls": [
     "https://raw.githubusercontent.com/Aryeh95/RadarCount-Karoo/main/store/screenshot-fields.png",
     "https://raw.githubusercontent.com/Aryeh95/RadarCount-Karoo/main/store/screenshot-ride-page.png"
