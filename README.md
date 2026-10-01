@@ -20,23 +20,29 @@ Add any of these to a ride page from the Karoo's data field picker under **Radar
 
 | Data Field | Shows |
 |------------|-------|
-| **Radar** | Pass count, vehicle speed and distance side by side in one field, captioned COUNT, REL SPEED or ABS SPEED, and DIST |
+| **Radar** | The combined field. With nothing on the radar it shows the pass count, large. When a vehicle is on the radar it shows the vehicle's speed and distance large with the count small beside them, and holds that for two seconds after the vehicle is gone so a pass ends with the new count showing. Both layouts, the header and the captions are configurable (see Settings) |
 | **Vehicles** | Vehicles that have passed you this ride |
 | **Vehicles per Hour** | Pass count divided by recording time (paused time excluded). Shows `--` for the first two minutes of a ride |
 | **Vehicle Speed** | Speed of the nearest vehicle, with its unit (for example `36mph` or `58km/h`) and a RELATIVE or ABSOLUTE tag underneath. Shows `--` for the first second, until there is enough range history to estimate a speed; a shown `0` means the vehicle is not gaining on you |
 | **Vehicle Distance** | Distance to the nearest vehicle, with its unit (for example `148ft` or `45m`) |
 
-Fields look like the Karoo's own: the standard header with icon and name at
-the top, the value centred below it at the Karoo's font size, honouring the
-field alignment setting (left, centre or right). Text shrinks to fit narrow
-fields so nothing is cut off. Text colour follows the device theme and can be
-forced in settings. Every field shows `NO RADAR` in grey while no radar is
+The single-value fields look like the Karoo's own: the standard header with
+icon and name at the top, the value centred below it at the Karoo's font size,
+honouring the field alignment setting (left, centre or right). Text shrinks to
+fit narrow fields so nothing is cut off. The Radar field draws its own header
+in the same style so that it can be turned off, and fits its digits to both the
+width and the height of whatever field size it is given, so the half-width
+field gets the largest digits that fit and larger fields scale up. Text colour
+follows the device theme and can be forced in settings. Every field shows `NO RADAR` in grey while no radar is
 connected, including when a ride is started without one, so that is never
 confused with "no vehicles".
 
 ## Settings
 
-Open the RadarCount app on the Karoo and tap Settings.
+Open the RadarCount app on the Karoo. It has four tabs: **Status** (live radar
+state and the ride count, with a reset button), **Setup** (the settings below),
+**Field** (the Radar field's layout, with a live preview drawn at the field's
+real size) and, once unlocked with five taps on the version line, **Dev**.
 
 | Setting | Options |
 |---------|---------|
