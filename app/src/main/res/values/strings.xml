@@ -19,6 +19,7 @@
     <string name="combo_speed">SPEED</string>
     <string name="combo_speed_rel">REL SPEED</string>
     <string name="combo_speed_abs">ABS SPEED</string>
+    <string name="combo_vehicles">VEHICLES</string>
     <string name="speed_tag_rel">RELATIVE</string>
     <string name="speed_tag_abs">ABSOLUTE</string>
 
@@ -67,6 +68,24 @@
     <string name="settings_sensitivity_normal_note">Recommended. Matches the rule mybiketraffic.com uses, so device and site agree.</string>
     <string name="settings_sensitivity_relaxed_note">Catches wide passes on open roads; may count a car that stops close behind you.</string>
     <string name="settings_reset_on_ride_start">Reset count when a ride starts</string>
+    <string name="settings_radar_field">Radar field</string>
+    <string name="tab_status">Status</string>
+    <string name="tab_settings">Setup</string>
+    <string name="tab_radar_field">Field</string>
+    <string name="tab_developer">Dev</string>
+    <string name="settings_radar_field_hint">The Radar field changes layout when a vehicle is on the radar. Choose what each state shows.</string>
+    <string name="settings_combo_idle">No vehicle on radar</string>
+    <string name="settings_combo_idle_count">Count only</string>
+    <string name="settings_combo_active">Vehicle on radar</string>
+    <string name="settings_combo_active_speed_distance">Speed and distance</string>
+    <string name="settings_combo_all">All three</string>
+    <string name="settings_combo_badge">Small count while a vehicle approaches</string>
+    <string name="settings_combo_units_in_captions">Units as captions instead of after the digits</string>
+    <string name="settings_combo_header">RADAR header strip</string>
+    <string name="settings_combo_captions">Caption line above the numbers</string>
+    <string name="settings_combo_captions_hint">Off removes VEHICLES, MPH and FT so the numbers can use the whole field. All three keeps its captions.</string>
+    <string name="settings_preview_idle">No vehicle</string>
+    <string name="settings_preview_active">Approaching</string>
     <string name="settings_reset_defaults">Restore defaults</string>
     <string name="settings_back">Back</string>
     <string name="settings_version">Version %s</string>

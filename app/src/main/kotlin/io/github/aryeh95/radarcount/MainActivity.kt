@@ -12,8 +12,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import io.github.aryeh95.radarcount.data.SettingsRepository
-import io.github.aryeh95.radarcount.ui.screens.DashboardScreen
-import io.github.aryeh95.radarcount.ui.screens.SettingsScreen
+import io.github.aryeh95.radarcount.ui.screens.MainScreen
 import io.github.aryeh95.radarcount.ui.theme.RadarCountTheme
 
 /**
@@ -47,17 +46,12 @@ class MainActivity : ComponentActivity() {
         setContent {
             RadarCountTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    var showSettings by remember { mutableStateOf(false) }
                     val repository = SettingsRepository.getInstance(this)
-                    if (showSettings) {
-                        SettingsScreen(repository = repository, onBack = { showSettings = false })
-                    } else {
-                        DashboardScreen(
-                            extension = RadarCountExtension.instance,
-                            onSettingsClick = { showSettings = true },
-                            onResetCount = { RadarCountExtension.instance?.radarEngine?.resetPassCounts() }
-                        )
-                    }
+                    MainScreen(
+                        repository = repository,
+                        extension = RadarCountExtension.instance,
+                        onClose = { finish() }
+                    )
                 }
             }
         }

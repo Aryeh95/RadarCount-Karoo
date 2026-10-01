@@ -46,11 +46,13 @@ abstract class GlanceDataType(
 
         /** Karoo SDK limitation: 1Hz updates */
         private const val VIEW_UPDATE_INTERVAL_MS = 1000L
+        /** How long each state shows in the page-editor preview. */
+        private const val PREVIEW_CYCLE_MS = 2000L
 
         val PREVIEW_INPUT = RenderInput(
-            state = WidgetState.Threat(ThreatLevel.WARNING, vehicleCount = 2, nearestDistanceM = 45),
-            passCount = 12,
-            closingSpeedMps = 8.0,
+            state = WidgetState.Threat(ThreatLevel.WARNING, vehicleCount = 2, nearestDistanceM = 174),
+            passCount = 48,
+            closingSpeedMps = 20.0,
             riderSpeedMps = 7.0,
             useImperial = false,
             settings = Settings(),
@@ -80,6 +82,9 @@ abstract class GlanceDataType(
 
     @Composable
     protected abstract fun Content(input: RenderInput, config: ViewConfig)
+
+    /** Whether the Karoo draws its caption strip over this field. Off hands the whole tile to [Content]. */
+    protected open val karooHeader: Boolean get() = true
 
     /** Text shown on every field while no radar is connected. */
     protected fun noRadarText(): String = radarExtension.getString(io.github.aryeh95.radarcount.R.string.widget_no_radar)
@@ -118,9 +123,10 @@ abstract class GlanceDataType(
         // like the Karoo's own: standard header on, and an empty custom
         // stream state so the Karoo does not draw its own placeholder over
         // the value area.
-        emitter.onNext(UpdateGraphicConfig(showHeader = true))
+        emitter.onNext(UpdateGraphicConfig(showHeader = karooHeader))
         emitter.onNext(ShowCustomStreamState(message = "", color = null))
         density = context.resources.displayMetrics.density
+        if (typeId == "radar-combo") radarExtension.reportComboViewConfig(config)
 
         android.util.Log.d(TAG, "[$dataTypeId] Starting view: grid=${config.gridSize}, size=${config.viewSize}, text=${config.textSize}, density=$density, preview=${config.preview}")
 
@@ -139,8 +145,16 @@ abstract class GlanceDataType(
         }
 
         if (config.preview) {
+            // Page-editor preview: alternate between the no-vehicle and the
+            // approaching state so both layouts of the combo field show.
             scope.launch {
-                render(PREVIEW_INPUT.copy(settings = radarExtension.settings.value, useImperial = radarExtension.useImperial.value))
+                var approaching = true
+                while (true) {
+                    val base = if (approaching) PREVIEW_INPUT else PREVIEW_INPUT.copy(state = WidgetState.Clear, closingSpeedMps = null)
+                    render(base.copy(settings = radarExtension.settings.value, useImperial = radarExtension.useImperial.value))
+                    approaching = !approaching
+                    kotlinx.coroutines.delay(PREVIEW_CYCLE_MS)
+                }
             }
             emitter.setCancellable { scope.cancel() }
             return
