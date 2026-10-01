@@ -4,7 +4,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.glance.ColorFilter
 import androidx.glance.GlanceModifier
+import androidx.glance.Image
+import androidx.glance.ImageProvider
+import androidx.glance.layout.fillMaxWidth
+import androidx.glance.layout.size
+import androidx.glance.text.FontWeight
 import androidx.glance.appwidget.background
 import androidx.glance.color.ColorProvider as DayNightColorProvider
 import androidx.glance.layout.Alignment
@@ -13,6 +19,7 @@ import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxSize
+import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.width
 import androidx.glance.text.FontFamily
@@ -21,6 +28,7 @@ import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import io.github.aryeh95.radarcount.R
 import io.github.aryeh95.radarcount.RadarCountExtension
+import io.github.aryeh95.radarcount.datatypes.ComboLayout
 import io.github.aryeh95.radarcount.data.SpeedSetting
 import io.github.aryeh95.radarcount.data.ThemeSetting
 import io.github.aryeh95.radarcount.data.models.WidgetState
@@ -70,7 +78,7 @@ private fun KarooValue(
 }
 
 @Composable
-private fun KarooText(text: String, theme: ThemeSetting, color: ColorProvider?, fontSize: Int) {
+private fun KarooText(text: String, theme: ThemeSetting, color: ColorProvider?, fontSize: Int, nudge: Float = -0.09f) {
     Text(
         text = text,
         style = TextStyle(
@@ -78,9 +86,12 @@ private fun KarooText(text: String, theme: ThemeSetting, color: ColorProvider?, 
             fontSize = (fontSize * 0.97).sp,
             fontFamily = FontFamily.Monospace
         ),
+        // The text box carries descender space below the digits, so a box
+        // centred in its area shows the glyphs high. [nudge] (fraction of
+        // the font size) shifts the box to compensate.
         modifier = GlanceModifier
             .background(Color(1f, 1f, 1f, 1f), Color(0f, 0f, 0f, 1f))
-            .padding(top = (-fontSize * 0.09).dp),
+            .padding(top = (fontSize * nudge).dp),
         maxLines = 1
     )
 }
@@ -125,10 +136,10 @@ private fun derive(input: GlanceDataType.RenderInput): Derived {
 private const val CAPTION_RATIO = 0.4f
 
 /** Largest monospace font (sp) whose [chars] characters fit in [widthPx] minus [paddingDp]. */
-private fun fitFontSp(chars: Float, widthPx: Int, paddingDp: Int, density: Float): Int {
+private fun fitFontSp(chars: Float, widthPx: Int, paddingDp: Int, density: Float, emPerChar: Float = 0.62f): Int {
     if (widthPx <= 0 || chars <= 0f) return Int.MAX_VALUE
     val availablePx = widthPx - paddingDp * density
-    return (availablePx / (0.62f * chars * density)).toInt()
+    return (availablePx / (emPerChar * chars * density)).toInt()
 }
 
 
@@ -219,12 +230,21 @@ class ClosestDistanceGlanceDataType(
 }
 
 /**
- * Combined field: count, speed and distance side by side, each captioned,
- * in the same style as the single fields at a reduced size.
+ * Combined field: count, approach speed and distance. What it shows depends
+ * on whether a vehicle is on the radar and on the Radar field settings; see
+ * [ComboLayout]. The active layout is held for [ACTIVE_HOLD_MS] after the
+ * last target vanishes so a pass ends with the new count showing.
  */
 class ComboGlanceDataType(
     radarExtension: RadarCountExtension
 ) : GlanceDataType(radarExtension, "radar-combo") {
+
+    companion object {
+        private const val ACTIVE_HOLD_MS = 2_000L
+    }
+
+    /** Wall-clock time a target was last on the radar; the layout stays active a moment after. */
+    @Volatile private var lastTrackedMs = 0L
 
     @Composable
     override fun Content(input: RenderInput, config: ViewConfig) {
@@ -234,44 +254,106 @@ class ComboGlanceDataType(
             return
         }
         val d = derive(input)
-        val live: ColorProvider? = null
-        val countText = input.passCount.toString()
-        val speedText = if (d.tracked && d.shownSpeed != null) "${d.shownSpeed}${d.unit}" else "--"
-        val distText = d.distance ?: "--"
-        val gapDp = if (config.gridSize.first >= 60) 14 else 8
-        // Shrink the value font so all three cells fit the field width (monospace ~0.6em per char).
-        val speedCaption = if (d.showsAbsolute) R.string.combo_speed_abs else R.string.combo_speed_rel
-        val captions = listOf(R.string.combo_count, speedCaption, R.string.combo_dist).map { radarExtension.getString(it) }
-        val chars = listOf(countText, speedText, distText).zip(captions).sumOf { (v, c) ->
-            maxOf(v.length.toFloat(), c.length * CAPTION_RATIO).toDouble()
-        }.toFloat()
-        val valueSize = minOf((config.textSize * 0.6f).toInt(), fitFontSp(chars, config.viewSize.first, 10 + 2 * gapDp, density)).coerceAtLeast(12)
-        val captionSize = (valueSize * CAPTION_RATIO).toInt().coerceIn(9, 16)
-        val gap = gapDp.dp
+        val now = System.currentTimeMillis()
+        if (d.tracked) lastTrackedMs = now
+        val active = d.tracked || (!config.preview && now - lastTrackedMs < ACTIVE_HOLD_MS)
+        val plan = ComboLayout.plan(
+            active = active,
+            count = input.passCount,
+            speed = if (d.tracked) d.shownSpeed else null,
+            distance = (input.state as? WidgetState.Threat)?.nearestDistanceM?.takeIf { it > 0 }
+                ?.let { Units.distanceValue(it, input.useImperial) },
+            showsAbsolute = d.showsAbsolute,
+            settings = input.settings,
+            labels = comboLabels(radarExtension, input.useImperial)
+        )
+        ComboCells(plan, config, theme, density, header = input.settings.comboHeader, debugBounds = input.settings.debugFieldBounds)
+    }
 
+    /** The Karoo's strip is off: the field draws its own header, or none. */
+    override val karooHeader: Boolean get() = false
+}
+
+internal fun comboLabels(radarExtension: RadarCountExtension, useImperial: Boolean) = ComboLayout.Labels(
+    count = radarExtension.getString(R.string.combo_count),
+    vehicles = radarExtension.getString(R.string.combo_vehicles),
+    speedRel = radarExtension.getString(R.string.combo_speed_rel),
+    speedAbs = radarExtension.getString(R.string.combo_speed_abs),
+    dist = radarExtension.getString(R.string.combo_dist),
+    speedUnit = Units.speedUnitCaption(useImperial),
+    distUnit = Units.distanceUnitCaption(useImperial)
+)
+
+/**
+ * Lays out a [ComboLayout.Plan] on the whole tile: an optional header strip
+ * in the Karoo's style, then the cells centred in the rest, sized by
+ * [ComboLayout.sizes]. Heights are set explicitly so centring is real.
+ */
+@Composable
+private fun ComboCells(plan: ComboLayout.Plan, config: ViewConfig, theme: ThemeSetting, density: Float, header: Boolean, debugBounds: Boolean = false) {
+    val headerDp = if (header) ComboLayout.HEADER_DP else 0f
+    val sz = ComboLayout.sizes(plan, config.viewSize.first, config.viewSize.second, config.textSize, density, wideGrid = config.gridSize.first >= 60, headerDp = headerDp)
+    // The host's view can be taller than the reported tile when its own
+    // strip is off, so nothing here uses a fixed height: the root fills
+    // whatever the host gives and centres in the area below the header.
+    // Developer aid: tint the whole view so where the host really puts it shows.
+    val root = if (debugBounds) GlanceModifier.fillMaxSize().background(Color(0.2f, 0.4f, 1f, 0.35f), Color(0.2f, 0.4f, 1f, 0.35f)) else GlanceModifier.fillMaxSize()
+    Box(modifier = root) {
+        if (header) {
+            Box(modifier = GlanceModifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+                Row(
+                    modifier = GlanceModifier.fillMaxWidth().height(headerDp.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Image(
+                        provider = ImageProvider(R.drawable.ic_radar),
+                        contentDescription = null,
+                        modifier = GlanceModifier.size(13.dp),
+                        colorFilter = ColorFilter.tint(ColorProvider(GlanceColors.Safe))
+                    )
+                    Spacer(modifier = GlanceModifier.width(4.dp))
+                    Text(
+                        text = "RADAR",
+                        style = TextStyle(color = GlanceColors.text(theme), fontSize = 13.sp, fontWeight = FontWeight.Bold),
+                        maxLines = 1
+                    )
+                }
+            }
+        }
         Box(
-            modifier = GlanceModifier.fillMaxSize().padding(start = 5.dp, end = 5.dp),
+            modifier = GlanceModifier.fillMaxSize().padding(start = 2.dp, end = 2.dp, top = headerDp.dp),
             contentAlignment = Alignment.Center
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Cell(radarExtension.getString(R.string.combo_count), countText, theme, null, valueSize, captionSize)
-                Spacer(modifier = GlanceModifier.width(gap))
-                Cell(captions[1], speedText, theme, live, valueSize, captionSize)
-                Spacer(modifier = GlanceModifier.width(gap))
-                Cell(radarExtension.getString(R.string.combo_dist), distText, theme, live, valueSize, captionSize)
+                if (plan.badge != null) {
+                    // Sits on the digit row, not the caption row: pad down by the caption height.
+                    Column {
+                        if (plan.cells.any { it.caption != null }) Spacer(modifier = GlanceModifier.height((sz.captionSp * 1.0f).dp))
+                        KarooText(plan.badge, theme, null, sz.badgeSp, nudge = DIGIT_NUDGE)
+                    }
+                    Spacer(modifier = GlanceModifier.width(4.dp))
+                }
+                plan.cells.forEachIndexed { i, c ->
+                    if (i > 0) Spacer(modifier = GlanceModifier.width(sz.gapDp.dp))
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        if (c.caption != null) Caption(c.caption, theme, sz.captionSp)
+                        KarooText(c.value, theme, null, sz.valueSp, nudge = DIGIT_NUDGE)
+                    }
+                }
             }
         }
     }
+}
 
-    @Composable
-    private fun Cell(caption: String, value: String, theme: ThemeSetting, color: ColorProvider?, valueSize: Int, captionSize: Int) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = caption,
-                style = TextStyle(color = GlanceColors.label(theme), fontSize = captionSize.sp),
-                maxLines = 1
-            )
-            KarooText(value, theme, color, valueSize)
-        }
-    }
+/** In the combo field the view is ours and centred; the digits' box sits high by about this fraction of the font size. */
+private const val DIGIT_NUDGE = 0.18f
+
+@Composable
+private fun Caption(text: String, theme: ThemeSetting, size: Int) {
+    Text(
+        text = text,
+        style = TextStyle(color = GlanceColors.label(theme), fontSize = size.sp),
+        maxLines = 1
+    )
 }

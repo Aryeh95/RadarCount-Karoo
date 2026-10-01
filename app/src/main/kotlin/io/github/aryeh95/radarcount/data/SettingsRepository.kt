@@ -39,8 +39,16 @@ class SettingsRepository private constructor(private val context: Context) {
         private val KEY_SENSITIVITY = stringPreferencesKey("sensitivity")
         private val KEY_SPEED = stringPreferencesKey("speed")
         private val KEY_RESET_ON_RIDE_START = booleanPreferencesKey("reset_on_ride_start")
+        private val KEY_COMBO_IDLE = stringPreferencesKey("combo_idle")
+        private val KEY_COMBO_ACTIVE = stringPreferencesKey("combo_active")
+        private val KEY_COMBO_BADGE = booleanPreferencesKey("combo_badge")
+        private val KEY_COMBO_UNITS_IN_CAPTIONS = booleanPreferencesKey("combo_units_in_captions")
+        private val KEY_COMBO_CAPTIONS = booleanPreferencesKey("combo_captions")
+        private val KEY_COMBO_HEADER = booleanPreferencesKey("combo_header")
+        private val KEY_COMBO_FIELD_SIZE = stringPreferencesKey("combo_field_size")
         private val KEY_DEVELOPER_MODE = booleanPreferencesKey("developer_mode")
         private val KEY_TRACE_TRACKS = booleanPreferencesKey("trace_tracks")
+        private val KEY_DEBUG_FIELD_BOUNDS = booleanPreferencesKey("debug_field_bounds")
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -53,8 +61,16 @@ class SettingsRepository private constructor(private val context: Context) {
                 sensitivity = parseEnum(p[KEY_SENSITIVITY], SensitivitySetting.NORMAL),
                 speed = parseEnum(p[KEY_SPEED], SpeedSetting.RELATIVE),
                 resetOnRideStart = p[KEY_RESET_ON_RIDE_START] ?: true,
+                comboIdle = parseEnum(p[KEY_COMBO_IDLE], ComboIdleSetting.COUNT),
+                comboActive = parseEnum(p[KEY_COMBO_ACTIVE], ComboActiveSetting.SPEED_DISTANCE),
+                comboBadge = p[KEY_COMBO_BADGE] ?: true,
+                comboUnitsInCaptions = p[KEY_COMBO_UNITS_IN_CAPTIONS] ?: true,
+                comboCaptions = p[KEY_COMBO_CAPTIONS] ?: true,
+                comboHeader = p[KEY_COMBO_HEADER] ?: true,
                 developerMode = p[KEY_DEVELOPER_MODE] ?: false,
-                traceTracks = p[KEY_TRACE_TRACKS] ?: false
+                traceTracks = p[KEY_TRACE_TRACKS] ?: false,
+                debugFieldBounds = p[KEY_DEBUG_FIELD_BOUNDS] ?: false,
+                comboFieldSize = p[KEY_COMBO_FIELD_SIZE] ?: ""
             )
         }
         .distinctUntilChanged()
@@ -67,8 +83,16 @@ class SettingsRepository private constructor(private val context: Context) {
             p[KEY_SENSITIVITY] = settings.sensitivity.name
             p[KEY_SPEED] = settings.speed.name
             p[KEY_RESET_ON_RIDE_START] = settings.resetOnRideStart
+            p[KEY_COMBO_IDLE] = settings.comboIdle.name
+            p[KEY_COMBO_ACTIVE] = settings.comboActive.name
+            p[KEY_COMBO_BADGE] = settings.comboBadge
+            p[KEY_COMBO_UNITS_IN_CAPTIONS] = settings.comboUnitsInCaptions
+            p[KEY_COMBO_CAPTIONS] = settings.comboCaptions
+            p[KEY_COMBO_HEADER] = settings.comboHeader
             p[KEY_DEVELOPER_MODE] = settings.developerMode
             p[KEY_TRACE_TRACKS] = settings.traceTracks
+            p[KEY_DEBUG_FIELD_BOUNDS] = settings.debugFieldBounds
+            p[KEY_COMBO_FIELD_SIZE] = settings.comboFieldSize
         }
     }
 

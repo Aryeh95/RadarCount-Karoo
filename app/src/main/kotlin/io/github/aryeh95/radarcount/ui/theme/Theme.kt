@@ -2,7 +2,7 @@ package io.github.aryeh95.radarcount.ui.theme
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
-import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
@@ -23,18 +23,18 @@ import androidx.compose.ui.unit.sp
 // CORE COLORS (5 colors only)
 // ============================================
 
-// Background - pure black for OLED efficiency and contrast
-val Background = Color(0xFF000000)
+// Background - white, like the Karoo's own settings and picker screens
+val Background = Color(0xFFFFFBFE)
 
-// Surface - subtle elevation for cards
-val Surface = Color(0xFF1A1A1A)
+// Surface - light grey for cards and previews
+val Surface = Color(0xFFE8EEF3)
 
 // Text - high contrast white
-val TextPrimary = Color(0xFFFFFFFF)
-val TextSecondary = Color(0xFFCCCCCC) // Better contrast than #B0B0B0
+val TextPrimary = Color(0xFF1C1B1F)
+val TextSecondary = Color(0xFF636363)
 
-// Accent - warm orange for interactive elements
-val Accent = Color(0xFFFF9500)
+// Accent - the Karoo's blue for interactive elements
+val Accent = Color(0xFF214559)
 
 
 // ============================================
@@ -58,28 +58,13 @@ val StatusNeutral = Color(0xFF666666)
 // MATERIAL THEME SCHEME
 // ============================================
 
-private val DarkColorScheme = darkColorScheme(
+// The same scheme other Karoo extensions use, so the screens look like the
+// Karoo's own: Material 3 light with a dark slate primary.
+private val KarooColorScheme = lightColorScheme(
     primary = Accent,
-    onPrimary = Color.Black,
-    primaryContainer = Accent.copy(alpha = 0.2f),
-    onPrimaryContainer = Accent,
-
-    secondary = StatusSafe,
-    onSecondary = Color.Black,
-
-    background = Background,
-    onBackground = TextPrimary,
-
-    surface = Surface,
-    onSurface = TextPrimary,
-
-    surfaceVariant = Surface,
-    onSurfaceVariant = TextSecondary,
-
-    outline = TextSecondary.copy(alpha = 0.5f),
-
-    error = StatusDanger,
-    onError = Color.White
+    secondary = TextSecondary,
+    tertiary = Color(0xFFFEF69A),
+    error = StatusDanger
 )
 
 
@@ -179,9 +164,9 @@ private val KarooTypography = Typography(
 fun RadarCountTheme(
     content: @Composable () -> Unit
 ) {
-    // Always dark theme for cycling computer
+    // Light, like the Karoo's own screens
     MaterialTheme(
-        colorScheme = DarkColorScheme,
+        colorScheme = KarooColorScheme,
         typography = KarooTypography,
         content = content
     )

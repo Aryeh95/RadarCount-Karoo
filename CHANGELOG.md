@@ -3,6 +3,45 @@
 Release notes for RadarCount for Karoo. Each GitHub release carries the
 matching section below as its description.
 
+## 0.3.0 — 2026-10-01
+
+The Radar combo field is redrawn for legibility in the smallest field size,
+and the app's own screens now look like the Karoo's.
+
+### Radar field
+- **Two layouts by state.** With nothing on the radar the field shows the
+  vehicle count alone, large. When a vehicle is on the radar it shows speed
+  and distance large with the count small beside them, and holds that for two
+  seconds after the vehicle is gone so a pass ends with the new count showing.
+  The old three-cell layout is still available for either state.
+- **Draws its own header.** The field no longer uses the Karoo's caption strip;
+  it draws a matching RADAR header itself and can turn it off, which gives the
+  numbers the whole tile. Captions (VEHICLES, MPH, FT) can be turned off too.
+  With both off the numbers are about twice the size of 0.2.17's.
+- **Units as captions.** MPH or KPH and FT or M sit above the digits instead of
+  being glued to them, so the digits get the width. A toggle restores the old
+  style.
+- **Sized to the tile.** The field reads the exact size the Karoo gives it and
+  fits the digits to both width and height, so every field size from half
+  width up gets the largest digits that fit. The page-editor preview cycles
+  between the two states and uses wide sample digits (45 mph, 570 ft) so it
+  shows the worst case.
+
+### App
+- **Tabbed screens** in the style other Karoo extensions use: Status, Setup,
+  Field and, once unlocked, Dev. Dropdowns for the choice settings, switches on
+  the left, floating back button.
+- **Field tab** holds the Radar field options with a live preview drawn at the
+  field's true size and with the field's own sizing code.
+- **Light theme** matching the Karoo, replacing the orange-on-black left over
+  from the project this one started from.
+- **Dev tab** shows the field size the Karoo reports and can tint the field's
+  real bounds, for layout work.
+
+### Unchanged
+- Counting is exactly as in 0.2.17. The single-value fields (Vehicles, Vehicle
+  Speed, Vehicle Distance, Vehicles per Hour) are unchanged.
+
 ## 0.2.17 — 2026-09-18
 
 Counting is tightened to the rule mybiketraffic.com uses, after a side-by-side

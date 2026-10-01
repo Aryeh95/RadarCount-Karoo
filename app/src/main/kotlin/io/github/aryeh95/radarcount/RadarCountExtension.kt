@@ -95,7 +95,26 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
 
     /** Effective unit: the settings override, or the Karoo profile when AUTO. */
     lateinit var useImperial: StateFlow<Boolean>
-        private set
+
+    /** The last size the Karoo gave the Radar combo field, so the settings preview can draw it at true size. */
+    val comboViewConfig = MutableStateFlow<io.hammerhead.karooext.models.ViewConfig?>(null)
+
+    /** Records a combo field size from the Karoo and remembers it across restarts. */
+    fun reportComboViewConfig(config: io.hammerhead.karooext.models.ViewConfig) {
+        comboViewConfig.value = config
+        val encoded = "${config.gridSize.first},${config.gridSize.second},${config.viewSize.first},${config.viewSize.second},${config.textSize}"
+        val s = settingsRepository.settings.value
+        if (s.comboFieldSize != encoded) {
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch { settingsRepository.update(s.copy(comboFieldSize = encoded)) }
+        }
+    }
+
+    /** Parses a size saved by [reportComboViewConfig]. */
+    fun savedComboViewConfig(s: Settings): io.hammerhead.karooext.models.ViewConfig? {
+        val n = s.comboFieldSize.split(',').mapNotNull { it.toIntOrNull() }
+        if (n.size != 5) return null
+        return io.hammerhead.karooext.models.ViewConfig(gridSize = n[0] to n[1], viewSize = n[2] to n[3], textSize = n[4])
+    }
 
     // Rider ground speed in m/s from the Karoo SPEED stream
     private val _riderSpeedMps = MutableStateFlow(0.0)

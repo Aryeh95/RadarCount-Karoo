@@ -45,6 +45,7 @@ Open the RadarCount app on the Karoo and tap Settings.
 | Vehicle speed shown | Relative to you (default), or Absolute (relative plus your own speed). Applies to the Vehicle Speed field and the Radar field. |
 | Count sensitivity | Strict, Normal (default) or Relaxed. A car counts once it has come within 6 / 9 / 12 m of you before dropping off the radar. Normal matches the rule mybiketraffic.com uses. |
 | Reset count when a ride starts | On by default. Off keeps a running total across rides; use Reset count on the status screen to clear it. |
+| Radar field (Field tab) | What the combined Radar field shows with nothing on the radar (count only, or all three) and with a vehicle on the radar (speed and distance, or all three); whether the small count shows beside speed and distance; the RADAR header strip on or off; the caption line on or off; units as captions or after the digits. A live preview at the field's real size shows both states. |
 
 The extension is idle at boot. It only opens the radar, speed and heading
 streams while a ride is recording, one of its data fields is on screen, or its

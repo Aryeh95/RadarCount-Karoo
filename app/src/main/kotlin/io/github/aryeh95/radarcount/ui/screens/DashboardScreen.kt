@@ -24,7 +24,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.github.aryeh95.radarcount.BuildConfig
 import io.github.aryeh95.radarcount.R
 import io.github.aryeh95.radarcount.RadarCountExtension
 import io.github.aryeh95.radarcount.data.models.ThreatLevel
@@ -37,7 +36,7 @@ import io.github.aryeh95.radarcount.ui.theme.RadarColors
  * There are no settings; everything is driven by the Karoo profile.
  */
 @Composable
-fun DashboardScreen(extension: RadarCountExtension?, onSettingsClick: () -> Unit, onResetCount: () -> Unit) {
+fun DashboardScreen(extension: RadarCountExtension?, onResetCount: () -> Unit) {
     val state = extension?.radarEngine?.widgetState?.collectAsState()?.value ?: WidgetState.NotConnected
     val passCount = extension?.radarEngine?.passCount?.collectAsState()?.value ?: 0
     val closing = extension?.radarEngine?.closingSpeedMps?.collectAsState()?.value
@@ -74,24 +73,9 @@ fun DashboardScreen(extension: RadarCountExtension?, onSettingsClick: () -> Unit
             .fillMaxSize()
             .background(RadarColors.background)
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 80.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = stringResource(R.string.app_name),
-                style = MaterialTheme.typography.titleMedium,
-                color = RadarColors.textSecondary
-            )
-            TextButton(onClick = onSettingsClick) {
-                Text(stringResource(R.string.settings_title), color = RadarColors.accent)
-            }
-        }
-        Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = statusText,
             fontSize = 28.sp,
@@ -119,12 +103,6 @@ fun DashboardScreen(extension: RadarCountExtension?, onSettingsClick: () -> Unit
             color = RadarColors.textSecondary,
             textAlign = TextAlign.Center
         )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "v${BuildConfig.VERSION_NAME}",
-            style = MaterialTheme.typography.bodySmall,
-            color = RadarColors.neutral
-        )
     }
 }
 
@@ -132,7 +110,7 @@ fun DashboardScreen(extension: RadarCountExtension?, onSettingsClick: () -> Unit
 private fun Stat(label: String, value: String, footer: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(text = label, style = MaterialTheme.typography.labelMedium, color = RadarColors.textSecondary)
-        Text(text = value, fontSize = 48.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        Text(text = value, fontSize = 48.sp, fontWeight = FontWeight.Bold, color = RadarColors.textPrimary)
         Text(text = footer, style = MaterialTheme.typography.labelMedium, color = RadarColors.textSecondary)
     }
 }
