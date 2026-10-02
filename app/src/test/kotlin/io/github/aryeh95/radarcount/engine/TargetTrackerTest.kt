@@ -237,7 +237,6 @@ class TargetTrackerTest {
         feed(31, dtMs = 1000)
         feed(31, dtMs = 5)
         feed(28, dtMs = 5)
-        // 6 m over ~1 s, but history spans only 1.01 s -> below min span until next
         feed(25, dtMs = 1000)
         val v = tracker.nearestClosingSpeedMps()
         assertThat(v).isAtLeast(2.0)
@@ -252,9 +251,11 @@ class TargetTrackerTest {
     }
 
     @Test
-    @DisplayName("closing speed is unknown with less than 1 s of history")
+    @DisplayName("closing speed is unknown with less than 2 s of history")
     fun speedNeedsHistory() {
         feed(84)
+        assertThat(tracker.nearestClosingSpeedMps()).isNull()
+        feed(72)
         assertThat(tracker.nearestClosingSpeedMps()).isNull()
     }
 
@@ -279,12 +280,32 @@ class TargetTrackerTest {
     }
 
     @Test
-    @DisplayName("the estimate becomes known on the second sample a second later")
-    fun estimateKnownAfterOneSecond() {
+    @DisplayName("the estimate becomes known once the history spans two seconds")
+    fun estimateKnownAfterTwoSeconds() {
         feed(84)
-        assertThat(tracker.nearestClosingSpeedMps()).isNull()
         feed(72)
+        assertThat(tracker.nearestClosingSpeedMps()).isNull()
+        feed(60)
         assertThat(tracker.nearestClosingSpeedMps()).isNotNull()
+    }
+
+    @Test
+    @DisplayName("a new track's burst of bin steps in its first second does not show as 20 m/s")
+    fun firstSecondBurstNotShown() {
+        // From a ride: a car appearing at 68 m showed 80 mph for a second. Its
+        // first samples stepped two bins in 300 ms, a least-squares slope of
+        // about 20 m/s over one second of history; the car was doing 8.
+        feed(68)
+        feed(68, dtMs = 150)
+        feed(65, dtMs = 150)
+        feed(62, dtMs = 150)
+        feed(62, dtMs = 550)          // 1.0 s of history: previously shown, ~20 m/s
+        assertThat(tracker.nearestClosingSpeedMps()).isNull()
+        feed(59, dtMs = 500)
+        feed(56, dtMs = 500)          // 2.0 s: shown, and the slope has settled
+        val v = tracker.nearestClosingSpeedMps()
+        assertThat(v).isNotNull()
+        assertThat(v!!).isAtMost(9.0)
     }
 
     @Test

@@ -23,7 +23,7 @@ Add any of these to a ride page from the Karoo's data field picker under **Radar
 | **Radar** | The combined field. With nothing on the radar it shows the pass count, large. When a vehicle is on the radar it shows the vehicle's speed and distance large with the count small beside them, and holds that for two seconds after the vehicle is gone so a pass ends with the new count showing. Both layouts, the header and the captions are configurable (see Settings) |
 | **Vehicles** | Vehicles that have passed you this ride |
 | **Vehicles per Hour** | Pass count divided by recording time (paused time excluded). Shows `--` for the first two minutes of a ride |
-| **Vehicle Speed** | Speed of the nearest vehicle, with its unit (for example `36mph` or `58km/h`) and a RELATIVE or ABSOLUTE tag underneath. Shows `--` for the first second, until there is enough range history to estimate a speed; a shown `0` means the vehicle is not gaining on you |
+| **Vehicle Speed** | Speed of the nearest vehicle, with its unit (for example `36mph` or `58km/h`) and a RELATIVE or ABSOLUTE tag underneath. Shows `--` for the first two seconds, until there is enough range history to estimate a speed; a shown `0` means the vehicle is not gaining on you |
 | **Vehicle Distance** | Distance to the nearest vehicle, with its unit (for example `148ft` or `45m`) |
 
 The single-value fields look like the Karoo's own: the standard header with
@@ -149,7 +149,7 @@ from how fast the range shrinks, as a least-squares slope over the last 3
 seconds of samples. The estimate freezes once the car is inside 10 m, because
 the last few samples before a pass are the noisiest, so the recorded passing
 speed is the approach speed. Treat them as ballpark figures: a car reads `--`
-for its first second on the radar, and a car still accelerating toward you
+for its first two seconds on the radar, and a car still accelerating toward you
 reads a little low.
 
 ## Install
