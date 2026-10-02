@@ -3,6 +3,19 @@
 Release notes for RadarCount for Karoo. Each GitHub release carries the
 matching section below as its description.
 
+## 0.3.1 — 2026-10-02
+
+### Fixed
+- **Speed flashed far too high when a car first appeared.** A car that showed
+  up at 68 m read 80 mph for its first second, then settled to the 50s. The
+  closing speed is a slope fitted to the track's range history, and it was
+  shown after one second of history. In that first second a new track has a
+  handful of samples, quantised to 3 m bins and delivered in bursts, and two
+  bin steps landing close together fit a slope of 20 m/s. The speed is now
+  shown only once a track has two seconds of history, by which time the slope
+  has settled. The Vehicle Speed field and the Radar field show the dash a
+  second longer when a car first appears.
+
 ## 0.3.0 — 2026-10-01
 
 The Radar combo field is redrawn for legibility in the smallest field size,

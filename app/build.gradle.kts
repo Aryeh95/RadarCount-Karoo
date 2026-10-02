@@ -13,8 +13,8 @@ android {
         applicationId = "io.github.aryeh95.radarcount"
         minSdk = 26
         targetSdk = 35
-        versionCode = 35
-        versionName = "0.3.0"
+        versionCode = 36
+        versionName = "0.3.1"
     }
 
     // Release signing: a permanent keystore supplied via environment

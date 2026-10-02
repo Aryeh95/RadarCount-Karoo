@@ -86,7 +86,12 @@ class TargetTracker(
     private val minSamples: Int = 2,
     private val lostMs: Long = 1_800L,
     private val closeLostMs: Long = 700L,
-    private val minSpeedSpanMs: Long = 1_000L,
+    /**
+     * History a track needs before its closing speed is shown. One second
+     * was not enough: a new track's first few samples, quantised to 3 m bins
+     * and delivered in bursts, fitted slopes of 20 m/s for cars doing 8.
+     */
+    private val minSpeedSpanMs: Long = 2_000L,
     private val speedWindowMs: Long = 3_000L,
     private val maxSpeedMps: Double = 40.0,
     private val speedFreezeRangeM: Int = 10,
