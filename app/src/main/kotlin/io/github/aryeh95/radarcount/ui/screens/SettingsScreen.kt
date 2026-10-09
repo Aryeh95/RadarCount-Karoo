@@ -183,7 +183,7 @@ fun FieldsTab(repository: SettingsRepository, extension: RadarCountExtension?) {
     val scope = rememberCoroutineScope()
     fun save(s: Settings) = scope.launch { repository.update(s) }
     // Without a running extension, follow the units setting itself.
-    val imperial = extension?.useImperial?.collectAsState()?.value ?: (settings.units == UnitsSetting.IMPERIAL)
+    val imperial = extension?.imperialUnits?.collectAsState()?.value ?: (settings.units == UnitsSetting.IMPERIAL)
     val noConfigs = remember { MutableStateFlow(emptyMap<String, ViewConfig>()) }
     val liveConfigs by (extension?.fieldViewConfigs ?: noConfigs).collectAsState()
     fun config(typeId: String): ViewConfig? = liveConfigs[typeId] ?: FieldSizes.saved(settings, typeId)

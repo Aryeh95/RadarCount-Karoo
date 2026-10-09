@@ -140,7 +140,7 @@ abstract class FieldDataType(
             engine.passCount,
             engine.closingSpeedMps,
             radarExtension.riderSpeedMps,
-            radarExtension.useImperial,
+            radarExtension.imperialUnits,
             radarExtension.settings,
             radarExtension.rideTimeMs,
             engine.lastPass
@@ -211,7 +211,7 @@ abstract class FieldDataType(
                     val states = previewStates(passHold(settings), ++passSeq, System.currentTimeMillis())
                     val base = states[step % states.size]
                     android.util.Log.d(TAG, "[$dataTypeId] Preview frame ${step % states.size + 1} of ${states.size} (pass hold ${passHold(settings)})")
-                    render(base.copy(settings = settings, useImperial = radarExtension.useImperial.value))
+                    render(base.copy(settings = settings, useImperial = radarExtension.imperialUnits.value))
                     step = (step + 1) % states.size
                     delay(PREVIEW_CYCLE_MS)
                 }

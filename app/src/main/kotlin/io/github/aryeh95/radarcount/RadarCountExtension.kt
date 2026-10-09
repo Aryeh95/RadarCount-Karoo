@@ -1,5 +1,6 @@
 package io.github.aryeh95.radarcount
 
+import android.util.Log
 import io.github.aryeh95.radarcount.data.FieldSizes
 import io.github.aryeh95.radarcount.data.Settings
 import io.github.aryeh95.radarcount.data.SettingsRepository
@@ -23,12 +24,14 @@ import io.hammerhead.karooext.models.OnStreamState
 import io.hammerhead.karooext.models.RideState
 import io.hammerhead.karooext.models.StreamState
 import io.hammerhead.karooext.models.UserProfile
+import io.hammerhead.karooext.models.ViewConfig
 import io.hammerhead.karooext.models.WriteToRecordMesg
 import io.hammerhead.karooext.models.WriteToSessionMesg
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,6 +43,11 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.io.BufferedWriter
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
@@ -65,53 +73,60 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
         private const val FIT_WRITE_INTERVAL_MS = 1000L
 
         @Volatile
-        var instance: RadarCountExtension? = null
-            private set
+        private var current: RadarCountExtension? = null
+
+        /**
+         * The service while it is up, for the app's own screens, which run
+         * in the same process and read the radar through it. Null before
+         * the Karoo has started the service and after it has stopped it.
+         */
+        val running: RadarCountExtension? get() = current
 
         /** m/s to the rider's speed unit, rounded, never negative. */
         internal fun toUserSpeedUnits(metersPerSecond: Double, imperial: Boolean): Int =
             FitRecordWriter.toUserSpeedUnits(metersPerSecond, imperial)
     }
 
-    lateinit var karooSystem: KarooSystemService
+    private lateinit var karoo: KarooSystemService
+
+    lateinit var radarEngine: RadarEngine
         private set
 
-    private val _isConnected = MutableStateFlow(false)
-    val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
-
-    private var _radarEngine: RadarEngine? = null
-    val radarEngine: RadarEngine
-        get() = _radarEngine ?: throw IllegalStateException("RadarEngine not initialized")
-
-    private var _settingsRepository: SettingsRepository? = null
-    val settingsRepository: SettingsRepository
-        get() = _settingsRepository ?: throw IllegalStateException("SettingsRepository not initialized")
+    lateinit var settingsRepository: SettingsRepository
+        private set
 
     val settings: StateFlow<Settings>
         get() = settingsRepository.settings
 
-    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val mainScope = MainScope()
 
-    // Rider's preferred distance unit from the Karoo profile (metric/imperial)
-    private val _profileImperial = MutableStateFlow(false)
+    /** Whether the Karoo connection is up. The sensors only start while it is. */
+    @Volatile private var connected = false
 
-    /** Effective unit: the settings override, or the Karoo profile when AUTO. */
-    lateinit var useImperial: StateFlow<Boolean>
+    /** Set in onDestroy. A FIT job the Karoo never cancelled stops writing from then on. */
+    @Volatile private var destroyed = false
+
+    /** The distance unit in the rider's Karoo profile, true for imperial. */
+    private val profileImperial = MutableStateFlow(false)
+
+    /** Units the fields use: the units setting, or the Karoo profile's when it is AUTO. */
+    lateinit var imperialUnits: StateFlow<Boolean>
+        private set
 
     /** The last size the Karoo gave each field in a ride, by type id, so the settings previews can draw them at true size. */
-    val fieldViewConfigs = MutableStateFlow<Map<String, io.hammerhead.karooext.models.ViewConfig>>(emptyMap())
+    val fieldViewConfigs = MutableStateFlow<Map<String, ViewConfig>>(emptyMap())
 
     /**
      * Records the size the Karoo gave field [typeId] and remembers it
      * across restarts. The page editor's preview is left out: its size is
      * not the one the field has in a ride.
      */
-    fun reportViewConfig(typeId: String, config: io.hammerhead.karooext.models.ViewConfig) {
+    fun reportViewConfig(typeId: String, config: ViewConfig) {
         if (config.preview) return
         fieldViewConfigs.update { it + (typeId to config) }
         val encoded = FieldSizes.encode(config)
         if (settingsRepository.settings.value.fieldSizes[typeId] != encoded) {
-            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch { settingsRepository.saveFieldSize(typeId, encoded) }
+            CoroutineScope(Dispatchers.IO).launch { settingsRepository.saveFieldSize(typeId, encoded) }
         }
     }
 
@@ -137,52 +152,73 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
     private var sensorDemand = 0
     private var sensorsRunning = false
 
-    // Consumer IDs for cleanup
-    private var rideStateConsumerId: String? = null
-    private var userProfileConsumerId: String? = null
-    private var speedConsumerId: String? = null
-    private var locationConsumerId: String? = null
+    /** Karoo consumers that live as long as the connection: ride state and the rider profile. */
+    private val connectionConsumers = mutableListOf<String>()
+
+    /** Karoo consumers that live as long as the sensors run: speed and heading. Touched only under [sensorLock]. */
+    private val sensorConsumers = mutableListOf<String>()
+
+    private fun MutableList<String>.releaseConsumers() {
+        forEach { karoo.removeConsumer(it) }
+        clear()
+    }
 
     override fun onCreate() {
         super.onCreate()
-        instance = this
+        Log.i(TAG, "RadarCount ${BuildConfig.VERSION_NAME} starting")
 
-        android.util.Log.i(TAG, "Initializing RadarCount v${BuildConfig.VERSION_NAME}")
+        karoo = KarooSystemService(this)
+        radarEngine = RadarEngine(karoo)
+        settingsRepository = SettingsRepository.getInstance(this)
 
-        karooSystem = KarooSystemService(this)
-        _radarEngine = RadarEngine(karooSystem)
-        _settingsRepository = SettingsRepository.getInstance(this)
-
-        useImperial = combine(_profileImperial, settingsRepository.settings) { profile, s ->
+        imperialUnits = combine(profileImperial, settings) { profile, s ->
             when (s.units) {
                 UnitsSetting.AUTO -> profile
                 UnitsSetting.METRIC -> false
                 UnitsSetting.IMPERIAL -> true
             }
-        }.stateIn(serviceScope, SharingStarted.Eagerly, false)
+        }.stateIn(mainScope, SharingStarted.Eagerly, false)
 
-        serviceScope.launch {
-            settingsRepository.settings.collect { s ->
-                _radarEngine?.setSensitivity(s.sensitivity.closeThresholdM)
-            }
+        mainScope.launch {
+            settings.collect { radarEngine.setSensitivity(it.sensitivity.closeThresholdM) }
         }
 
-        karooSystem.connect { connected ->
-            _isConnected.value = connected
-            if (connected) {
-                android.util.Log.i(TAG, "KarooSystemService connected")
-                startRideStateTracking()
-                startUserProfileTracking()
-                synchronized(sensorLock) {
-                    if (sensorDemand > 0) startSensorsLocked()
-                }
-            } else {
-                android.util.Log.w(TAG, "KarooSystemService disconnected")
-                synchronized(sensorLock) { stopSensorsLocked() }
-                stopRideStateTracking()
-                stopUserProfileTracking()
+        current = this
+        karoo.connect { up ->
+            connected = up
+            if (up) onKarooConnected() else onKarooDisconnected()
+        }
+    }
+
+    private fun onKarooConnected() {
+        Log.i(TAG, "Connected to the Karoo")
+        connectionConsumers += karoo.addConsumer(RideState.Params) { state: RideState ->
+            when (state) {
+                is RideState.Recording -> onRecording()
+                is RideState.Paused -> onPaused(state.auto)
+                is RideState.Idle -> onIdle()
             }
         }
+        connectionConsumers += karoo.addConsumer(UserProfile.Params) { profile: UserProfile ->
+            val imperial = profile.preferredUnit.distance == UserProfile.PreferredUnit.UnitType.IMPERIAL
+            Log.i(TAG, "Karoo profile distance unit is ${if (imperial) "imperial" else "metric"}")
+            profileImperial.value = imperial
+        }
+        synchronized(sensorLock) {
+            if (sensorDemand > 0) startSensorsLocked()
+        }
+    }
+
+    private fun onKarooDisconnected() {
+        Log.w(TAG, "Lost the Karoo connection")
+        releaseKaroo()
+    }
+
+    /** Lets go of everything held on the Karoo: sensor streams, the connection's consumers, and the ride timer. */
+    private fun releaseKaroo() {
+        synchronized(sensorLock) { stopSensorsLocked() }
+        connectionConsumers.releaseConsumers()
+        pauseRideTime()
     }
 
     /**
@@ -193,7 +229,7 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
     fun acquireRadar() {
         synchronized(sensorLock) {
             sensorDemand++
-            if (sensorDemand == 1 && _isConnected.value) startSensorsLocked()
+            if (sensorDemand == 1 && connected) startSensorsLocked()
         }
     }
 
@@ -208,61 +244,68 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
     private fun startSensorsLocked() {
         if (sensorsRunning) return
         sensorsRunning = true
-        android.util.Log.i(TAG, "Starting radar/speed streams")
-        _radarEngine?.start()
-        startSpeedTracking()
-        startHeadingTracking()
+        Log.i(TAG, "Sensors on")
+        radarEngine.start()
+        // The rider's speed, for a passing car's absolute speed.
+        sensorConsumers += karoo.addConsumer(OnStreamState.StartStreaming(DataType.Type.SPEED)) { event: OnStreamState ->
+            (event.state as? StreamState.Streaming)?.dataPoint?.singleValue?.let { speedMs ->
+                _riderSpeedMps.value = speedMs
+                radarEngine.riderSpeedMps = speedMs
+            }
+        }
+        // The rider's heading, so the pass counter can tell a car that went
+        // straight on at a turn from one that passed.
+        sensorConsumers += karoo.addConsumer(OnLocationChanged.Params) { event: OnLocationChanged ->
+            event.orientation?.let { radarEngine.updateHeading(it) }
+        }
     }
 
     private fun stopSensorsLocked() {
         if (!sensorsRunning) return
         sensorsRunning = false
-        android.util.Log.i(TAG, "Stopping radar/speed streams")
-        _radarEngine?.stop()
-        stopSpeedTracking()
-        stopHeadingTracking()
+        Log.i(TAG, "Sensors off")
+        radarEngine.stop()
+        sensorConsumers.releaseConsumers()
         _riderSpeedMps.value = 0.0
-        _radarEngine?.riderSpeedMps = 0.0
+        radarEngine.riderSpeedMps = 0.0
     }
 
     /**
      * Reset the pass counters when a new ride starts recording.
      * Pause/resume re-emits Recording, so only reset on Idle -> Recording.
      */
-    private fun startRideStateTracking() {
-        rideStateConsumerId = karooSystem.addConsumer(RideState.Params) { event: RideState ->
-            when (event) {
-                is RideState.Recording -> {
-                    _radarEngine?.setCountingEnabled(true)
-                    if (!rideRecording) {
-                        android.util.Log.i(TAG, "Ride recording started")
-                        rideRecording = true
-                        startTrackTrace()
-                        if (settings.value.resetOnRideStart) _radarEngine?.resetPassCounts()
-                        acquireRadar()
-                    }
-                    resumeRideTime()
-                }
-                is RideState.Idle -> {
-                    android.util.Log.i(TAG, "Ride idle")
-                    _radarEngine?.setCountingEnabled(true)
-                    pauseRideTime()
-                    rideTimeBaseMs = 0L
-                    _rideTimeMs.value = 0L
-                    if (rideRecording) {
-                        rideRecording = false
-                        releaseRadar()
-                        stopTrackTrace()
-                    }
-                }
-                is RideState.Paused -> {
-                    android.util.Log.d(TAG, "Ride paused (auto=${event.auto})")
-                    // Nothing is written to the FIT file while paused, so a pass counted now
-                    // would never reach the site. Keep tracking, stop counting.
-                    _radarEngine?.setCountingEnabled(false)
-                    pauseRideTime()
-                }
-            }
+    private fun onRecording() {
+        radarEngine.setCountingEnabled(true)
+        if (!rideRecording) {
+            Log.i(TAG, "Ride started")
+            rideRecording = true
+            startTrackTrace()
+            if (settings.value.resetOnRideStart) radarEngine.resetPassCounts()
+            acquireRadar()
+        }
+        resumeRideTime()
+    }
+
+    /**
+     * Nothing is written to the FIT file while paused, so a pass counted now
+     * would never reach the site. Keep tracking, stop counting.
+     */
+    private fun onPaused(auto: Boolean) {
+        Log.d(TAG, if (auto) "Ride auto-paused" else "Ride paused")
+        radarEngine.setCountingEnabled(false)
+        pauseRideTime()
+    }
+
+    private fun onIdle() {
+        Log.i(TAG, "No ride in progress")
+        radarEngine.setCountingEnabled(true)
+        pauseRideTime()
+        rideTimeBaseMs = 0L
+        _rideTimeMs.value = 0L
+        if (rideRecording) {
+            rideRecording = false
+            releaseRadar()
+            stopTrackTrace()
         }
     }
 
@@ -270,56 +313,50 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
     // Settings: one CSV line per track decision, in app-private storage so
     // it needs no permission. Pull with
     //   adb pull /sdcard/Android/data/io.github.aryeh95.radarcount/files/tracks/
-    private var traceWriter: java.io.BufferedWriter? = null
+    private var traceWriter: BufferedWriter? = null
     private val traceLock = Any()
 
     private fun startTrackTrace() {
         if (!settingsRepository.settings.value.traceTracks) return
         try {
-            val dir = java.io.File(getExternalFilesDir(null), "tracks").also { it.mkdirs() }
+            val dir = File(getExternalFilesDir(null), "tracks").also { it.mkdirs() }
             // Keep the last few rides; a file is a few KB.
             dir.listFiles { f -> f.name.startsWith("tracks-") }?.sortedBy { it.name }?.dropLast(9)?.forEach { it.delete() }
-            val name = java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US).format(java.util.Date())
-            val w = java.io.File(dir, "tracks-$name.csv").bufferedWriter()
+            val name = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
+            val w = File(dir, "tracks-$name.csv").bufferedWriter()
             w.write("kind,ms,first,min,last,samples,durMs,threat,speedMps,decision\n")
             synchronized(traceLock) { traceWriter = w }
             // The sink runs inside the tracker's update; it must never throw into it.
-            _radarEngine?.setTrace { line ->
+            radarEngine.setTrace { line ->
                 try {
                     synchronized(traceLock) { traceWriter?.let { it.write(line); it.newLine() } }
                 } catch (_: Exception) {
                     synchronized(traceLock) { traceWriter = null }
                 }
             }
-            serviceScope.launch {
+            mainScope.launch {
                 while (isActive && traceWriter != null) {
                     delay(10_000L)
                     synchronized(traceLock) { runCatching { traceWriter?.flush() } }
                 }
             }
         } catch (e: Exception) {
-            android.util.Log.w(TAG, "track trace unavailable: ${e.message}")
+            Log.w(TAG, "track trace unavailable: ${e.message}")
         }
     }
 
     private fun stopTrackTrace() {
-        _radarEngine?.setTrace(null)
+        radarEngine.setTrace(null)
         synchronized(traceLock) {
             runCatching { traceWriter?.close() }
             traceWriter = null
         }
     }
 
-    private fun stopRideStateTracking() {
-        rideStateConsumerId?.let { karooSystem.removeConsumer(it) }
-        rideStateConsumerId = null
-        pauseRideTime()
-    }
-
     private fun resumeRideTime() {
         if (rideTimeJob != null) return
         recordingSinceMs = System.currentTimeMillis()
-        rideTimeJob = serviceScope.launch {
+        rideTimeJob = mainScope.launch {
             while (isActive) {
                 _rideTimeMs.value = rideTimeBaseMs + (System.currentTimeMillis() - recordingSinceMs)
                 delay(1000L)
@@ -337,57 +374,9 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
     }
 
     /**
-     * Track user profile for unit preference (metric/imperial).
-     */
-    private fun startUserProfileTracking() {
-        userProfileConsumerId = karooSystem.addConsumer(UserProfile.Params) { event: UserProfile ->
-            val isImperial = event.preferredUnit.distance == UserProfile.PreferredUnit.UnitType.IMPERIAL
-            _profileImperial.value = isImperial
-            android.util.Log.i(TAG, "User unit preference: ${if (isImperial) "Imperial" else "Metric"}")
-        }
-    }
-
-    private fun stopUserProfileTracking() {
-        userProfileConsumerId?.let { karooSystem.removeConsumer(it) }
-        userProfileConsumerId = null
-    }
-
-    /**
-     * Track rider speed for absolute passing speed.
-     */
-    private fun startSpeedTracking() {
-        speedConsumerId = karooSystem.addConsumer(
-            OnStreamState.StartStreaming(DataType.Type.SPEED)
-        ) { event: OnStreamState ->
-            (event.state as? StreamState.Streaming)?.dataPoint?.singleValue?.let { speedMs ->
-                _riderSpeedMps.value = speedMs
-                _radarEngine?.riderSpeedMps = speedMs
-            }
-        }
-    }
-
-    private fun stopSpeedTracking() {
-        speedConsumerId?.let { karooSystem.removeConsumer(it) }
-        speedConsumerId = null
-    }
-
-    /**
-     * Track the rider's heading so the pass counter can tell a car that
-     * went straight on at a turn from one that passed.
-     */
-    private fun startHeadingTracking() {
-        locationConsumerId = karooSystem.addConsumer(OnLocationChanged.Params) { event: OnLocationChanged ->
-            event.orientation?.let { _radarEngine?.updateHeading(it) }
-        }
-    }
-
-    private fun stopHeadingTracking() {
-        locationConsumerId?.let { karooSystem.removeConsumer(it) }
-        locationConsumerId = null
-    }
-
-    /**
-     * Write radar data to the ride FIT file at 1 Hz.
+     * Called by the Karoo while a ride file is open. Writes a record every
+     * second, plus the session total whenever it changes, and holds the
+     * radar open until the file closes.
      *
      * Field names, numbers and base types match the Garmin "My Bike Radar
      * Traffic" Connect IQ field so the file can be uploaded to
@@ -402,7 +391,7 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
      * for tuning the pass counter.
      */
     override fun startFit(emitter: Emitter<FitEffect>) {
-        android.util.Log.i(TAG, "Starting FIT file recording for radar data")
+        Log.i(TAG, "Ride file open, writing radar fields")
         acquireRadar()
 
         val mbtRangesField = DeveloperField(0, FIT_BASE_TYPE_SINT16, "radar_ranges", "")
@@ -432,101 +421,101 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
         val dbgRejCrossField = DeveloperField(18, FIT_BASE_TYPE_UINT16, "radar_dbg_rej_cross", "")
         val dbgRejNoPassField = DeveloperField(19, FIT_BASE_TYPE_UINT16, "radar_dbg_rej_nopass", "")
 
-        val fitScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-        fitScope.launch {
-            var lastSessionTotal = -1
-            val writer = FitRecordWriter()
+        val writer = FitRecordWriter()
+        // The total last written to the session message; -1 so the first record writes it.
+        var sessionTotal = -1
+
+        fun writeSecond() {
+            val engine = radarEngine
+            val packet = engine.packet
+            val ranges = packet?.rangesM?.sorted().orEmpty()
+            val passTotal = engine.passCount.value
+
+            val record = writer.next(FitRecordWriter.Sample(
+                connected = packet != null,
+                vehicleCount = ranges.size,
+                nearestM = ranges.firstOrNull() ?: 0,
+                passTotal = passTotal,
+                // The FIT field has no "unknown", and the Garmin app writes 0
+                // for a non-closing target, so an unknown speed writes 0 too.
+                closingMps = engine.closingSpeedMps.value ?: 0.0,
+                riderMps = _riderSpeedMps.value,
+                imperial = imperialUnits.value
+            ))
+
+            val values = ArrayList<FieldValue>(12)
+            values.add(FieldValue(mbtRangesField, record.rangeM))
+            values.add(FieldValue(mbtSpeedsField, record.speedMps))
+            values.add(FieldValue(mbtPassingSpeedField, record.passingSpeed.toDouble()))
+            values.add(FieldValue(mbtPassingSpeedAbsField, record.passingSpeedAbs.toDouble()))
+
+            if (packet != null) {
+                values.add(FieldValue(threatField, packet.level.toDouble()))
+                values.add(FieldValue(vehicleCountField, ranges.size.toDouble()))
+                if (ranges.isNotEmpty()) {
+                    values.add(FieldValue(nearestDistanceField, ranges[0].toDouble()))
+                    for ((i, field) in extraRangeFields.withIndex()) {
+                        ranges.getOrNull(i + 1)?.let { values.add(FieldValue(field, it.toDouble())) }
+                    }
+                }
+            }
+            values.add(FieldValue(mbtCurrentField, passTotal.toDouble()))
+
+            values.add(FieldValue(dbgClearsField, engine.trackerClears.toDouble()))
+            val hdg = engine.lastHeadingDeg
+            if (hdg >= 0.0) values.add(FieldValue(dbgHeadingField, hdg.roundToInt().coerceIn(0, 359).toDouble()))
+            values.add(FieldValue(dbgPacketsField, engine.takePacketCount().coerceAtMost(255).toDouble()))
+            values.add(FieldValue(dbgTurnsField, engine.turnCount.toDouble()))
+            values.add(FieldValue(dbgRejTurnField, engine.rejectedTurnedAway.toDouble()))
+            values.add(FieldValue(dbgRejCrossField, engine.rejectedCrossingAfterTurn.toDouble()))
+            values.add(FieldValue(dbgRejNoPassField, engine.rejectedNotPass.toDouble()))
+
+            emitter.onNext(WriteToRecordMesg(values = values))
+
+            if (passTotal != sessionTotal) {
+                sessionTotal = passTotal
+                emitter.onNext(WriteToSessionMesg(FieldValue(mbtTotalField, passTotal.toDouble())))
+            }
+        }
+
+        val job = CoroutineScope(Dispatchers.Default).launch {
             while (isActive) {
                 delay(FIT_WRITE_INTERVAL_MS)
+                if (destroyed) continue
+                // One bad second must not end the ride's radar data.
                 try {
-                    val engine = _radarEngine ?: continue
-                    val packet = engine.packet
-                    val ranges = packet?.rangesM?.sorted().orEmpty()
-                    val passTotal = engine.passCount.value
-
-                    val record = writer.next(FitRecordWriter.Sample(
-                        connected = packet != null,
-                        vehicleCount = ranges.size,
-                        nearestM = ranges.firstOrNull() ?: 0,
-                        passTotal = passTotal,
-                        // The FIT field has no "unknown", and the Garmin app writes 0
-                        // for a non-closing target, so an unknown speed writes 0 too.
-                        closingMps = engine.closingSpeedMps.value ?: 0.0,
-                        riderMps = _riderSpeedMps.value,
-                        imperial = useImperial.value
-                    ))
-
-                    val values = ArrayList<FieldValue>(12)
-                    values.add(FieldValue(mbtRangesField, record.rangeM))
-                    values.add(FieldValue(mbtSpeedsField, record.speedMps))
-                    values.add(FieldValue(mbtPassingSpeedField, record.passingSpeed.toDouble()))
-                    values.add(FieldValue(mbtPassingSpeedAbsField, record.passingSpeedAbs.toDouble()))
-
-                    if (packet != null) {
-                        values.add(FieldValue(threatField, packet.level.toDouble()))
-                        values.add(FieldValue(vehicleCountField, ranges.size.toDouble()))
-                        if (ranges.isNotEmpty()) {
-                            values.add(FieldValue(nearestDistanceField, ranges[0].toDouble()))
-                            for ((i, field) in extraRangeFields.withIndex()) {
-                                ranges.getOrNull(i + 1)?.let { values.add(FieldValue(field, it.toDouble())) }
-                            }
-                        }
-                    }
-                    values.add(FieldValue(mbtCurrentField, passTotal.toDouble()))
-
-                    values.add(FieldValue(dbgClearsField, engine.trackerClears.toDouble()))
-                    val hdg = engine.lastHeadingDeg
-                    if (hdg >= 0.0) values.add(FieldValue(dbgHeadingField, hdg.roundToInt().coerceIn(0, 359).toDouble()))
-                    values.add(FieldValue(dbgPacketsField, engine.takePacketCount().coerceAtMost(255).toDouble()))
-                    values.add(FieldValue(dbgTurnsField, engine.turnCount.toDouble()))
-                    values.add(FieldValue(dbgRejTurnField, engine.rejectedTurnedAway.toDouble()))
-                    values.add(FieldValue(dbgRejCrossField, engine.rejectedCrossingAfterTurn.toDouble()))
-                    values.add(FieldValue(dbgRejNoPassField, engine.rejectedNotPass.toDouble()))
-
-                    emitter.onNext(WriteToRecordMesg(values = values))
-
-                    if (passTotal != lastSessionTotal) {
-                        lastSessionTotal = passTotal
-                        emitter.onNext(WriteToSessionMesg(FieldValue(mbtTotalField, passTotal.toDouble())))
-                    }
+                    writeSecond()
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
-                    if (e is kotlinx.coroutines.CancellationException) throw e
-                    android.util.Log.w(TAG, "FIT write error: ${e.message}")
+                    Log.w(TAG, "Skipped a FIT record: ${e.message}")
                 }
             }
         }
 
         emitter.setCancellable {
-            android.util.Log.i(TAG, "Stopping FIT file recording")
-            fitScope.cancel()
+            Log.i(TAG, "Ride file closed")
+            job.cancel()
             releaseRadar()
         }
     }
 
     override fun onDestroy() {
-        android.util.Log.i(TAG, "onDestroy called")
-
-        instance = null
-        _isConnected.value = false
-
-        synchronized(sensorLock) {
-            sensorDemand = 0
-            stopSensorsLocked()
-        }
-        stopRideStateTracking()
-        stopUserProfileTracking()
-
-        _radarEngine?.stop()
-        _radarEngine = null
-
-        serviceScope.cancel()
-
+        Log.i(TAG, "RadarCount stopping")
+        current = null
+        // With the connection marked down nothing can start the sensors
+        // again, so the demand can be cleared before they are stopped.
+        connected = false
+        synchronized(sensorLock) { sensorDemand = 0 }
+        releaseKaroo()
+        radarEngine.stop()
+        destroyed = true
+        mainScope.cancel()
         try {
-            karooSystem.disconnect()
+            karoo.disconnect()
         } catch (e: Exception) {
-            android.util.Log.w(TAG, "Error disconnecting: ${e.message}")
+            Log.w(TAG, "Karoo disconnect failed: ${e.message}")
         }
-
         super.onDestroy()
     }
 

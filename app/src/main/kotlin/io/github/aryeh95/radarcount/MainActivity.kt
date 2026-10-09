@@ -25,7 +25,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        RadarCountExtension.instance?.let {
+        RadarCountExtension.running?.let {
             it.acquireRadar()
             holdingRadar = true
         }
@@ -33,7 +33,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         if (holdingRadar) {
-            RadarCountExtension.instance?.releaseRadar()
+            RadarCountExtension.running?.releaseRadar()
             holdingRadar = false
         }
         super.onStop()
@@ -49,7 +49,7 @@ class MainActivity : ComponentActivity() {
                     val repository = SettingsRepository.getInstance(this)
                     MainScreen(
                         repository = repository,
-                        extension = RadarCountExtension.instance,
+                        extension = RadarCountExtension.running,
                         onClose = { finish() }
                     )
                 }

@@ -40,7 +40,7 @@ fun DashboardScreen(extension: RadarCountExtension?, onResetCount: () -> Unit) {
     val passCount = extension?.radarEngine?.passCount?.collectAsState()?.value ?: 0
     val closing = extension?.radarEngine?.closingSpeedMps?.collectAsState()?.value
     val rider = extension?.riderSpeedMps?.collectAsState()?.value ?: 0.0
-    val imperial = extension?.useImperial?.collectAsState()?.value ?: false
+    val imperial = extension?.imperialUnits?.collectAsState()?.value ?: false
 
     val statusColor = when (state) {
         is RadarStatus.Live -> when (state.level) {
