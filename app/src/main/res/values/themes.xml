@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Compose draws the whole screen (RadarCountTheme). The window only
-         shows these before the first frame and in the task switcher, and
+         shows these before the first frame and in the task switcher, so they
+         match the screen's light grey to avoid a dark flash at launch;
          edge-to-edge clears the status bar once the activity starts. -->
-    <style name="Theme.RadarCount" parent="android:Theme.Material.NoActionBar">
-        <item name="android:windowBackground">#121212</item>
-        <item name="android:statusBarColor">#1565C0</item>
-        <item name="android:colorPrimary">#1976D2</item>
+    <style name="Theme.RadarCount" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#F4F4F4</item>
+        <item name="android:statusBarColor">#F4F4F4</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:colorPrimary">#214559</item>
     </style>
 </resources>
