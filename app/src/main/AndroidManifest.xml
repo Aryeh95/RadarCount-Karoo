@@ -1,12 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Declared since the first release. The service is only ever bound and
-         never calls startForeground, so these may well be unneeded, but
-         dropping them should wait for a ride test on a Karoo. -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
-
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -21,11 +15,12 @@
             android:name="io.hammerhead.karooext.MANIFEST_URL"
             android:value="https://raw.githubusercontent.com/Aryeh95/RadarCount-Karoo/main/manifest.json" />
 
-        <!-- The Karoo finds the extension by this action and binds to it. -->
+        <!-- The Karoo finds the extension by this action and binds to it. The
+             service lives only while bound and is never made a foreground
+             service, so it declares no foreground-service type or permission. -->
         <service
             android:name=".RadarCountExtension"
-            android:exported="true"
-            android:foregroundServiceType="connectedDevice">
+            android:exported="true">
             <intent-filter>
                 <action android:name="io.hammerhead.karooext.KAROO_EXTENSION" />
             </intent-filter>
