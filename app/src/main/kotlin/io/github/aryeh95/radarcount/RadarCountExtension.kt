@@ -1,13 +1,14 @@
 package io.github.aryeh95.radarcount
 
+import io.github.aryeh95.radarcount.data.FieldSizes
 import io.github.aryeh95.radarcount.data.Settings
 import io.github.aryeh95.radarcount.data.SettingsRepository
 import io.github.aryeh95.radarcount.data.UnitsSetting
-import io.github.aryeh95.radarcount.datatypes.glance.ApproachSpeedGlanceDataType
-import io.github.aryeh95.radarcount.datatypes.glance.ComboGlanceDataType
-import io.github.aryeh95.radarcount.datatypes.glance.ClosestDistanceGlanceDataType
-import io.github.aryeh95.radarcount.datatypes.glance.VehicleCountGlanceDataType
-import io.github.aryeh95.radarcount.datatypes.glance.VehiclesPerHourGlanceDataType
+import io.github.aryeh95.radarcount.datatypes.ApproachSpeedDataType
+import io.github.aryeh95.radarcount.datatypes.ClosestDistanceDataType
+import io.github.aryeh95.radarcount.datatypes.ComboDataType
+import io.github.aryeh95.radarcount.datatypes.VehicleCountDataType
+import io.github.aryeh95.radarcount.datatypes.VehiclesPerHourDataType
 import io.github.aryeh95.radarcount.engine.FitRecordWriter
 import io.github.aryeh95.radarcount.engine.RadarEngine
 import io.hammerhead.karooext.KarooSystemService
@@ -36,6 +37,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -96,24 +98,21 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
     /** Effective unit: the settings override, or the Karoo profile when AUTO. */
     lateinit var useImperial: StateFlow<Boolean>
 
-    /** The last size the Karoo gave the Radar combo field, so the settings preview can draw it at true size. */
-    val comboViewConfig = MutableStateFlow<io.hammerhead.karooext.models.ViewConfig?>(null)
+    /** The last size the Karoo gave each field in a ride, by type id, so the settings previews can draw them at true size. */
+    val fieldViewConfigs = MutableStateFlow<Map<String, io.hammerhead.karooext.models.ViewConfig>>(emptyMap())
 
-    /** Records a combo field size from the Karoo and remembers it across restarts. */
-    fun reportComboViewConfig(config: io.hammerhead.karooext.models.ViewConfig) {
-        comboViewConfig.value = config
-        val encoded = "${config.gridSize.first},${config.gridSize.second},${config.viewSize.first},${config.viewSize.second},${config.textSize}"
-        val s = settingsRepository.settings.value
-        if (s.comboFieldSize != encoded) {
-            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch { settingsRepository.update(s.copy(comboFieldSize = encoded)) }
+    /**
+     * Records the size the Karoo gave field [typeId] and remembers it
+     * across restarts. The page editor's preview is left out: its size is
+     * not the one the field has in a ride.
+     */
+    fun reportViewConfig(typeId: String, config: io.hammerhead.karooext.models.ViewConfig) {
+        if (config.preview) return
+        fieldViewConfigs.update { it + (typeId to config) }
+        val encoded = FieldSizes.encode(config)
+        if (settingsRepository.settings.value.fieldSizes[typeId] != encoded) {
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch { settingsRepository.saveFieldSize(typeId, encoded) }
         }
-    }
-
-    /** Parses a size saved by [reportComboViewConfig]. */
-    fun savedComboViewConfig(s: Settings): io.hammerhead.karooext.models.ViewConfig? {
-        val n = s.comboFieldSize.split(',').mapNotNull { it.toIntOrNull() }
-        if (n.size != 5) return null
-        return io.hammerhead.karooext.models.ViewConfig(gridSize = n[0] to n[1], viewSize = n[2] to n[3], textSize = n[4])
     }
 
     // Rider ground speed in m/s from the Karoo SPEED stream
@@ -223,6 +222,7 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
         stopSpeedTracking()
         stopHeadingTracking()
         _riderSpeedMps.value = 0.0
+        _radarEngine?.riderSpeedMps = 0.0
     }
 
     /**
@@ -361,6 +361,7 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
         ) { event: OnStreamState ->
             (event.state as? StreamState.Streaming)?.dataPoint?.singleValue?.let { speedMs ->
                 _riderSpeedMps.value = speedMs
+                _radarEngine?.riderSpeedMps = speedMs
             }
         }
     }
@@ -533,11 +534,11 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
 
     override val types by lazy {
         listOf(
-            ComboGlanceDataType(this),
-            VehicleCountGlanceDataType(this),
-            ApproachSpeedGlanceDataType(this),
-            ClosestDistanceGlanceDataType(this),
-            VehiclesPerHourGlanceDataType(this)
+            ComboDataType(this),
+            VehicleCountDataType(this),
+            ApproachSpeedDataType(this),
+            ClosestDistanceDataType(this),
+            VehiclesPerHourDataType(this)
         )
     }
 }

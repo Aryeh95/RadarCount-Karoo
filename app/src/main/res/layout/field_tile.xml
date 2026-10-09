@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Radar field without its header: one bitmap the size of the tile
+     (FieldBitmaps.combo). Only classes the Karoo 2's RemoteViews inflater
+     accepts. The image is wrap_content with the default fitCenter scale, so
+     a view smaller than the bitmap shrinks it whole instead of cutting it
+     off, and a larger one centres it at 1:1. The root's background carries
+     the developer tint. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/field_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <ImageView
+        android:id="@+id/field_image"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:adjustViewBounds="true"
+        android:importantForAccessibility="no" />
+
+</FrameLayout>

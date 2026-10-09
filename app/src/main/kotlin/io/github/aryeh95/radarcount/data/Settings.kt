@@ -4,7 +4,7 @@ enum class UnitsSetting { AUTO, METRIC, IMPERIAL }
 
 enum class ThemeSetting { AUTO, LIGHT, DARK }
 
-/** Which speed the Vehicle Speed field and the Radar combo show as the main value. */
+/** Which speed a field shows: absolute is the vehicle's road speed, relative how fast it closes on the rider. */
 enum class SpeedSetting { RELATIVE, ABSOLUTE }
 
 /**
@@ -24,11 +24,31 @@ enum class ComboIdleSetting { COUNT, ALL }
 /** What the Radar combo field shows while a vehicle is on the radar. */
 enum class ComboActiveSetting { SPEED_DISTANCE, ALL }
 
+/**
+ * How long a field keeps showing a passed car's speed, greyed and marked
+ * PASSED, after the car has gone by. Nothing below 3 s: the fields update
+ * once a second, so a shorter hold would barely show.
+ */
+enum class PassHoldSetting(val seconds: Int) {
+    OFF(0),
+    S3(3),
+    S5(5),
+    S10(10)
+}
+
 data class Settings(
     val units: UnitsSetting = UnitsSetting.AUTO,
     val theme: ThemeSetting = ThemeSetting.AUTO,
     val sensitivity: SensitivitySetting = SensitivitySetting.NORMAL,
-    val speed: SpeedSetting = SpeedSetting.RELATIVE,
+    /** Which speed the Vehicle Speed field shows; relative is named in its header (VEHICLE REL SPEED). */
+    val speedMode: SpeedSetting = SpeedSetting.ABSOLUTE,
+    /** How long the Vehicle Speed field keeps a passed car's speed. */
+    val speedPassHold: PassHoldSetting = PassHoldSetting.OFF,
+    /** The single fields' own header (icon and name). Off gives the value the whole tile. */
+    val countHeader: Boolean = true,
+    val speedHeader: Boolean = true,
+    val distanceHeader: Boolean = true,
+    val rateHeader: Boolean = true,
     /** Reset the ride count when a ride starts recording. */
     val resetOnRideStart: Boolean = true,
     /** Radar combo field layout while nothing is on the radar. */
@@ -43,12 +63,20 @@ data class Settings(
     val comboCaptions: Boolean = true,
     /** Draw the RADAR header strip in the combo field. Off gives the numbers the whole tile. */
     val comboHeader: Boolean = true,
+    /** How long the Radar combo field keeps a passed car's speed. */
+    val comboPassHold: PassHoldSetting = PassHoldSetting.OFF,
+    /** Which speed the Radar field shows. */
+    val comboSpeedMode: SpeedSetting = SpeedSetting.ABSOLUTE,
     /** Developer section shown in Settings; unlocked with five taps on the version line. */
     val developerMode: Boolean = false,
     /** Write a per-track decision log during rides. Developer setting; off by default. */
     val traceTracks: Boolean = false,
     /** Tint the Radar field's view so its real bounds show. Developer setting. */
     val debugFieldBounds: Boolean = false,
-    /** Last size the Karoo gave the Radar combo field, "gw,gh,vw,vh,text", so the preview is right after a restart. */
-    val comboFieldSize: String = ""
+    /**
+     * Last size the Karoo gave each field in a ride, by type id, as
+     * [FieldSizes] encodes it, so the settings previews are right after a
+     * restart. Written only by SettingsRepository.saveFieldSize.
+     */
+    val fieldSizes: Map<String, String> = emptyMap()
 )

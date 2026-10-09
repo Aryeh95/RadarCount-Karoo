@@ -23,8 +23,14 @@ import androidx.compose.ui.unit.sp
 // CORE COLORS (5 colors only)
 // ============================================
 
-// Background - white, like the Karoo's own settings and picker screens
-val Background = Color(0xFFFFFBFE)
+// Background - white, for cards, like the Karoo's own settings and picker screens
+val Background = Color(0xFFFFFFFF)
+
+// The screen behind the cards: the neutral grey of the Karoo's and Barberfish's settings screens
+val ScreenBackground = Color(0xFFF4F4F4)
+
+// The Karoo's floating back button, as Barberfish measured it
+val BackButton = Color(0xFFA0B4BE)
 
 // Surface - light grey for cards and previews
 val Surface = Color(0xFFE8EEF3)
@@ -59,12 +65,33 @@ val StatusNeutral = Color(0xFF666666)
 // ============================================
 
 // The same scheme other Karoo extensions use, so the screens look like the
-// Karoo's own: Material 3 light with a dark slate primary.
+// Karoo's own: Material 3 light with a dark slate primary. Every surface and
+// container role is set to a neutral grey or white, so none of Material's
+// default lavender shows through (screen, tab bar, menus, back button).
 private val KarooColorScheme = lightColorScheme(
     primary = Accent,
     secondary = TextSecondary,
     tertiary = Color(0xFFFEF69A),
-    error = StatusDanger
+    error = StatusDanger,
+    primaryContainer = BackButton,
+    onPrimaryContainer = Color.Black,
+    secondaryContainer = Color(0xFFDDE3E7),
+    onSecondaryContainer = TextPrimary,
+    background = ScreenBackground,
+    onBackground = TextPrimary,
+    surface = Background,
+    onSurface = TextPrimary,
+    surfaceVariant = Color(0xFFE8E8E8),
+    onSurfaceVariant = TextSecondary,
+    surfaceTint = Color.Transparent,
+    surfaceBright = Background,
+    surfaceDim = Color(0xFFE0E0E0),
+    surfaceContainerLowest = Background,
+    surfaceContainerLow = Background,
+    surfaceContainer = Background,
+    surfaceContainerHigh = Color(0xFFF7F7F7),
+    surfaceContainerHighest = Color(0xFFEFEFEF),
+    outlineVariant = Color(0xFFD6DDE3)
 )
 
 

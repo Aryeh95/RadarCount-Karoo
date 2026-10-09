@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A single field: its own header (FieldHeader) across the top, and under
+     it the value (FieldBitmaps.value), right-aligned and vertically centred
+     in the rest of the tile. The header bitmap is the tile's width and the
+     value is fitted to the rest, so both show 1:1 when the host's view is
+     the size it reported. Alignment is baked in per layout: setGravity
+     through RemoteViews throws on the Karoo 2. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/field_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <ImageView
+        android:id="@+id/field_header"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:adjustViewBounds="true"
+        android:importantForAccessibility="no" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:paddingStart="5dp"
+        android:paddingEnd="5dp">
+
+        <ImageView
+            android:id="@+id/field_image"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical|end"
+            android:adjustViewBounds="true"
+            android:importantForAccessibility="no" />
+
+    </FrameLayout>
+
+</LinearLayout>

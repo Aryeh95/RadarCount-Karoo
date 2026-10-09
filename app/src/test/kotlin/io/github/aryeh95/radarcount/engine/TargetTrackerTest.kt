@@ -10,17 +10,20 @@ class TargetTrackerTest {
 
     private lateinit var tracker: TargetTracker
     private var now = 0L
+    /** [TargetTracker.lastPass] after every packet fed. */
+    private val passLog = ArrayList<TargetTracker.Pass?>()
 
     @BeforeEach
     fun setUp() {
         tracker = TargetTracker()
         now = 100_000L
+        passLog.clear()
     }
 
     /** Feed one packet per second; returns passes counted. */
-    private fun feed(vararg ranges: Int, dtMs: Long = 1000L, threat: Int = 0): Int {
+    private fun feed(vararg ranges: Int, dtMs: Long = 1000L, threat: Int = 0, riderMps: Double = 0.0): Int {
         now += dtMs
-        return tracker.update(ranges.toList(), now, threat)
+        return tracker.update(ranges.toList(), now, threat, riderMps).also { passLog.add(tracker.lastPass) }
     }
 
     /** Feed an empty packet until the lost timeout has elapsed. */
@@ -494,6 +497,238 @@ class TargetTrackerTest {
         tracker.clear()
         assertThat(gone()).isEqualTo(0)
         assertThat(tracker.activeCount).isEqualTo(0)
+    }
+
+    /** The speedFreezesClose car (12 m/s) passes; returns its speed just before it dropped out. */
+    private fun knownPass(): Double {
+        for (r in listOf(84, 72, 60, 48, 36, 24, 12)) feed(r)
+        feed(3)
+        feed(3)
+        val approach = tracker.nearestClosingSpeedMps()!!
+        assertThat(feed()).isEqualTo(1)
+        return approach
+    }
+
+    @Test
+    @DisplayName("a pass records the frozen approach speed at the decision")
+    fun passRecordsFrozenSpeed() {
+        val approach = knownPass()
+        val decidedAt = now
+        gone()
+        val pass = tracker.lastPass!!
+        assertThat(pass.seq).isEqualTo(1)
+        assertThat(pass.atMs).isEqualTo(decidedAt)
+        assertThat(pass.closingMps).isEqualTo(approach)
+        assertThat(pass.cars).isEqualTo(1)
+    }
+
+    @Test
+    @DisplayName("a pass records the rider's speed on the deciding packet")
+    fun passRecordsRiderSpeed() {
+        for (r in listOf(84, 72, 60, 48, 36, 24, 12, 3)) feed(r, riderMps = 5.0)
+        assertThat(feed(riderMps = 7.0)).isEqualTo(1)
+        feed(riderMps = 2.0)  // braking after the pass does not change it
+        assertThat(tracker.lastPass!!.riderMps).isEqualTo(7.0)
+    }
+
+    @Test
+    @DisplayName("a pass with no measured speed records it as unknown, never 0")
+    fun unknownSpeedPasses() {
+        // singleSampleAlongsideCounted
+        feed(3, threat = 2)
+        assertThat(gone()).isEqualTo(1)
+        assertThat(tracker.lastPass).isNotNull()
+        assertThat(tracker.lastPass!!.closingMps).isNull()
+
+        // briefCarReachingAlongsideCounted
+        setUp()
+        feed(12, threat = 2)
+        feed(6, dtMs = 200L, threat = 2)
+        assertThat(gone()).isEqualTo(1)
+        assertThat(tracker.lastPass).isNotNull()
+        assertThat(tracker.lastPass!!.closingMps).isNull()
+    }
+
+    @Test
+    @DisplayName("a later pass with an unknown speed replaces a known one")
+    fun unknownPassEndsHold() {
+        knownPass()
+        assertThat(tracker.lastPass!!.closingMps).isNotNull()
+        gone()                                 // A's ghost expires
+        feed(3, threat = 2)                    // car B, a single alongside sample
+        assertThat(gone()).isEqualTo(1)
+        assertThat(tracker.lastPass!!.seq).isEqualTo(2)
+        assertThat(tracker.lastPass!!.closingMps).isNull()
+    }
+
+    @Test
+    @DisplayName("two passes decided on one packet keep the faster car's speed")
+    fun twoPassesOnePacketKeepsFastest() {
+        // Two cars 300 ms apart in time: A at 10 m/s ends at 3 m, B at about
+        // 16.7 m/s ends at 9 m, and both drop out on the same packet.
+        for (k in 10 downTo 0) feed(3 + 3 * k, 9 + 5 * k, dtMs = 300L)
+        assertThat(feed()).isEqualTo(2)
+        val pass = tracker.lastPass!!
+        assertThat(pass.seq).isEqualTo(1)
+        assertThat(pass.cars).isEqualTo(2)
+        assertThat(pass.closingMps!!).isWithin(1.0).of(50.0 / 3)
+    }
+
+    @Test
+    @DisplayName("a live car with a measured speed ends the pass on the deciding packet")
+    fun liveKnownSpeedClearsPass() {
+        // twoCars: B has been closing for five seconds when A is decided.
+        feed(60, 90)
+        feed(45, 75)
+        feed(30, 60)
+        feed(15, 45)
+        feed(3, 30)
+        assertThat(feed(15)).isEqualTo(1)
+        assertThat(tracker.nearestClosingSpeedMps()).isNotNull()
+        assertThat(tracker.lastPass).isNull()
+    }
+
+    @Test
+    @DisplayName("a follower without a speed yet keeps the pass until its speed is measured")
+    fun followerWithoutSpeedKeepsPass() {
+        for (r in listOf(84, 72, 60, 48, 36, 24, 12)) feed(r)
+        feed(3, 60)                            // B first seen as A comes alongside
+        assertThat(feed(48)).isEqualTo(1)      // A decided; B has 1 s of history
+        assertThat(tracker.nearestClosingSpeedMps()).isNull()
+        assertThat(tracker.lastPass).isNotNull()
+        assertThat(tracker.lastPass!!.closingMps!!).isWithin(1.0).of(12.0)
+        feed(36)                               // B now has 2 s: its speed is known
+        assertThat(tracker.nearestClosingSpeedMps()).isNotNull()
+        assertThat(tracker.lastPass).isNull()
+        feed(24)
+        assertThat(tracker.lastPass).isNull()
+    }
+
+    @Test
+    @DisplayName("threat-only packets with a live speed end the pass like ranged ones")
+    fun threatOnlyLiveSpeedClearsPass() {
+        // A field shows a live speed whenever the radar reports a threat and a
+        // speed is known, ranges or not. Once it has, the pass must not come back.
+        feed(36, 60, threat = 1)
+        feed(24, 50, threat = 1)
+        feed(12, 40, threat = 2)
+        feed(3, 30, threat = 3)
+        var liveShown = false
+        var passed = 0
+        for (i in 0 until 6) {
+            val threat = if (i < 5) 2 else 0
+            passed += feed(dtMs = 400L, threat = threat)
+            val liveKnown = threat > 0 && tracker.nearestClosingSpeedMps() != null
+            if (liveKnown) liveShown = true
+            if (liveShown) assertThat(tracker.lastPass).isNull()
+        }
+        assertThat(passed).isEqualTo(1)
+        assertThat(liveShown).isTrue()
+    }
+
+    @Test
+    @DisplayName("a vanished far track still waiting for its decision does not end the pass")
+    fun vanishedUndecidedTrackDoesNotClear() {
+        feed(60, 90)
+        feed(45, 75)
+        feed(30, 60)
+        feed(15, 45)
+        feed(3, 30)                            // both drop out after this
+        assertThat(feed()).isEqualTo(1)        // A decided; B (30 m) waits out lostMs
+        assertThat(tracker.nearestClosingSpeedMps()).isNotNull()
+        val pass = tracker.lastPass
+        assertThat(pass).isNotNull()
+        assertThat(feed()).isEqualTo(0)        // B decided: not a pass
+        assertThat(tracker.rejectedNotPass).isEqualTo(1)
+        assertThat(tracker.lastPass).isEqualTo(pass)
+    }
+
+    @Test
+    @DisplayName("a ghost re-attach neither records a second pass nor changes the speed")
+    fun reattachKeepsPass() {
+        // longVehicleFlickerCountsOnce
+        for (r in listOf(31, 28, 21, 18, 12, 9, 6)) feed(r, threat = 2)
+        feed(dtMs = 400)
+        assertThat(feed(dtMs = 400)).isEqualTo(1)
+        val pass = tracker.lastPass!!
+        assertThat(pass.closingMps).isNotNull()
+        feed(3, dtMs = 300)                    // REATTACH
+        feed(dtMs = 300)
+        feed(6, dtMs = 200)
+        feed(6, dtMs = 300)
+        feed(3, dtMs = 300)
+        gone()
+        assertThat(tracker.lastPass).isEqualTo(pass)
+        assertThat(tracker.lastPass!!.seq).isEqualTo(1)
+    }
+
+    @Test
+    @DisplayName("tracks rejected as not a pass never record one")
+    fun rejectedTrackLeavesPass() {
+        // vanishesAtTurn
+        heading(90.0)
+        for ((i, r) in listOf(15, 15, 12, 9, 6, 3).withIndex()) {
+            feed(r, threat = 1)
+            heading(90.0 + i * 5)
+        }
+        heading(150.0); feed(); heading(175.0); feed(); heading(180.0)
+        assertThat(gone()).isEqualTo(0)
+        assertThat(tracker.rejectedTurnedAway).isEqualTo(1)
+        assertThat(passLog.all { it == null }).isTrue()
+
+        // followerNotCounted
+        setUp()
+        for (r in listOf(31, 28, 28, 25, 21, 18, 18, 15, 15, 12, 12, 12)) feed(r, threat = 1)
+        assertThat(gone()).isEqualTo(0)
+        assertThat(tracker.rejectedNotPass).isEqualTo(1)
+        assertThat(passLog.all { it == null }).isTrue()
+
+        // twelveMetreFollowerNotCounted
+        setUp()
+        for (r in listOf(46, 40, 37, 31, 28, 25, 21, 18, 18, 12, 12, 12, 12)) feed(r, threat = 1)
+        assertThat(gone()).isEqualTo(0)
+        assertThat(tracker.rejectedNotPass).isEqualTo(1)
+        assertThat(passLog.all { it == null }).isTrue()
+    }
+
+    @Test
+    @DisplayName("a rejected track decided after a pass leaves that pass alone")
+    fun rejectedAfterPassLeavesPass() {
+        knownPass()
+        val pass = tracker.lastPass
+        // A follower hanging at 12 m with no speed yet, then gone without passing.
+        feed(12, dtMs = 1000L, threat = 1)
+        feed(12, dtMs = 600L, threat = 1)
+        assertThat(tracker.nearestClosingSpeedMps()).isNull()
+        assertThat(tracker.lastPass).isEqualTo(pass)
+        gone()
+        assertThat(tracker.rejectedNotPass).isEqualTo(1)
+        assertThat(tracker.lastPass).isEqualTo(pass)
+    }
+
+    @Test
+    @DisplayName("clear drops the pass but does not reset its sequence")
+    fun clearDropsPass() {
+        knownPass()
+        assertThat(tracker.lastPass!!.seq).isEqualTo(1)
+        tracker.clear()
+        assertThat(tracker.lastPass).isNull()
+        assertThat(gone()).isEqualTo(0)
+        assertThat(tracker.lastPass).isNull()
+        knownPass()
+        assertThat(tracker.lastPass!!.seq).isEqualTo(2)
+    }
+
+    @Test
+    @DisplayName("dropping the pass (radar searching) keeps the tracks")
+    fun dropPassKeepsTracks() {
+        knownPass()
+        feed(60)
+        tracker.dropPass()
+        assertThat(tracker.lastPass).isNull()
+        assertThat(tracker.nearestRangeM()).isEqualTo(60)
+        feed(48)
+        assertThat(tracker.lastPass).isNull()
     }
 
     @Test

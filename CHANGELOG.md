@@ -3,6 +3,67 @@
 Release notes for RadarCount for Karoo. Each GitHub release carries the
 matching section below as its description.
 
+## 0.4.0 — 2026-10-09
+
+Every field is redrawn so it looks the same on the Karoo 2 and the Karoo 3,
+the Vehicle Speed and Radar fields can keep a passed car's speed on screen,
+and each field gets its own settings card with a live preview.
+
+### Added
+- **Speed after a pass** (#1). The Vehicle Speed and Radar fields can each
+  keep the approach speed of the car that just passed on screen for 3, 5 or
+  10 seconds (off by default, set on each field's card). The held speed is
+  drawn in grey and always marked PASSED, whatever the caption and tag
+  settings, so it cannot be mistaken for a car still coming. A car whose speed
+  is measured replaces it at once, and a later pass with no measured speed
+  ends it. A car seen for under two seconds has no measured speed, so nothing
+  is held for it. The Karoo's page-editor preview shows the passed frame too
+  while the hold is on.
+- **A settings card per field.** The Field tab has a card for each of the five
+  fields. Opening one shows the field as it looks on your ride pages, drawn by
+  the field's own code at the size it last had there, and that field's
+  settings.
+- **Header on or off for every field.** Off gives the value the whole field.
+- **Updates for sideloaded installs.** From this version on the app carries
+  the address of its update manifest, so the Karoo offers new versions, with
+  screenshots and release notes, even when RadarCount was installed with adb.
+  Updating from 0.3.x to 0.4.0 still needs one manual install.
+
+### Changed
+- **Single fields draw their own one-line header.** Vehicles, Vehicle Speed,
+  Vehicle Distance and Vehicles per Hour draw the field's icon and name
+  themselves, in the Karoo's header style, instead of using the Karoo's
+  header strip. A long name such as VEHICLES PER HOUR is set a little smaller
+  to stay on one line instead of wrapping onto a second, and the value gets
+  that line's height.
+- **New icons.** Vehicle Speed has a speedometer like the Karoo's own Speed
+  icon, and Vehicle Distance an icon for the range to the car behind. Both
+  show in the field header, on the settings card and in the Karoo's field
+  picker.
+- **Vehicle Speed shows absolute speed by default**, the vehicle's road speed,
+  and the RELATIVE / ABSOLUTE line under it is gone, so the speed is drawn at
+  full size. If you choose relative speed, the field's header reads VEHICLE
+  REL SPEED instead.
+- **Speed shown is set per field**, on the Vehicle Speed and Radar cards
+  instead of the Setup tab, so each card's preview shows the choice at once
+  and the two fields can differ. Both start from the setting you had.
+- **Screens in the Karoo's style.** A neutral grey background with white
+  cards, and the Karoo's slate back button with a thin arrow.
+- Digits no longer have a white or black box behind them; the Karoo's own
+  field colour shows through, as with its built-in fields.
+
+### Fixed
+- **Radar field digits cut off at the bottom on the Karoo 2.** Android 8 on
+  the Karoo 2 lays text out differently from Android 12 on the Karoo 3, so the
+  bottom of the digits ran past the field. Every field is now drawn as an
+  image from exact glyph measurements, so the digits are placed to the pixel
+  and always fit, identically on both devices.
+- **Vehicle Speed drawn small in mph.** The p of mph used to cost the digits
+  its height twice; the speed now uses the room the text really needs.
+- The Radar field's active layout ends two seconds after the last vehicle
+  even when nothing else changes; before, it could stay until the next
+  update.
+
 ## 0.3.1 — 2026-10-02
 
 ### Fixed

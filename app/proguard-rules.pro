@@ -8,5 +8,5 @@
 # Karoo SDK models are serialized across the process boundary.
 -keep class io.hammerhead.karooext.** { *; }
 
-# Room, Glance, DataStore and kotlinx.serialization ship their own consumer
+# DataStore and kotlinx.serialization ship their own consumer
 # rules in their AARs, so nothing else is needed here.

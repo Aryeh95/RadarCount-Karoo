@@ -13,8 +13,9 @@ android {
         applicationId = "io.github.aryeh95.radarcount"
         minSdk = 26
         targetSdk = 35
-        versionCode = 36
-        versionName = "0.3.1"
+        versionCode = 37
+        versionName = "0.4.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     // Release signing: a permanent keystore supplied via environment
@@ -35,6 +36,18 @@ android {
     }
 
     buildTypes {
+        // Debug builds carry the commit in their version, so a test build on
+        // the Karoo can be told apart from the release it replaces.
+        debug {
+            // Outside a git checkout (a source archive) or without git, "dev".
+            val sha = runCatching {
+                providers.exec {
+                    commandLine("git", "rev-parse", "--short", "HEAD")
+                    isIgnoreExitValue = true
+                }.standardOutput.asText.get().trim()
+            }.getOrNull()?.takeIf { it.isNotEmpty() } ?: "dev"
+            versionNameSuffix = "-$sha"
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -91,9 +104,6 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-core")
 
-    // Glance for Karoo DataType widgets
-    implementation("androidx.glance:glance-appwidget:1.1.1")
-
     // DataStore for settings
     implementation("androidx.datastore:datastore-preferences:1.1.2")
 
@@ -110,6 +120,10 @@ dependencies {
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
     testImplementation("io.mockk:mockk:1.13.16")
     testImplementation("app.cash.turbine:turbine:1.0.0")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation(platform("androidx.compose:compose-bom:2025.01.00"))
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
 }
 
 tasks.withType<Test> {

@@ -20,38 +20,72 @@ Add any of these to a ride page from the Karoo's data field picker under **Radar
 
 | Data Field | Shows |
 |------------|-------|
-| **Radar** | The combined field. With nothing on the radar it shows the pass count, large. When a vehicle is on the radar it shows the vehicle's speed and distance large with the count small beside them, and holds that for two seconds after the vehicle is gone so a pass ends with the new count showing. Both layouts, the header and the captions are configurable (see Settings) |
+| **Radar** | The combined field. With nothing on the radar it shows the pass count, large. When a vehicle is on the radar it shows the vehicle's speed and distance large with the count small beside them, and holds that for two seconds after the vehicle is gone so a pass ends with the new count showing. Both layouts, the header and the captions are configurable, and it can keep a passed car's speed for a few seconds (see Settings) |
 | **Vehicles** | Vehicles that have passed you this ride |
 | **Vehicles per Hour** | Pass count divided by recording time (paused time excluded). Shows `--` for the first two minutes of a ride |
-| **Vehicle Speed** | Speed of the nearest vehicle, with its unit (for example `36mph` or `58km/h`) and a RELATIVE or ABSOLUTE tag underneath. Shows `--` for the first two seconds, until there is enough range history to estimate a speed; a shown `0` means the vehicle is not gaining on you |
+| **Vehicle Speed** | Speed of the nearest vehicle, with its unit (for example `36mph` or `58km/h`): its road speed by default, or how fast it is closing on you, when the header reads VEHICLE REL SPEED (set on its card). Shows `--` for the first two seconds, until there is enough range history to estimate a speed; a shown `0` means the vehicle is not gaining on you. Can keep a passed car's speed for a few seconds (see below) |
 | **Vehicle Distance** | Distance to the nearest vehicle, with its unit (for example `148ft` or `45m`) |
 
-The single-value fields look like the Karoo's own: the standard header with
-icon and name at the top, the value centred below it at the Karoo's font size,
-honouring the field alignment setting (left, centre or right). Text shrinks to
+The single-value fields look like the Karoo's own: a header with the icon and
+name at the top, the value centred below it at the Karoo's font size,
+honouring the field alignment setting (left, centre or right). They draw that
+header themselves in the Karoo's style, so a long name such as VEHICLES PER
+HOUR stays on one line, in a slightly smaller font where it has to, instead of
+wrapping onto a second line and taking room from the value. The Karoo's own
+header in a half-width field leaves room for a second line even under a short
+name; RadarCount's is one line tall, so its icon and name sit a little higher
+than a built-in field's beside it and the value gets that room. Text shrinks to
 fit narrow fields so nothing is cut off. The Radar field draws its own header
-in the same style so that it can be turned off, and fits its digits to both the
+too, so that it can be turned off, and fits its digits to both the
 width and the height of whatever field size it is given, so the half-width
 field gets the largest digits that fit and larger fields scale up. Text colour
 follows the device theme and can be forced in settings. Every field shows `NO RADAR` in grey while no radar is
 connected, including when a ride is started without one, so that is never
-confused with "no vehicles".
+confused with "no vehicles". Each single-value field's header can be turned
+off, which gives the value the whole field.
+
+### Speed after a pass
+
+The live speed disappears as a car draws level with you, because the radar
+can no longer see it. The Vehicle Speed and Radar fields can each keep the
+speed of the car that just passed on screen for 3, 5 or 10 seconds (off by
+default, set per field on the Field tab). The held speed is the car's
+approach speed, the same figure the field showed while it closed in, drawn in
+grey and marked `PASSED` (`PASSED KPH` in the Radar field, or `PASSED` with
+units after the digits), whatever the caption settings, so it is never
+mistaken for a live reading. Absolute adds your
+own speed at the moment of the pass. It appears a second or two after the car
+has gone, once the radar has decided the car passed, also while the ride is
+paused, when the count does not advance.
+As soon as another car's speed is measured, the live value replaces it; until
+then the Radar field shows that car's distance beside the held speed. A car
+seen for under two seconds before it passed has no measured speed, so nothing
+is held for it and a later pass without a speed ends an earlier hold. Like
+every speed here it is a ballpark figure.
 
 ## Settings
 
 Open the RadarCount app on the Karoo. It has four tabs: **Status** (live radar
-state and the ride count, with a reset button), **Setup** (the settings below),
-**Field** (the Radar field's layout, with a live preview drawn at the field's
-real size) and, once unlocked with five taps on the version line, **Dev**.
+state and the ride count, with a reset button), **Setup** (the app-wide
+settings below), **Field** (a card per data field) and, once unlocked with five
+taps on the version line, **Dev**.
 
-| Setting | Options |
+| Setting (Setup tab) | Options |
 |---------|---------|
 | Units | Karoo profile (default), Metric, Imperial |
 | Field colours | Match device (default), Light, Dark |
-| Vehicle speed shown | Relative to you (default), or Absolute (relative plus your own speed). Applies to the Vehicle Speed field and the Radar field. |
 | Count sensitivity | Strict, Normal (default) or Relaxed. A car counts once it has come within 6 / 9 / 12 m of you before dropping off the radar. Normal matches the rule mybiketraffic.com uses. |
 | Reset count when a ride starts | On by default. Off keeps a running total across rides; use Reset count on the status screen to clear it. |
-| Radar field (Field tab) | What the combined Radar field shows with nothing on the radar (count only, or all three) and with a vehicle on the radar (speed and distance, or all three); whether the small count shows beside speed and distance; the RADAR header strip on or off; the caption line on or off; units as captions or after the digits. A live preview at the field's real size shows both states. |
+
+On the **Field** tab, tapping a field's card opens a live preview of the
+field, drawn by the field's own code at the size it last had on a ride page
+(a half-width field until it has been shown once), and that field's settings:
+
+| Field | Settings |
+|-------|----------|
+| Radar | Speed shown: absolute (default), the vehicle's road speed, or relative, how fast it is closing on you; what it shows with nothing on the radar (count only by default, or all three) and with a vehicle on the radar (speed and distance by default, or all three); with speed and distance, the small count beside them (on by default); the RADAR header strip (on by default); the caption line (on by default); units as captions (default) or after the digits; speed after a pass (off by default, 3, 5 or 10 s). The preview shows both states, and the state after a pass when that is on. |
+| Vehicles, Vehicle Distance, Vehicles per Hour | Header on (default) or off. |
+| Vehicle Speed | Speed shown: absolute (default), the vehicle's road speed, or relative, how fast it is closing on you, when the header reads VEHICLE REL SPEED; header on (default) or off; speed after a pass (off by default, 3, 5 or 10 s). |
 
 The extension is idle at boot. It only opens the radar, speed and heading
 streams while a ride is recording, one of its data fields is on screen, or its
@@ -165,13 +199,17 @@ app.
 
 The Karoo shows a "not verified by Hammerhead" warning for every sideloaded
 extension; that is expected. Updates install over the previous version and
-keep your settings and field placements.
+keep your settings and field placements. From 0.4.0 on, a sideloaded
+RadarCount tells the Karoo where its manifest is, so the Karoo offers new
+versions itself; updating from 0.3.x to 0.4.0 still needs one manual install.
 
 ## Privacy
 
 RadarCount has no network access and no accounts. It reads radar, speed and
 ride state from the Karoo and writes radar fields into the ride's FIT file on
-the device. Nothing leaves the Karoo unless you upload the ride yourself.
+the device. Nothing leaves the Karoo unless you upload the ride yourself. The
+Karoo itself checks the update manifest on GitHub to offer new versions;
+RadarCount sends nothing.
 
 ## Feedback
 

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Speedometer in the style of the Karoo's own Speed icon: an open gauge arc and a needle. -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M4.12,20.06A10,10 0 1 1 19.88,20.06L18.23,18.76A7.9,7.9 0 1 0 5.77,18.76Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M9.96,15.6L14.76,8.68L13.12,16.94A1.75,1.75 0 1 1 9.96,15.6Z" />
+</vector>

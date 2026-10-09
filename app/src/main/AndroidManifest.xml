@@ -13,6 +13,12 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.RadarCount">
 
+        <!-- Update channel: the Karoo reads this manifest to offer updates, store screenshots
+             and release notes for a sideloaded copy. Keep it in step with manifest.json. -->
+        <meta-data
+            android:name="io.hammerhead.karooext.MANIFEST_URL"
+            android:value="https://raw.githubusercontent.com/Aryeh95/RadarCount-Karoo/main/manifest.json" />
+
         <!-- Karoo Extension Service -->
         <service
             android:name=".RadarCountExtension"

@@ -25,14 +25,14 @@
         description="@string/datatype_speed_desc"
         displayName="@string/datatype_speed"
         graphical="true"
-        icon="@drawable/ic_radar" />
+        icon="@drawable/ic_speed" />
 
     <DataType
         typeId="closest-distance"
         description="@string/datatype_distance_desc"
         displayName="@string/datatype_distance"
         graphical="true"
-        icon="@drawable/ic_radar" />
+        icon="@drawable/ic_vehicle_distance" />
 
     <DataType
         typeId="vehicles-per-hour"

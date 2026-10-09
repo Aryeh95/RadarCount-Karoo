@@ -20,8 +20,10 @@
     <string name="combo_speed_rel">REL SPEED</string>
     <string name="combo_speed_abs">ABS SPEED</string>
     <string name="combo_vehicles">VEHICLES</string>
-    <string name="speed_tag_rel">RELATIVE</string>
-    <string name="speed_tag_abs">ABSOLUTE</string>
+    <string name="speed_tag_passed">PASSED</string>
+    <!-- The Vehicle Speed header when it shows relative speed; absolute, the default, uses the plain field name. -->
+    <string name="header_speed_rel">Vehicle Rel Speed</string>
+    <string name="combo_speed_passed">PASSED</string>
 
     <!-- Widget text -->
     <string name="widget_count_label">PASSED</string>
@@ -54,10 +56,19 @@
     <string name="settings_theme_auto">Match device</string>
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_dark">Dark</string>
-    <string name="settings_speed">Vehicle speed shown</string>
+    <string name="settings_speed">Speed shown</string>
     <string name="settings_speed_relative">Relative to you</string>
     <string name="settings_speed_absolute">Absolute</string>
-    <string name="settings_speed_hint">Relative is how fast the vehicle is closing on you. Absolute adds your own speed, giving its road speed.</string>
+    <string name="settings_speed_hint">Absolute is the vehicle\'s road speed: how fast it is closing on you plus your own speed. Relative is how fast it is closing on you; the header then reads VEHICLE REL SPEED.</string>
+    <string name="settings_combo_speed_hint">Absolute is the vehicle\'s road speed: how fast it is closing on you plus your own speed. Relative is how fast it is closing on you.</string>
+    <string name="settings_pass_hold">Show speed after a pass</string>
+    <string name="settings_pass_hold_off">Off</string>
+    <string name="settings_pass_hold_3">3 s</string>
+    <string name="settings_pass_hold_5">5 s</string>
+    <string name="settings_pass_hold_10">10 s</string>
+    <string name="settings_pass_hold_hint">After a car passes, keep its approach speed on screen, greyed and marked PASSED, for this long. A car whose speed is measured replaces it at once. Cars seen for under 2 s have no speed, and none is shown. Speeds are ballpark figures.</string>
+    <string name="settings_field_header">Header</string>
+    <string name="settings_field_header_hint">The field\'s icon and name at the top. Off gives the value the whole field.</string>
     <string name="widget_relative_label">Rel %1$d %2$s</string>
     <string name="settings_sensitivity">Count sensitivity</string>
     <string name="settings_sensitivity_strict">Strict</string>
@@ -74,6 +85,7 @@
     <string name="tab_radar_field">Field</string>
     <string name="tab_developer">Dev</string>
     <string name="settings_radar_field_hint">The Radar field changes layout when a vehicle is on the radar. Choose what each state shows.</string>
+    <string name="settings_fields_hint">Tap a field to see it as it looks on your ride pages, drawn at the size it last had there, and change its settings.</string>
     <string name="settings_combo_idle">No vehicle on radar</string>
     <string name="settings_combo_idle_count">Count only</string>
     <string name="settings_combo_active">Vehicle on radar</string>
@@ -86,6 +98,10 @@
     <string name="settings_combo_captions_hint">Off removes VEHICLES, MPH and FT so the numbers can use the whole field. All three keeps its captions.</string>
     <string name="settings_preview_idle">No vehicle</string>
     <string name="settings_preview_active">Approaching</string>
+    <string name="settings_preview_live">Live</string>
+    <string name="settings_preview_passed">After a pass</string>
+    <string name="settings_expand">Expand</string>
+    <string name="settings_collapse">Collapse</string>
     <string name="settings_reset_defaults">Restore defaults</string>
     <string name="settings_back">Back</string>
     <string name="settings_version">Version %s</string>

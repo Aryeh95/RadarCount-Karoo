@@ -86,6 +86,8 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
         private set
     /** Radar packets since the FIT writer last asked. */
     private val packetsSinceRead = java.util.concurrent.atomic.AtomicInteger(0)
+    /** The rider's speed in m/s, recorded with each pass so a held absolute speed does not drift. */
+    @Volatile var riderSpeedMps = 0.0
     /** Last heading fed to the tracker, or -1 if none yet. */
     @Volatile var lastHeadingDeg = -1.0
         private set
@@ -137,6 +139,14 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
     private val _closingSpeedMps = MutableStateFlow<Double?>(null)
     val closingSpeedMps: StateFlow<Double?> = _closingSpeedMps.asStateFlow()
 
+    /**
+     * The last pass and its speed (see [TargetTracker.lastPass]), or null.
+     * Published while the ride is paused too; null after a radar error,
+     * disconnect, search, stop or ride reset.
+     */
+    private val _lastPass = MutableStateFlow<TargetTracker.Pass?>(null)
+    val lastPass: StateFlow<TargetTracker.Pass?> = _lastPass.asStateFlow()
+
     // Computed widget state (deduplicated: only changes are emitted)
     private val _widgetState = MutableStateFlow<WidgetState>(WidgetState.NotConnected)
     val widgetState: StateFlow<WidgetState> = _widgetState.asStateFlow()
@@ -172,7 +182,12 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
             when (state) {
                 is StreamState.Streaming -> processRadarData(state.dataPoint.values)
                 is StreamState.NotAvailable -> handleDisconnection()
-                is StreamState.Searching -> _widgetState.value = WidgetState.Connecting
+                is StreamState.Searching -> {
+                    // Passes during the dropout go unrecorded: no stale held speed after it.
+                    targetTracker.dropPass()
+                    _lastPass.value = null
+                    _widgetState.value = WidgetState.Connecting
+                }
                 is StreamState.Idle -> android.util.Log.d(TAG, "Radar stream idle")
             }
         }
@@ -188,6 +203,7 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
             _isRadarConnected.value = false
             targetTracker.clear()
             _closingSpeedMps.value = null
+            _lastPass.value = null
             _widgetState.value = WidgetState.NotConnected
         }
     }
@@ -200,6 +216,7 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
                 _isRadarConnected.value = false
                 clearTracksOnFault()
                 _closingSpeedMps.value = null
+                _lastPass.value = null
                 _widgetState.value = WidgetState.ConnectionLost
                 _packets.tryEmit(WidgetState.ConnectionLost)
                 return
@@ -214,13 +231,16 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
 
         val widgetState = toWidgetState(snapshot)
 
-        val passed = targetTracker.update(snapshot.targetDistancesM, System.currentTimeMillis(), snapshot.threatLevel.ordinal)
+        val passed = targetTracker.update(
+            snapshot.targetDistancesM, System.currentTimeMillis(), snapshot.threatLevel.ordinal, riderMps = riderSpeedMps
+        )
         if (passed > 0 && countingEnabled) {
             passTotal += passed
             android.util.Log.d(TAG, "$passed vehicle(s) passed, total=$passTotal")
             _passCount.value = passTotal
         }
         _closingSpeedMps.value = targetTracker.nearestClosingSpeedMps()
+        _lastPass.value = targetTracker.lastPass
 
         _isRadarConnected.value = true
         wasEverConnected = true
@@ -233,6 +253,7 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
         _isRadarConnected.value = false
         clearTracksOnFault()
         _closingSpeedMps.value = null
+        _lastPass.value = null
         val state = if (wasEverConnected) WidgetState.ConnectionLost else WidgetState.NotConnected
         _widgetState.value = state
         _packets.tryEmit(state)
@@ -263,6 +284,7 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
             trackerClears = 0
             passTotal = 0
             _passCount.value = 0
+            _lastPass.value = null
         }
     }
 

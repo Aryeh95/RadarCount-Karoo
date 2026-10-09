@@ -27,7 +27,7 @@ import io.github.aryeh95.radarcount.data.SettingsRepository
 
 /**
  * The app's one screen: a tab row in the style other Karoo extensions use,
- * with the live status, the general settings, the Radar field layout, and
+ * with the live status, the app-wide settings, a card per data field, and
  * a Developer tab once it has been unlocked. The floating back pill closes
  * the app.
  */
@@ -66,7 +66,7 @@ fun MainScreen(repository: SettingsRepository, extension: RadarCountExtension?, 
                     onResetCount = { extension?.radarEngine?.resetPassCounts() }
                 )
                 1 -> GeneralSettingsTab(repository)
-                2 -> RadarFieldTab(repository, extension)
+                2 -> FieldsTab(repository, extension)
                 3 -> DeveloperTab(repository, extension)
             }
         }

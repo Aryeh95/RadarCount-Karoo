@@ -234,15 +234,42 @@ class TargetTracker(
     val activeCount: Int get() = tracks.count { !it.resolved }
 
     /**
+     * The most recent pass decision, for showing a car's speed after it has
+     * gone by.
+     *
+     * @property seq        increments once per packet that decides a pass; never reset
+     * @property atMs       time of the deciding packet
+     * @property closingMps the car's approach speed captured at the decision,
+     *                      or null when it was never measured (seen for under
+     *                      [minSpeedSpanMs], or a single alongside sample).
+     *                      With several passes on one packet, the highest
+     *                      known speed.
+     * @property riderMps   the rider's speed on the deciding packet
+     * @property cars       passes decided on that packet
+     */
+    data class Pass(val seq: Int, val atMs: Long, val closingMps: Double?, val riderMps: Double, val cars: Int)
+
+    /**
+     * The last pass, or null. Written by every pass decision (also while
+     * the ride is paused), so a later pass with an unknown speed replaces an
+     * earlier known one. Cleared once a live car with a measured speed is on
+     * the radar, and by [clear] and [dropPass].
+     */
+    var lastPass: Pass? = null
+        private set
+    private var passSeq = 0
+
+    /**
      * Feed one radar packet.
      *
      * @param rangesM ranges of all reported targets in metres (may be empty
      *                when the radar reports a threat without ranges)
      * @param nowMs   packet time in milliseconds
      * @param threat  the radar's threat level for this packet (0-3)
+     * @param riderMps the rider's speed, recorded with a pass decided on this packet
      * @return number of targets that ended as passes on this packet
      */
-    fun update(rangesM: List<Int>, nowMs: Long, threat: Int = 0): Int {
+    fun update(rangesM: List<Int>, nowMs: Long, threat: Int = 0, riderMps: Double = 0.0): Int {
         // --- match reported ranges to existing tracks (closest pair first) ---
         val unmatchedRanges = rangesM.filter { it > 0 }.toMutableList()
         val matched = HashSet<Track>()
@@ -295,6 +322,9 @@ class TargetTracker(
 
         // --- decide passes and expire tracks not seen recently ---
         var passed = 0
+        // Speeds of the cars passed on this packet, captured now: a ghost
+        // re-attach rewrites lastSpeedMps and the history is trimmed below.
+        val passSpeeds = ArrayList<Double?>()
         val it = tracks.iterator()
         while (it.hasNext()) {
             val t = it.next()
@@ -315,8 +345,11 @@ class TargetTracker(
                         "TRACK,${nowMs},${t.firstRange},${t.minRange},${t.range},${t.samples},${t.lastSeenMs - t.firstSeenMs}," +
                             "${t.maxThreat},${"%.2f".format(t.lastSpeedMps)},${if (pass) "pass" else if (turnedAway) "turnedAway" else if (crossingAfterTurn) "crossing" else "notPass"}"
                     )
-                    if (pass) passed++
-                    else if (turnedAway) rejectedTurnedAway++
+                    if (pass) {
+                        passed++
+                        // 0.0 means the history never spanned minSpeedSpanMs: unknown, not a standstill.
+                        passSpeeds.add(t.frozenSpeedMps ?: t.lastSpeedMps.takeIf { v -> v > 0.0 })
+                    } else if (turnedAway) rejectedTurnedAway++
                     else if (crossingAfterTurn) rejectedCrossingAfterTurn++
                     else rejectedNotPass++
                     t.resolved = true
@@ -330,6 +363,18 @@ class TargetTracker(
             while (t.history.size > 1 && nowMs - t.history.first().first > speedWindowMs) {
                 t.history.removeFirst()
             }
+        }
+
+        if (passed > 0) {
+            lastPass = Pass(++passSeq, nowMs, passSpeeds.filterNotNull().maxOrNull(), riderMps, passed)
+        }
+        // A car with a measured speed is on the radar now. The passed car's own
+        // track is resolved, so this is another car and its live speed wins.
+        // Requiring ranges or a threat (the fields' own live condition) keeps
+        // a vanished far track that is still waiting for its decision from
+        // ending the pass early on a clear radar.
+        if (lastPass != null && (rangesM.any { r -> r > 0 } || threat > 0) && nearestClosingSpeedMps() != null) {
+            lastPass = null
         }
 
         return passed
@@ -385,6 +430,16 @@ class TargetTracker(
      */
     fun clear() {
         tracks.clear()
+        lastPass = null
+    }
+
+    /**
+     * Forget the last pass but keep the tracks (radar searching): cars that
+     * go by before it streams again are never recorded, so the held speed
+     * may no longer be the latest pass's.
+     */
+    fun dropPass() {
+        lastPass = null
     }
 
     /** Forget the heading history (ride start). */
