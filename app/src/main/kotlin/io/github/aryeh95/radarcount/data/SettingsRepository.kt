@@ -14,35 +14,26 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "radarcount_settings")
+private val Context.settingsStore: DataStore<Preferences> by preferencesDataStore(name = "radarcount_settings")
 
 /**
- * Settings backed by DataStore. Process-wide singleton because DataStore
- * does not allow two instances on one file.
+ * The settings, as one flow the extension service and the app screen both
+ * follow. There is one per process, reached through [getInstance], so the
+ * store is read into a single shared flow rather than one per caller.
  */
-class SettingsRepository private constructor(private val context: Context) {
+class SettingsRepository private constructor(context: Context) {
 
-    companion object {
-        @Volatile
-        private var INSTANCE: SettingsRepository? = null
-
-        fun getInstance(context: Context): SettingsRepository {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: SettingsRepository(context.applicationContext).also { INSTANCE = it }
-            }
-        }
-    }
-
+    private val store = context.settingsStore
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    val settings: StateFlow<Settings> = context.dataStore.data
+    val settings: StateFlow<Settings> = store.data
         .map { SettingsPreferences.read(it) }
         .distinctUntilChanged()
         .stateIn(scope, SharingStarted.Eagerly, Settings())
 
     /** Saves every setting the user chooses; field sizes are kept as they are (see [saveFieldSize]). */
     suspend fun update(settings: Settings) {
-        context.dataStore.edit { SettingsPreferences.write(it, settings) }
+        store.edit { SettingsPreferences.write(it, settings) }
     }
 
     /**
@@ -51,11 +42,21 @@ class SettingsRepository private constructor(private val context: Context) {
      * same moment do not overwrite each other.
      */
     suspend fun saveFieldSize(typeId: String, encoded: String) {
-        context.dataStore.edit { SettingsPreferences.writeFieldSize(it, typeId, encoded) }
+        store.edit { SettingsPreferences.writeFieldSize(it, typeId, encoded) }
     }
 
     /** Every setting back to its default; the field sizes, which are not settings, are kept. */
-    suspend fun resetToDefaults() {
-        context.dataStore.edit { SettingsPreferences.clearChoices(it) }
+    suspend fun resetChoices() {
+        store.edit { SettingsPreferences.clearChoices(it) }
+    }
+
+    companion object {
+        private lateinit var appContext: Context
+        private val shared by lazy { SettingsRepository(appContext) }
+
+        fun getInstance(context: Context): SettingsRepository {
+            appContext = context.applicationContext
+            return shared
+        }
     }
 }

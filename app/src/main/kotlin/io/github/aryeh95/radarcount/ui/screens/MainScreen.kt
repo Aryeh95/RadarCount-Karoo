@@ -61,10 +61,7 @@ fun MainScreen(repository: SettingsRepository, extension: RadarCountExtension?, 
                 }
             }
             when (tab) {
-                0 -> DashboardScreen(
-                    extension = extension,
-                    onResetCount = { extension?.radarEngine?.resetPassCounts() }
-                )
+                0 -> StatusTab(extension, onResetCount = { extension?.radarEngine?.resetPassCounts() })
                 1 -> GeneralSettingsTab(repository)
                 2 -> FieldsTab(repository, extension)
                 3 -> DeveloperTab(repository, extension)

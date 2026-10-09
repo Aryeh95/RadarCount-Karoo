@@ -53,12 +53,12 @@ private fun valueFrame(
 private fun noRadarFrame(context: Context, config: ViewConfig, density: Float, settings: Settings, header: Header? = null): FieldFrame {
     val text = context.getString(R.string.widget_no_radar)
     if (header == null) {
-        val image = FieldBitmaps.value(text, null, FieldColors.NEUTRAL, FieldColors.NEUTRAL, config, density)
+        val image = FieldBitmaps.value(text, null, FieldColors.NO_RADAR_GREY, FieldColors.NO_RADAR_GREY, config, density)
         return FieldViews.value(context, null, image, config.alignment)
     }
     val palette = FieldColors.palette(context, settings.theme)
     return singleFrame(context, config, density, settings, header.takeIf { it.shown(settings) }, palette, palette.text) { roomH ->
-        FieldBitmaps.value(text, null, FieldColors.NEUTRAL, FieldColors.NEUTRAL, config, density, roomH)
+        FieldBitmaps.value(text, null, FieldColors.NO_RADAR_GREY, FieldColors.NO_RADAR_GREY, config, density, roomH)
     }
 }
 

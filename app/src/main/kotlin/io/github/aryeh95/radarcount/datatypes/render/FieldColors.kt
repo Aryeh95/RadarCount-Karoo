@@ -11,10 +11,10 @@ import io.github.aryeh95.radarcount.data.ThemeSetting
  * colours are baked into the bitmap, so every frame resolves them afresh.
  */
 object FieldColors {
-    /** Header icon green, readable on white and black. */
-    const val SAFE = 0xFF00A844.toInt()
-    /** Grey for NO RADAR. */
-    const val NEUTRAL = 0xFF8A8A8A.toInt()
+    /** The radar icon in the Radar field's header: a green that reads on white and on black. */
+    const val RADAR_HEADER_GREEN = 0xFF00A844.toInt()
+    /** NO RADAR, in day and night mode alike. */
+    const val NO_RADAR_GREY = 0xFF8A8A8A.toInt()
     /** Developer aid: translucent blue over the field's whole view. */
     const val DEBUG_TINT = 0x593366FF
 

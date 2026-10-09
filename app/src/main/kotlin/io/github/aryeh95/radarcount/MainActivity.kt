@@ -6,18 +6,15 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import io.github.aryeh95.radarcount.data.SettingsRepository
 import io.github.aryeh95.radarcount.ui.screens.MainScreen
 import io.github.aryeh95.radarcount.ui.theme.RadarCountTheme
 
 /**
- * Status screen. All configuration comes from the Karoo profile
- * (units) so there is nothing to set up here.
+ * The app's screen (see [MainScreen]). While it is in view it holds the
+ * radar, as a field on a ride page does, so the Status tab is live
+ * outside a ride too.
  */
 class MainActivity : ComponentActivity() {
 

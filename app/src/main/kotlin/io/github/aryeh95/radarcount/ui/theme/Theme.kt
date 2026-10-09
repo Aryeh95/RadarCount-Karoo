@@ -8,214 +8,84 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import io.github.aryeh95.radarcount.datatypes.render.FieldColors
 
-/**
- * Minimalist color palette for Karoo 3 cycling computer.
- *
- * Design principles:
- * - High contrast for outdoor visibility
- * - 5 core colors only
- * - Large touch targets (48dp minimum)
- * - Readable at a glance while cycling
- */
+/** Behind the cards: the neutral grey of the Karoo's and Barberfish's settings screens. */
+val ScreenGrey = Color(0xFFF4F4F4)
 
-// ============================================
-// CORE COLORS (5 colors only)
-// ============================================
+/** Cards, the Status tab and menus: white, like the Karoo's own settings and picker screens. */
+val CardWhite = Color.White
 
-// Background - white, for cards, like the Karoo's own settings and picker screens
-val Background = Color(0xFFFFFFFF)
+/** Inside an open field card, under its previews and settings. */
+val CardInside = Color(0xFFE8EEF3)
 
-// The screen behind the cards: the neutral grey of the Karoo's and Barberfish's settings screens
-val ScreenBackground = Color(0xFFF4F4F4)
-
-// The Karoo's floating back button, as Barberfish measured it
+/** The Karoo's floating back button, as Barberfish measured it. */
 val BackButton = Color(0xFFA0B4BE)
 
-// Surface - light grey for cards and previews
-val Surface = Color(0xFFE8EEF3)
+val Ink = Color(0xFF1C1B1F)
+val InkMuted = Color(0xFF636363)
 
-// Text - high contrast white
-val TextPrimary = Color(0xFF1C1B1F)
-val TextSecondary = Color(0xFF636363)
+/** The Karoo's dark slate, for buttons, switches and the field cards' icons. */
+val KarooSlate = Color(0xFF214559)
 
-// Accent - the Karoo's blue for interactive elements
-val Accent = Color(0xFF214559)
+/** The Status tab with no car behind: the Radar field's header green, so the app and the field agree. */
+val ClearGreen = Color(FieldColors.RADAR_HEADER_GREEN)
 
+/** The Status tab with a car behind. Darker than a signal orange so it still reads on white. */
+val ApproachAmber = Color(0xFFE07000)
 
-// ============================================
-// STATUS COLORS (traffic light system)
-// ============================================
-
-// Clear/Safe - confident green
-val StatusSafe = Color(0xFF00C853)
-
-// Caution/Warning - bright orange (visible in sunlight)
-val StatusCaution = Color(0xFFFF9100)
-
-// Danger/Critical - urgent red
-val StatusDanger = Color(0xFFFF1744)
-
-// Info/Neutral - for connecting states
-val StatusNeutral = Color(0xFF666666)
-
-
-// ============================================
-// MATERIAL THEME SCHEME
-// ============================================
+/** The Status tab at the radar's highest threat level. */
+val DangerRed = Color(0xFFD62828)
 
 // The same scheme other Karoo extensions use, so the screens look like the
 // Karoo's own: Material 3 light with a dark slate primary. Every surface and
 // container role is set to a neutral grey or white, so none of Material's
 // default lavender shows through (screen, tab bar, menus, back button).
 private val KarooColorScheme = lightColorScheme(
-    primary = Accent,
-    secondary = TextSecondary,
+    primary = KarooSlate,
+    secondary = InkMuted,
     tertiary = Color(0xFFFEF69A),
-    error = StatusDanger,
+    error = DangerRed,
     primaryContainer = BackButton,
     onPrimaryContainer = Color.Black,
     secondaryContainer = Color(0xFFDDE3E7),
-    onSecondaryContainer = TextPrimary,
-    background = ScreenBackground,
-    onBackground = TextPrimary,
-    surface = Background,
-    onSurface = TextPrimary,
+    onSecondaryContainer = Ink,
+    background = ScreenGrey,
+    onBackground = Ink,
+    surface = CardWhite,
+    onSurface = Ink,
     surfaceVariant = Color(0xFFE8E8E8),
-    onSurfaceVariant = TextSecondary,
+    onSurfaceVariant = InkMuted,
     surfaceTint = Color.Transparent,
-    surfaceBright = Background,
+    surfaceBright = CardWhite,
     surfaceDim = Color(0xFFE0E0E0),
-    surfaceContainerLowest = Background,
-    surfaceContainerLow = Background,
-    surfaceContainer = Background,
+    surfaceContainerLowest = CardWhite,
+    surfaceContainerLow = CardWhite,
+    surfaceContainer = CardWhite,
     surfaceContainerHigh = Color(0xFFF7F7F7),
     surfaceContainerHighest = Color(0xFFEFEFEF),
     outlineVariant = Color(0xFFD6DDE3)
 )
 
-
-// ============================================
-// TYPOGRAPHY - Large, readable fonts for cycling
-// ============================================
-
-private val KarooTypography = Typography(
-    // Large titles - 28sp for main headers
-    headlineLarge = TextStyle(
-        fontSize = 28.sp,
-        fontWeight = FontWeight.Bold,
-        lineHeight = 34.sp,
-        letterSpacing = 0.sp,
-        color = TextPrimary
-    ),
-
-    // Section headers - 22sp
-    headlineMedium = TextStyle(
-        fontSize = 22.sp,
-        fontWeight = FontWeight.SemiBold,
-        lineHeight = 28.sp,
-        letterSpacing = 0.sp,
-        color = TextPrimary
-    ),
-
-    // Card titles - 20sp
-    titleLarge = TextStyle(
-        fontSize = 20.sp,
-        fontWeight = FontWeight.SemiBold,
-        lineHeight = 26.sp,
-        letterSpacing = 0.sp,
-        color = TextPrimary
-    ),
-
-    // List item titles - 18sp
-    titleMedium = TextStyle(
-        fontSize = 18.sp,
-        fontWeight = FontWeight.Medium,
-        lineHeight = 24.sp,
-        letterSpacing = 0.1.sp,
-        color = TextPrimary
-    ),
-
-    // Body text - 16sp (minimum for outdoor readability)
-    bodyLarge = TextStyle(
-        fontSize = 16.sp,
-        fontWeight = FontWeight.Normal,
-        lineHeight = 22.sp,
-        letterSpacing = 0.15.sp,
-        color = TextPrimary
-    ),
-
-    // Secondary body - 14sp
-    bodyMedium = TextStyle(
-        fontSize = 14.sp,
-        fontWeight = FontWeight.Normal,
-        lineHeight = 20.sp,
-        letterSpacing = 0.25.sp,
-        color = TextSecondary
-    ),
-
-    // Captions - 12sp (only for non-critical info)
-    bodySmall = TextStyle(
-        fontSize = 12.sp,
-        fontWeight = FontWeight.Normal,
-        lineHeight = 16.sp,
-        letterSpacing = 0.4.sp,
-        color = TextSecondary
-    ),
-
-    // Button text - 16sp bold
-    labelLarge = TextStyle(
-        fontSize = 16.sp,
-        fontWeight = FontWeight.Bold,
-        lineHeight = 22.sp,
-        letterSpacing = 0.1.sp,
-        color = TextPrimary
-    ),
-
-    // Small labels - 14sp
-    labelMedium = TextStyle(
-        fontSize = 14.sp,
-        fontWeight = FontWeight.Medium,
-        lineHeight = 18.sp,
-        letterSpacing = 0.5.sp,
-        color = TextSecondary
-    )
-)
-
-
-// ============================================
-// THEME COMPOSABLE
-// ============================================
-
-@Composable
-fun RadarCountTheme(
-    content: @Composable () -> Unit
-) {
-    // Light, like the Karoo's own screens
-    MaterialTheme(
-        colorScheme = KarooColorScheme,
-        typography = KarooTypography,
-        content = content
-    )
-}
-
-
-// ============================================
-// HELPER EXTENSIONS
-// ============================================
+private fun style(sizeSp: Int, lineSp: Int, weight: FontWeight = FontWeight.Normal, trackingSp: Double, color: Color = Color.Unspecified) =
+    TextStyle(fontSize = sizeSp.sp, lineHeight = lineSp.sp, fontWeight = weight, letterSpacing = trackingSp.sp, color = color)
 
 /**
- * Get status color for threat level.
- * Uses traffic light system: green -> orange -> red
+ * Only the styles the screens use are set; the rest stay Material's. Body
+ * text is 16 sp so it reads at arm's length on a Karoo, and text buttons
+ * (labelLarge) match it in bold. The body styles carry their colours, so
+ * text drawn in them, the dropdowns' labels and menu items included, is
+ * ink or muted ink without each caller saying so.
  */
-object RadarColors {
-    val safe = StatusSafe
-    val caution = StatusCaution
-    val danger = StatusDanger
-    val neutral = StatusNeutral
-    val accent = Accent
-    val background = Background
-    val surface = Surface
-    val textPrimary = TextPrimary
-    val textSecondary = TextSecondary
+private val KarooType = Typography(
+    bodyLarge = style(16, 22, trackingSp = 0.1, color = Ink),
+    bodySmall = style(12, 16, trackingSp = 0.4, color = InkMuted),
+    labelLarge = style(16, 24, FontWeight.Bold, trackingSp = 0.1),
+    labelMedium = style(14, 20, FontWeight.Medium, trackingSp = 0.5, color = InkMuted)
+)
+
+/** Light, like the Karoo's own screens. */
+@Composable
+fun RadarCountTheme(content: @Composable () -> Unit) {
+    MaterialTheme(colorScheme = KarooColorScheme, typography = KarooType, content = content)
 }

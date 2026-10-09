@@ -91,7 +91,7 @@ object FieldBitmaps {
         val left = ((width - (iconPx + gapPx + text.width(HEADER_TEXT, FieldFont.HEADER, sizePx))) / 2).roundToInt()
         val iconTop = ((headerPx - iconPx) / 2).roundToInt()
         val icon = checkNotNull(context.getDrawable(R.drawable.ic_radar)).mutate()
-        icon.setTint(FieldColors.SAFE)
+        icon.setTint(FieldColors.RADAR_HEADER_GREEN)
         icon.setBounds(left, iconTop, left + iconPx, iconTop + iconPx)
         icon.draw(canvas)
         val baseline = (headerPx + text.bandHeight(FieldFont.HEADER) * sizePx) / 2
