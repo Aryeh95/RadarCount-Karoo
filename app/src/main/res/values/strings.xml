@@ -3,7 +3,6 @@
     <string name="app_name">RadarCount</string>
     <string name="extension_name">RadarCount</string>
 
-    <!-- Data types -->
     <string name="datatype_count">Vehicles</string>
     <string name="datatype_count_desc">Vehicles passed this ride</string>
     <string name="datatype_speed">Vehicle Speed</string>
@@ -16,7 +15,6 @@
     <string name="datatype_rate_desc">Vehicles passed per hour of ride time</string>
     <string name="combo_count">COUNT</string>
     <string name="combo_dist">DIST</string>
-    <string name="combo_speed">SPEED</string>
     <string name="combo_speed_rel">REL SPEED</string>
     <string name="combo_speed_abs">ABS SPEED</string>
     <string name="combo_vehicles">VEHICLES</string>
@@ -24,30 +22,19 @@
     <!-- The Vehicle Speed header when it shows relative speed; absolute, the default, uses the plain field name. -->
     <string name="header_speed_rel">Vehicle Rel Speed</string>
     <string name="combo_speed_passed">PASSED</string>
+    <string name="field_no_radar">NO RADAR</string>
 
-    <!-- Widget text -->
-    <string name="widget_count_label">PASSED</string>
-    <string name="widget_approach_label">APPROACH %s</string>
-    <string name="widget_approach_short">APPR %s</string>
-    <string name="widget_absolute_label">Abs %1$d %2$s</string>
-    <string name="widget_no_vehicle">No vehicle</string>
-    <string name="widget_distance_label">CLOSEST</string>
-    <string name="widget_road_clear">Road is clear</string>
-    <string name="widget_no_radar">NO RADAR</string>
-    <string name="widget_behind">Behind</string>
-    <plurals name="widget_vehicles_behind">
-        <item quantity="one">%d vehicle behind</item>
-        <item quantity="other">%d vehicles behind</item>
-    </plurals>
+    <string name="status_off">No radar</string>
+    <string name="status_searching">Finding radar…</string>
+    <string name="status_lost">Radar lost</string>
+    <string name="status_clear">Nothing behind</string>
+    <string name="status_car_behind">Car behind</string>
+    <string name="status_passed">PASSED</string>
+    <string name="status_approach">APPROACH %s</string>
+    <string name="status_road_speed">Abs %1$d %2$s</string>
+    <string name="status_hint">Add the RadarCount data fields to a ride page. Rides record mybiketraffic.com-compatible FIT fields automatically.</string>
+    <string name="status_reset_count">Reset count</string>
 
-    <!-- Dashboard -->
-    <string name="dashboard_not_connected">No radar</string>
-    <string name="dashboard_searching">Searching…</string>
-    <string name="dashboard_clear">Clear</string>
-    <string name="dashboard_connection_lost">Radar lost</string>
-    <string name="dashboard_hint">Add the RadarCount data fields to a ride page. Rides record mybiketraffic.com-compatible FIT fields automatically.</string>
-    <string name="dashboard_reset_count">Reset count</string>
-    <string name="settings_title">Settings</string>
     <string name="settings_units">Units</string>
     <string name="settings_units_auto">Karoo profile</string>
     <string name="settings_units_metric">Metric</string>
@@ -69,7 +56,6 @@
     <string name="settings_pass_hold_hint">After a car passes, keep its approach speed on screen, greyed and marked PASSED, for this long. A car whose speed is measured replaces it at once. Cars seen for under 2 s have no speed, and none is shown. Speeds are ballpark figures.</string>
     <string name="settings_field_header">Header</string>
     <string name="settings_field_header_hint">The field\'s icon and name at the top. Off gives the value the whole field.</string>
-    <string name="widget_relative_label">Rel %1$d %2$s</string>
     <string name="settings_sensitivity">Count sensitivity</string>
     <string name="settings_sensitivity_strict">Strict</string>
     <string name="settings_sensitivity_normal">Normal</string>
@@ -79,7 +65,6 @@
     <string name="settings_sensitivity_normal_note">Recommended. Matches the rule mybiketraffic.com uses, so device and site agree.</string>
     <string name="settings_sensitivity_relaxed_note">Catches wide passes on open roads; may count a car that stops close behind you.</string>
     <string name="settings_reset_on_ride_start">Reset count when a ride starts</string>
-    <string name="settings_radar_field">Radar field</string>
     <string name="tab_status">Status</string>
     <string name="tab_settings">Setup</string>
     <string name="tab_radar_field">Field</string>
@@ -105,7 +90,6 @@
     <string name="settings_reset_defaults">Restore defaults</string>
     <string name="settings_back">Back</string>
     <string name="settings_version">Version %s</string>
-    <string name="settings_developer">Developer</string>
     <string name="settings_trace_tracks">Record track trace</string>
     <string name="settings_trace_tracks_hint">Writes one line per radar track decision to a file during rides, for diagnosing counts. Files are in the app\'s private storage under tracks/.</string>
     <string name="settings_developer_hide">Hide developer settings</string>

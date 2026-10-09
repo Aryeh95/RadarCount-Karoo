@@ -59,16 +59,16 @@ fun StatusTab(extension: RadarCountExtension?, onResetCount: () -> Unit) {
         StatusLine(status, imperial)
         Spacer(modifier = Modifier.height(20.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            Stat(stringResource(R.string.widget_count_label), passed.toString())
+            Stat(stringResource(R.string.status_passed), passed.toString())
             ApproachStat(closingMps.takeIf { status.traffic != null }, riderMps, imperial)
         }
         Spacer(modifier = Modifier.height(12.dp))
         TextButton(onClick = onResetCount) {
-            Text(stringResource(R.string.dashboard_reset_count), color = KarooSlate)
+            Text(stringResource(R.string.status_reset_count), color = KarooSlate)
         }
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = stringResource(R.string.dashboard_hint),
+            text = stringResource(R.string.status_hint),
             style = MaterialTheme.typography.bodySmall,
             color = InkMuted,
             textAlign = TextAlign.Center
@@ -76,17 +76,17 @@ fun StatusTab(extension: RadarCountExtension?, onResetCount: () -> Unit) {
     }
 }
 
-/** The radar's state in a word, or the nearest car's distance, coloured by its threat level. */
+/** The radar's state in a word or two, or the nearest car's distance, coloured by its threat level. */
 @Composable
 private fun StatusLine(status: RadarStatus, imperial: Boolean) {
     val text = when (status) {
-        RadarStatus.Off -> stringResource(R.string.dashboard_not_connected)
-        RadarStatus.Searching -> stringResource(R.string.dashboard_searching)
-        RadarStatus.Lost -> stringResource(R.string.dashboard_connection_lost)
+        RadarStatus.Off -> stringResource(R.string.status_off)
+        RadarStatus.Searching -> stringResource(R.string.status_searching)
+        RadarStatus.Lost -> stringResource(R.string.status_lost)
         is RadarStatus.Live -> when {
-            status.vehicles == 0 -> stringResource(R.string.dashboard_clear)
+            status.vehicles == 0 -> stringResource(R.string.status_clear)
             status.nearestM > 0 -> Units.distanceLabel(status.nearestM, imperial)
-            else -> stringResource(R.string.widget_behind)
+            else -> stringResource(R.string.status_car_behind)
         }
     }
     val color = if (status is RadarStatus.Live) threatColor(status.level) else InkMuted
@@ -107,9 +107,9 @@ private fun ApproachStat(closingMps: Double?, riderMps: Double, imperial: Boolea
     val closing = closingMps?.let { RadarCountExtension.toUserSpeedUnits(it, imperial) }
     val road = closing?.plus(RadarCountExtension.toUserSpeedUnits(riderMps, imperial))
     Stat(
-        label = stringResource(R.string.widget_approach_label, unit),
+        label = stringResource(R.string.status_approach, unit),
         value = closing?.toString() ?: "--",
-        footer = road?.let { stringResource(R.string.widget_absolute_label, it, unit) } ?: ""
+        footer = road?.let { stringResource(R.string.status_road_speed, it, unit) } ?: ""
     )
 }
 

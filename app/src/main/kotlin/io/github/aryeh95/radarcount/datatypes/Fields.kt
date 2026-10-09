@@ -51,7 +51,7 @@ private fun valueFrame(
  * the Karoo's own icons are without data; the Radar field has none.
  */
 private fun noRadarFrame(context: Context, config: ViewConfig, density: Float, settings: Settings, header: Header? = null): FieldFrame {
-    val text = context.getString(R.string.widget_no_radar)
+    val text = context.getString(R.string.field_no_radar)
     if (header == null) {
         val image = FieldBitmaps.value(text, null, FieldColors.NO_RADAR_GREY, FieldColors.NO_RADAR_GREY, config, density)
         return FieldViews.value(context, null, image, config.alignment)
