@@ -25,10 +25,10 @@
     <string name="field_no_radar">NO RADAR</string>
 
     <string name="status_off">No radar</string>
-    <string name="status_searching">Finding radar…</string>
+    <string name="status_searching">Searching…</string>
     <string name="status_lost">Radar lost</string>
-    <string name="status_clear">Nothing behind</string>
-    <string name="status_car_behind">Car behind</string>
+    <string name="status_clear">Clear</string>
+    <string name="status_car_behind">Behind</string>
     <string name="status_passed">PASSED</string>
     <string name="status_approach">APPROACH %s</string>
     <string name="status_road_speed">Abs %1$d %2$s</string>

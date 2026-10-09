@@ -31,6 +31,7 @@ import io.github.aryeh95.radarcount.ui.theme.ApproachAmber
 import io.github.aryeh95.radarcount.ui.theme.CardWhite
 import io.github.aryeh95.radarcount.ui.theme.ClearGreen
 import io.github.aryeh95.radarcount.ui.theme.DangerRed
+import io.github.aryeh95.radarcount.ui.theme.IdleGrey
 import io.github.aryeh95.radarcount.ui.theme.Ink
 import io.github.aryeh95.radarcount.ui.theme.InkMuted
 import io.github.aryeh95.radarcount.ui.theme.KarooSlate
@@ -89,7 +90,7 @@ private fun StatusLine(status: RadarStatus, imperial: Boolean) {
             else -> stringResource(R.string.status_car_behind)
         }
     }
-    val color = if (status is RadarStatus.Live) threatColor(status.level) else InkMuted
+    val color = if (status is RadarStatus.Live) threatColor(status.level) else IdleGrey
     Text(text = text, fontSize = 28.sp, fontWeight = FontWeight.Bold, color = color, textAlign = TextAlign.Center)
 }
 

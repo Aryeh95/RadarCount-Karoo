@@ -90,6 +90,7 @@ import io.github.aryeh95.radarcount.engine.RadarStatus
 import io.github.aryeh95.radarcount.ui.theme.BackButton
 import io.github.aryeh95.radarcount.ui.theme.CardInside
 import io.github.aryeh95.radarcount.ui.theme.CardWhite
+import io.github.aryeh95.radarcount.ui.theme.IdleGrey
 import io.github.aryeh95.radarcount.ui.theme.Ink
 import io.github.aryeh95.radarcount.ui.theme.InkMuted
 import io.github.aryeh95.radarcount.ui.theme.KarooSlate
@@ -161,7 +162,7 @@ fun GeneralSettingsTab(repository: SettingsRepository) {
         Text(
             text = stringResource(R.string.settings_version, BuildConfig.VERSION_NAME),
             style = MaterialTheme.typography.bodySmall,
-            color = InkMuted,
+            color = IdleGrey,
             modifier = Modifier
                 .padding(4.dp)
                 .clickable {

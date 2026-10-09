@@ -8,7 +8,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import io.github.aryeh95.radarcount.datatypes.render.FieldColors
 
 /** Behind the cards: the neutral grey of the Karoo's and Barberfish's settings screens. */
 val ScreenGrey = Color(0xFFF4F4F4)
@@ -28,14 +27,17 @@ val InkMuted = Color(0xFF636363)
 /** The Karoo's dark slate, for buttons, switches and the field cards' icons. */
 val KarooSlate = Color(0xFF214559)
 
-/** The Status tab with no car behind: the Radar field's header green, so the app and the field agree. */
-val ClearGreen = Color(FieldColors.RADAR_HEADER_GREEN)
+/** The Status tab with no car behind. */
+val ClearGreen = Color(0xFF00C853)
 
-/** The Status tab with a car behind. Darker than a signal orange so it still reads on white. */
-val ApproachAmber = Color(0xFFE07000)
+/** The Status tab with a car behind, below the top threat level. */
+val ApproachAmber = Color(0xFFFF9100)
 
 /** The Status tab at the radar's highest threat level. */
-val DangerRed = Color(0xFFD62828)
+val DangerRed = Color(0xFFFF1744)
+
+/** The Status tab while no radar is live, and the version line under the settings. */
+val IdleGrey = Color(0xFF666666)
 
 // The same scheme other Karoo extensions use, so the screens look like the
 // Karoo's own: Material 3 light with a dark slate primary. Every surface and
@@ -71,17 +73,17 @@ private fun style(sizeSp: Int, lineSp: Int, weight: FontWeight = FontWeight.Norm
     TextStyle(fontSize = sizeSp.sp, lineHeight = lineSp.sp, fontWeight = weight, letterSpacing = trackingSp.sp, color = color)
 
 /**
- * Only the styles the screens use are set; the rest stay Material's. Body
- * text is 16 sp so it reads at arm's length on a Karoo, and text buttons
- * (labelLarge) match it in bold. The body styles carry their colours, so
- * text drawn in them, the dropdowns' labels and menu items included, is
- * ink or muted ink without each caller saying so.
+ * Set only for the styles these screens draw with; Material fills in the
+ * rest. Toggle and card titles, dropdown values and menu items are
+ * bodyLarge, hints and captions bodySmall, text buttons labelLarge and
+ * the Status tab's stat labels labelMedium. Colours ride along in the styles, so the dropdowns, whose
+ * text this app does not colour itself, come out ink and muted ink too.
  */
 private val KarooType = Typography(
-    bodyLarge = style(16, 22, trackingSp = 0.1, color = Ink),
+    bodyLarge = style(16, 22, trackingSp = 0.15, color = Ink),
     bodySmall = style(12, 16, trackingSp = 0.4, color = InkMuted),
-    labelLarge = style(16, 24, FontWeight.Bold, trackingSp = 0.1),
-    labelMedium = style(14, 20, FontWeight.Medium, trackingSp = 0.5, color = InkMuted)
+    labelLarge = style(16, 22, FontWeight.Bold, trackingSp = 0.1, color = Ink),
+    labelMedium = style(14, 18, FontWeight.Medium, trackingSp = 0.5, color = InkMuted)
 )
 
 /** Light, like the Karoo's own screens. */

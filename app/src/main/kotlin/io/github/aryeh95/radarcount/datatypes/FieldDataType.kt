@@ -29,6 +29,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
 
+private const val TAG = "RadarCountField"
+
 /**
  * Base class for the data fields. Each frame is drawn into a bitmap with
  * exact glyph metrics (see render.FieldBitmaps) and sent as RemoteViews
@@ -45,8 +47,6 @@ abstract class FieldDataType(
 ) : DataTypeImpl(RadarCountExtension.EXTENSION_ID, typeId) {
 
     companion object {
-        private const val TAG = "RadarCountField"
-
         /** The Karoo takes at most one view update a second. */
         private const val FRAME_PERIOD_MS = 1000L
         /**
@@ -59,11 +59,12 @@ abstract class FieldDataType(
         private const val PREVIEW_CYCLE_MS = 2000L
 
         /**
-         * The sample the previews draw: one car 120 m back, closing at
-         * 20 m/s on a rider doing 7 m/s, 48 cars into an hour's ride.
+         * The sample the previews draw: two cars behind at threat level 2,
+         * the nearer 174 m back and closing at 20 m/s on a rider doing
+         * 7 m/s, 48 cars into an hour's ride.
          */
         val PREVIEW_INPUT = RenderInput(
-            state = RadarStatus.Live(level = 1, vehicles = 1, nearestM = 120),
+            state = RadarStatus.Live(level = 2, vehicles = 2, nearestM = 174),
             passCount = 48,
             closingSpeedMps = 20.0,
             riderSpeedMps = 7.0,

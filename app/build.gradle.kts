@@ -3,6 +3,10 @@ import com.android.build.api.variant.impl.VariantOutputImpl
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    // karoo-ext's inline addConsumer<T>() decodes events in our own code;
+    // with this plugin they compile to direct serializer calls instead of
+    // a reflective lookup at run time.
+    id("org.jetbrains.kotlin.plugin.serialization")
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
@@ -90,6 +94,7 @@ dependencies {
 
     implementation("io.hammerhead:karoo-ext:1.1.9")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
     implementation("androidx.datastore:datastore-preferences:1.1.2")
 
     // The settings app
@@ -103,7 +108,6 @@ dependencies {
     // Not used directly, but karoo-ext and Compose on their own pull in older
     // versions of these than the app has shipped with; hold them there.
     constraints {
-        implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
         implementation("androidx.core:core:1.15.0")
         implementation("androidx.lifecycle:lifecycle-runtime:2.8.7")
     }
