@@ -27,10 +27,9 @@ sealed interface RadarStatus {
         companion object {
             val CLEAR = Live(level = 0, vehicles = 0, nearestM = 0)
 
+            /** What [packet] shows. A raised level with no range yet is still traffic: one vehicle, nearestM 0 for unknown. */
             fun of(packet: RadarPacket): Live = when {
                 packet.rangesM.isNotEmpty() -> Live(packet.level, packet.rangesM.size, packet.rangesM.min())
-                // A car is often flagged a packet or two before its range
-                // comes through: show it as one car at an unknown distance.
                 packet.level > 0 -> Live(packet.level, vehicles = 1, nearestM = 0)
                 else -> CLEAR
             }

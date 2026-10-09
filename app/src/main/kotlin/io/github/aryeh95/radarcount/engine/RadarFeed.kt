@@ -9,7 +9,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Listens to the Karoo's RADAR stream and turns each packet into the
@@ -20,10 +19,10 @@ import java.util.concurrent.atomic.AtomicReference
  * lock, so two packets delivered back to back can never be applied out
  * of order or half-applied.
  */
-class RadarEngine(private val karooSystem: KarooSystemService) {
+class RadarFeed(private val karoo: KarooSystemService) {
 
     private companion object {
-        const val TAG = "RadarEngine"
+        const val TAG = "RadarFeed"
     }
 
     private val parser = RadarParser(
@@ -38,8 +37,8 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
     )
     private val targetTracker = TargetTracker()
     private val lock = Any()
-    /** The RADAR stream's consumer id while it is open. */
-    private val consumer = AtomicReference<String?>(null)
+    /** The RADAR stream's consumer id while it is open. Read and written under [lock]. */
+    private var streamId: String? = null
     /** Set by the first packet and never cleared, so a later dropout reads as Lost rather than Off. */
     private var heardRadar = false
     /** False while the ride is paused: passes are still tracked but not counted, since the FIT file cannot carry them. */
@@ -102,15 +101,17 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
     /** Open the RADAR stream. Paired with [stop] by the extension's sensor demand count. */
     fun start() {
         Log.i(TAG, "Opening the RADAR stream")
-        consumer.set(karooSystem.addConsumer(OnStreamState.StartStreaming(DataType.Type.RADAR)) { event: OnStreamState ->
+        val id = karoo.addConsumer(OnStreamState.StartStreaming(DataType.Type.RADAR)) { event: OnStreamState ->
             synchronized(lock) { onStreamState(event.state) }
-        })
+        }
+        synchronized(lock) { streamId = id }
     }
 
     /** Close the RADAR stream and forget every target; the pass count stays. */
     fun stop() {
         Log.i(TAG, "Closing the RADAR stream")
-        consumer.getAndSet(null)?.let { karooSystem.removeConsumer(it) }
+        val id = synchronized(lock) { streamId.also { streamId = null } }
+        if (id != null) karoo.removeConsumer(id)
         synchronized(lock) { forgetTargets(RadarStatus.Off, fault = false) }
     }
 
@@ -124,7 +125,8 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
                 _lastPass.value = null
                 _status.value = RadarStatus.Searching
             }
-            is StreamState.Idle -> Log.d(TAG, "RADAR stream idle")
+            // Nothing to show until it streams, searches or fails.
+            is StreamState.Idle -> Unit
         }
     }
 

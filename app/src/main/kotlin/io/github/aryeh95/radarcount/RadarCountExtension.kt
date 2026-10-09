@@ -11,7 +11,7 @@ import io.github.aryeh95.radarcount.datatypes.ComboDataType
 import io.github.aryeh95.radarcount.datatypes.VehicleCountDataType
 import io.github.aryeh95.radarcount.datatypes.VehiclesPerHourDataType
 import io.github.aryeh95.radarcount.engine.FitRecordWriter
-import io.github.aryeh95.radarcount.engine.RadarEngine
+import io.github.aryeh95.radarcount.engine.RadarFeed
 import io.hammerhead.karooext.KarooSystemService
 import io.hammerhead.karooext.extension.KarooExtension
 import io.hammerhead.karooext.internal.Emitter
@@ -89,7 +89,7 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
 
     private lateinit var karoo: KarooSystemService
 
-    lateinit var radarEngine: RadarEngine
+    lateinit var radarFeed: RadarFeed
         private set
 
     lateinit var settingsRepository: SettingsRepository
@@ -168,8 +168,8 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
         Log.i(TAG, "RadarCount ${BuildConfig.VERSION_NAME} starting")
 
         karoo = KarooSystemService(this)
-        radarEngine = RadarEngine(karoo)
-        settingsRepository = SettingsRepository.getInstance(this)
+        radarFeed = RadarFeed(karoo)
+        settingsRepository = SettingsRepository.of(this)
 
         imperialUnits = combine(profileImperial, settings) { profile, s ->
             when (s.units) {
@@ -180,7 +180,7 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
         }.stateIn(mainScope, SharingStarted.Eagerly, false)
 
         mainScope.launch {
-            settings.collect { radarEngine.setSensitivity(it.sensitivity.closeThresholdM) }
+            settings.collect { radarFeed.setSensitivity(it.sensitivity.closeThresholdM) }
         }
 
         current = this
@@ -200,9 +200,9 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
             }
         }
         connectionConsumers += karoo.addConsumer(UserProfile.Params) { profile: UserProfile ->
-            val imperial = profile.preferredUnit.distance == UserProfile.PreferredUnit.UnitType.IMPERIAL
-            Log.i(TAG, "Karoo profile distance unit is ${if (imperial) "imperial" else "metric"}")
-            profileImperial.value = imperial
+            val distanceUnit = profile.preferredUnit.distance
+            Log.i(TAG, "Profile distance unit: $distanceUnit")
+            profileImperial.value = distanceUnit == UserProfile.PreferredUnit.UnitType.IMPERIAL
         }
         synchronized(sensorLock) {
             if (sensorDemand > 0) startSensorsLocked()
@@ -245,18 +245,18 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
         if (sensorsRunning) return
         sensorsRunning = true
         Log.i(TAG, "Sensors on")
-        radarEngine.start()
+        radarFeed.start()
         // The rider's speed, for a passing car's absolute speed.
         sensorConsumers += karoo.addConsumer(OnStreamState.StartStreaming(DataType.Type.SPEED)) { event: OnStreamState ->
             (event.state as? StreamState.Streaming)?.dataPoint?.singleValue?.let { speedMs ->
                 _riderSpeedMps.value = speedMs
-                radarEngine.riderSpeedMps = speedMs
+                radarFeed.riderSpeedMps = speedMs
             }
         }
         // The rider's heading, so the pass counter can tell a car that went
         // straight on at a turn from one that passed.
         sensorConsumers += karoo.addConsumer(OnLocationChanged.Params) { event: OnLocationChanged ->
-            event.orientation?.let { radarEngine.updateHeading(it) }
+            event.orientation?.let { radarFeed.updateHeading(it) }
         }
     }
 
@@ -264,10 +264,10 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
         if (!sensorsRunning) return
         sensorsRunning = false
         Log.i(TAG, "Sensors off")
-        radarEngine.stop()
+        radarFeed.stop()
         sensorConsumers.releaseConsumers()
         _riderSpeedMps.value = 0.0
-        radarEngine.riderSpeedMps = 0.0
+        radarFeed.riderSpeedMps = 0.0
     }
 
     /**
@@ -275,12 +275,12 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
      * Pause/resume re-emits Recording, so only reset on Idle -> Recording.
      */
     private fun onRecording() {
-        radarEngine.setCountingEnabled(true)
+        radarFeed.setCountingEnabled(true)
         if (!rideRecording) {
             Log.i(TAG, "Ride started")
             rideRecording = true
             startTrackTrace()
-            if (settings.value.resetOnRideStart) radarEngine.resetPassCounts()
+            if (settings.value.resetOnRideStart) radarFeed.resetPassCounts()
             acquireRadar()
         }
         resumeRideTime()
@@ -292,13 +292,13 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
      */
     private fun onPaused(auto: Boolean) {
         Log.d(TAG, if (auto) "Ride auto-paused" else "Ride paused")
-        radarEngine.setCountingEnabled(false)
+        radarFeed.setCountingEnabled(false)
         pauseRideTime()
     }
 
     private fun onIdle() {
         Log.i(TAG, "No ride in progress")
-        radarEngine.setCountingEnabled(true)
+        radarFeed.setCountingEnabled(true)
         pauseRideTime()
         rideTimeBaseMs = 0L
         _rideTimeMs.value = 0L
@@ -327,7 +327,7 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
             w.write("kind,ms,first,min,last,samples,durMs,threat,speedMps,decision\n")
             synchronized(traceLock) { traceWriter = w }
             // The sink runs inside the tracker's update; it must never throw into it.
-            radarEngine.setTrace { line ->
+            radarFeed.setTrace { line ->
                 try {
                     synchronized(traceLock) { traceWriter?.let { it.write(line); it.newLine() } }
                 } catch (_: Exception) {
@@ -346,7 +346,7 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
     }
 
     private fun stopTrackTrace() {
-        radarEngine.setTrace(null)
+        radarFeed.setTrace(null)
         synchronized(traceLock) {
             runCatching { traceWriter?.close() }
             traceWriter = null
@@ -402,9 +402,9 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
         val mbtPassingSpeedField = DeveloperField(5, FIT_BASE_TYPE_UINT8, "passing_speed", "")
         val mbtPassingSpeedAbsField = DeveloperField(6, FIT_BASE_TYPE_UINT8, "passing_speedabs", "")
 
-        val threatField = DeveloperField(7, FIT_BASE_TYPE_ENUM, "radar_threat_level", "")
-        val vehicleCountField = DeveloperField(8, FIT_BASE_TYPE_UINT8, "radar_vehicle_count", "")
-        val nearestDistanceField = DeveloperField(9, FIT_BASE_TYPE_UINT16, "radar_nearest_distance", "m")
+        val levelField = DeveloperField(7, FIT_BASE_TYPE_ENUM, "radar_threat_level", "")
+        val carsField = DeveloperField(8, FIT_BASE_TYPE_UINT8, "radar_vehicle_count", "")
+        val nearestField = DeveloperField(9, FIT_BASE_TYPE_UINT16, "radar_nearest_distance", "m")
         // Ranges of the 2nd-4th targets, for tuning the pass counter offline
         val extraRangeFields = listOf(
             DeveloperField(10, FIT_BASE_TYPE_UINT16, "radar_range_2", "m"),
@@ -426,10 +426,10 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
         var sessionTotal = -1
 
         fun writeSecond() {
-            val engine = radarEngine
-            val packet = engine.packet
+            val feed = radarFeed
+            val packet = feed.packet
             val ranges = packet?.rangesM?.sorted().orEmpty()
-            val passTotal = engine.passCount.value
+            val passTotal = feed.passCount.value
 
             val record = writer.next(FitRecordWriter.Sample(
                 connected = packet != null,
@@ -438,7 +438,7 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
                 passTotal = passTotal,
                 // The FIT field has no "unknown", and the Garmin app writes 0
                 // for a non-closing target, so an unknown speed writes 0 too.
-                closingMps = engine.closingSpeedMps.value ?: 0.0,
+                closingMps = feed.closingSpeedMps.value ?: 0.0,
                 riderMps = _riderSpeedMps.value,
                 imperial = imperialUnits.value
             ))
@@ -450,10 +450,10 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
             values.add(FieldValue(mbtPassingSpeedAbsField, record.passingSpeedAbs.toDouble()))
 
             if (packet != null) {
-                values.add(FieldValue(threatField, packet.level.toDouble()))
-                values.add(FieldValue(vehicleCountField, ranges.size.toDouble()))
+                values.add(FieldValue(levelField, packet.level.toDouble()))
+                values.add(FieldValue(carsField, ranges.size.toDouble()))
                 if (ranges.isNotEmpty()) {
-                    values.add(FieldValue(nearestDistanceField, ranges[0].toDouble()))
+                    values.add(FieldValue(nearestField, ranges[0].toDouble()))
                     for ((i, field) in extraRangeFields.withIndex()) {
                         ranges.getOrNull(i + 1)?.let { values.add(FieldValue(field, it.toDouble())) }
                     }
@@ -461,14 +461,14 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
             }
             values.add(FieldValue(mbtCurrentField, passTotal.toDouble()))
 
-            values.add(FieldValue(dbgClearsField, engine.trackerClears.toDouble()))
-            val hdg = engine.lastHeadingDeg
+            values.add(FieldValue(dbgClearsField, feed.trackerClears.toDouble()))
+            val hdg = feed.lastHeadingDeg
             if (hdg >= 0.0) values.add(FieldValue(dbgHeadingField, hdg.roundToInt().coerceIn(0, 359).toDouble()))
-            values.add(FieldValue(dbgPacketsField, engine.takePacketCount().coerceAtMost(255).toDouble()))
-            values.add(FieldValue(dbgTurnsField, engine.turnCount.toDouble()))
-            values.add(FieldValue(dbgRejTurnField, engine.rejectedTurnedAway.toDouble()))
-            values.add(FieldValue(dbgRejCrossField, engine.rejectedCrossingAfterTurn.toDouble()))
-            values.add(FieldValue(dbgRejNoPassField, engine.rejectedNotPass.toDouble()))
+            values.add(FieldValue(dbgPacketsField, feed.takePacketCount().coerceAtMost(255).toDouble()))
+            values.add(FieldValue(dbgTurnsField, feed.turnCount.toDouble()))
+            values.add(FieldValue(dbgRejTurnField, feed.rejectedTurnedAway.toDouble()))
+            values.add(FieldValue(dbgRejCrossField, feed.rejectedCrossingAfterTurn.toDouble()))
+            values.add(FieldValue(dbgRejNoPassField, feed.rejectedNotPass.toDouble()))
 
             emitter.onNext(WriteToRecordMesg(values = values))
 
@@ -478,25 +478,30 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
             }
         }
 
-        val job = CoroutineScope(Dispatchers.Default).launch {
-            while (isActive) {
-                delay(FIT_WRITE_INTERVAL_MS)
-                if (destroyed) continue
-                // One bad second must not end the ride's radar data.
-                try {
-                    writeSecond()
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    Log.w(TAG, "Skipped a FIT record: ${e.message}")
-                }
-            }
-        }
-
+        val ticker = everySecond(::writeSecond)
         emitter.setCancellable {
-            Log.i(TAG, "Ride file closed")
-            job.cancel()
+            Log.i(TAG, "Ride file closed, radar released")
+            ticker.cancel()
             releaseRadar()
+        }
+    }
+
+    /**
+     * Calls [write] once a second, the first time a second after the ride
+     * file opens, on a background thread so a slow write never holds up the
+     * fields. It outlives [mainScope], so it goes quiet once the service is
+     * destroyed rather than relying on the Karoo to cancel it. A second
+     * that throws is logged and skipped, so one bad record does not end the
+     * ride's radar data.
+     */
+    private fun everySecond(write: () -> Unit): Job = CoroutineScope(Dispatchers.Default).launch {
+        while (true) {
+            delay(FIT_WRITE_INTERVAL_MS)
+            if (destroyed) continue
+            runCatching(write).onFailure { e ->
+                if (e !is Exception || e is CancellationException) throw e
+                Log.w(TAG, "No FIT record this second", e)
+            }
         }
     }
 
@@ -508,13 +513,13 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
         connected = false
         synchronized(sensorLock) { sensorDemand = 0 }
         releaseKaroo()
-        radarEngine.stop()
+        radarFeed.stop()
         destroyed = true
         mainScope.cancel()
         try {
             karoo.disconnect()
         } catch (e: Exception) {
-            Log.w(TAG, "Karoo disconnect failed: ${e.message}")
+            Log.w(TAG, "Karoo connection did not close cleanly", e)
         }
         super.onDestroy()
     }

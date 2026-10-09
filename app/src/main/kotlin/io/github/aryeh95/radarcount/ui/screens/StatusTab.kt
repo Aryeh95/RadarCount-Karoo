@@ -42,10 +42,10 @@ import io.github.aryeh95.radarcount.ui.theme.KarooSlate
  */
 @Composable
 fun StatusTab(extension: RadarCountExtension?, onResetCount: () -> Unit) {
-    val engine = extension?.radarEngine
-    val status = engine?.status?.collectAsState()?.value ?: RadarStatus.Off
-    val passed = engine?.passCount?.collectAsState()?.value ?: 0
-    val closingMps = engine?.closingSpeedMps?.collectAsState()?.value
+    val feed = extension?.radarFeed
+    val status = feed?.status?.collectAsState()?.value ?: RadarStatus.Off
+    val passed = feed?.passCount?.collectAsState()?.value ?: 0
+    val closingMps = feed?.closingSpeedMps?.collectAsState()?.value
     val riderMps = extension?.riderSpeedMps?.collectAsState()?.value ?: 0.0
     val imperial = extension?.imperialUnits?.collectAsState()?.value ?: false
 

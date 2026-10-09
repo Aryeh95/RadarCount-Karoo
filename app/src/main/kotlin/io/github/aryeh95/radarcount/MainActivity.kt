@@ -43,7 +43,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             RadarCountTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    val repository = SettingsRepository.getInstance(this)
+                    val repository = SettingsRepository.of(this)
                     MainScreen(
                         repository = repository,
                         extension = RadarCountExtension.running,

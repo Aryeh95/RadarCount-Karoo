@@ -18,7 +18,7 @@ private val Context.settingsStore: DataStore<Preferences> by preferencesDataStor
 
 /**
  * The settings, as one flow the extension service and the app screen both
- * follow. There is one per process, reached through [getInstance], so the
+ * follow. There is one per process, reached through [of], so the
  * store is read into a single shared flow rather than one per caller.
  */
 class SettingsRepository private constructor(context: Context) {
@@ -54,7 +54,7 @@ class SettingsRepository private constructor(context: Context) {
         private lateinit var appContext: Context
         private val shared by lazy { SettingsRepository(appContext) }
 
-        fun getInstance(context: Context): SettingsRepository {
+        fun of(context: Context): SettingsRepository {
             appContext = context.applicationContext
             return shared
         }

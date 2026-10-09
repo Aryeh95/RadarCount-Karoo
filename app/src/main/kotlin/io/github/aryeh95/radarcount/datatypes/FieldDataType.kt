@@ -139,16 +139,16 @@ abstract class FieldDataType(
         emitter.onNext(StreamState.Streaming(DataPoint(dataTypeId)))
 
     private fun liveInputs(): Flow<RenderInput> {
-        val engine = service.radarEngine
+        val feed = service.radarFeed
         return combine(
-            engine.status,
-            engine.passCount,
-            engine.closingSpeedMps,
+            feed.status,
+            feed.passCount,
+            feed.closingSpeedMps,
             service.riderSpeedMps,
             service.imperialUnits,
             service.settings,
             service.rideTimeMs,
-            engine.lastPass
+            feed.lastPass
         ) { values ->
             RenderInput(
                 state = values[0] as RadarStatus,

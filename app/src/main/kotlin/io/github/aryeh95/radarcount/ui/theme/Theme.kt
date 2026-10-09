@@ -69,17 +69,29 @@ private val KarooColorScheme = lightColorScheme(
     outlineVariant = Color(0xFFD6DDE3)
 )
 
-private fun style(sizeSp: Int, lineSp: Int, weight: FontWeight = FontWeight.Normal, trackingSp: Double, color: Color = Color.Unspecified) =
-    TextStyle(fontSize = sizeSp.sp, lineHeight = lineSp.sp, fontWeight = weight, letterSpacing = trackingSp.sp, color = color)
+private fun style(
+    sizeSp: Int,
+    lineSp: Int,
+    weight: FontWeight = FontWeight.Normal,
+    trackingSp: Double,
+    color: Color = Color.Unspecified,
+) = TextStyle(
+    fontSize = sizeSp.sp,
+    lineHeight = lineSp.sp,
+    fontWeight = weight,
+    letterSpacing = trackingSp.sp,
+    color = color,
+)
 
 /**
  * Set only for the styles these screens draw with; Material fills in the
  * rest. Toggle and card titles, dropdown values and menu items are
  * bodyLarge, hints and captions bodySmall, text buttons labelLarge and
- * the Status tab's stat labels labelMedium. Colours ride along in the styles, so the dropdowns, whose
- * text this app does not colour itself, come out ink and muted ink too.
+ * the Status tab's stat labels labelMedium. Colours ride along in the
+ * styles, so the dropdowns, whose text this app does not colour itself,
+ * come out ink and muted ink too.
  */
-private val KarooType = Typography(
+private val ScreenText = Typography(
     bodyLarge = style(16, 22, trackingSp = 0.15, color = Ink),
     bodySmall = style(12, 16, trackingSp = 0.4, color = InkMuted),
     labelLarge = style(16, 22, FontWeight.Bold, trackingSp = 0.1, color = Ink),
@@ -89,5 +101,5 @@ private val KarooType = Typography(
 /** Light, like the Karoo's own screens. */
 @Composable
 fun RadarCountTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = KarooColorScheme, typography = KarooType, content = content)
+    MaterialTheme(colorScheme = KarooColorScheme, typography = ScreenText, content = content)
 }
