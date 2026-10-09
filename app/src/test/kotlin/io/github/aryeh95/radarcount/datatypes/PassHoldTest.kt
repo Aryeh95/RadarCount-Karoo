@@ -3,9 +3,8 @@ package io.github.aryeh95.radarcount.datatypes
 import com.google.common.truth.Truth.assertThat
 import io.github.aryeh95.radarcount.data.PassHoldSetting
 import io.github.aryeh95.radarcount.data.Settings
-import io.github.aryeh95.radarcount.data.models.ThreatLevel
-import io.github.aryeh95.radarcount.data.models.WidgetState
 import io.github.aryeh95.radarcount.engine.FitRecordWriter
+import io.github.aryeh95.radarcount.engine.RadarStatus
 import io.github.aryeh95.radarcount.engine.TargetTracker
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -74,7 +73,7 @@ class PassHoldTest {
         assertThat(rider).isEqualTo(15)
     }
 
-    private val clear = FieldDataType.PREVIEW_INPUT.copy(state = WidgetState.Clear, closingSpeedMps = null, lastPass = pass)
+    private val clear = FieldDataType.PREVIEW_INPUT.copy(state = RadarStatus.Live.CLEAR, closingSpeedMps = null, lastPass = pass)
 
     @Test
     @DisplayName("the Vehicle Speed field's held pass, part of its redraw key, ends with the hold")
@@ -99,7 +98,7 @@ class PassHoldTest {
     @DisplayName("a held pass stays while the next car has no measured speed, and ends when it has one")
     fun nextCarWithoutSpeedKeepsHold() {
         val s = Settings(speedPassHold = PassHoldSetting.S10, comboPassHold = PassHoldSetting.S10)
-        val next = clear.copy(state = WidgetState.Threat(ThreatLevel.APPROACHING, 1, 60), settings = s)
+        val next = clear.copy(state = RadarStatus.Live(level = 1, vehicles = 1, nearestM = 60), settings = s)
         assertThat(ApproachSpeedDataType.held(next, at + 1_000)).isEqualTo(pass)
         assertThat(ComboDataType.held(next, at + 1_000)).isEqualTo(pass)
         val measured = next.copy(closingSpeedMps = 9.0)

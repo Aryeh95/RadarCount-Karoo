@@ -209,7 +209,7 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
         if (sensorsRunning) return
         sensorsRunning = true
         android.util.Log.i(TAG, "Starting radar/speed streams")
-        _radarEngine?.startStreaming()
+        _radarEngine?.start()
         startSpeedTracking()
         startHeadingTracking()
     }
@@ -218,7 +218,7 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
         if (!sensorsRunning) return
         sensorsRunning = false
         android.util.Log.i(TAG, "Stopping radar/speed streams")
-        _radarEngine?.stopStreaming()
+        _radarEngine?.stop()
         stopSpeedTracking()
         stopHeadingTracking()
         _riderSpeedMps.value = 0.0
@@ -440,15 +440,14 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
                 delay(FIT_WRITE_INTERVAL_MS)
                 try {
                     val engine = _radarEngine ?: continue
-                    val connected = engine.isRadarConnected.value
-                    val vehicleCount = engine.vehicleCount.value
-                    val nearestM = engine.nearestDistanceM.value
+                    val packet = engine.packet
+                    val ranges = packet?.rangesM?.sorted().orEmpty()
                     val passTotal = engine.passCount.value
 
                     val record = writer.next(FitRecordWriter.Sample(
-                        connected = connected,
-                        vehicleCount = vehicleCount,
-                        nearestM = nearestM,
+                        connected = packet != null,
+                        vehicleCount = ranges.size,
+                        nearestM = ranges.firstOrNull() ?: 0,
                         passTotal = passTotal,
                         // The FIT field has no "unknown", and the Garmin app writes 0
                         // for a non-closing target, so an unknown speed writes 0 too.
@@ -463,14 +462,13 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
                     values.add(FieldValue(mbtPassingSpeedField, record.passingSpeed.toDouble()))
                     values.add(FieldValue(mbtPassingSpeedAbsField, record.passingSpeedAbs.toDouble()))
 
-                    if (connected) {
-                        values.add(FieldValue(threatField, engine.threatLevel.value.ordinal.toDouble()))
-                        values.add(FieldValue(vehicleCountField, vehicleCount.toDouble()))
-                        if (vehicleCount > 0) {
-                            values.add(FieldValue(nearestDistanceField, nearestM.toDouble()))
-                            val sorted = engine.targetDistances.value.sorted()
+                    if (packet != null) {
+                        values.add(FieldValue(threatField, packet.level.toDouble()))
+                        values.add(FieldValue(vehicleCountField, ranges.size.toDouble()))
+                        if (ranges.isNotEmpty()) {
+                            values.add(FieldValue(nearestDistanceField, ranges[0].toDouble()))
                             for ((i, field) in extraRangeFields.withIndex()) {
-                                sorted.getOrNull(i + 1)?.let { values.add(FieldValue(field, it.toDouble())) }
+                                ranges.getOrNull(i + 1)?.let { values.add(FieldValue(field, it.toDouble())) }
                             }
                         }
                     }
@@ -518,7 +516,7 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
         stopRideStateTracking()
         stopUserProfileTracking()
 
-        _radarEngine?.destroy()
+        _radarEngine?.stop()
         _radarEngine = null
 
         serviceScope.cancel()

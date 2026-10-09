@@ -77,7 +77,6 @@ import io.github.aryeh95.radarcount.data.Settings
 import io.github.aryeh95.radarcount.data.SpeedSetting
 import io.github.aryeh95.radarcount.data.SettingsRepository
 import io.github.aryeh95.radarcount.data.UnitsSetting
-import io.github.aryeh95.radarcount.data.models.WidgetState
 import io.github.aryeh95.radarcount.datatypes.ApproachSpeedDataType
 import io.github.aryeh95.radarcount.datatypes.ClosestDistanceDataType
 import io.github.aryeh95.radarcount.datatypes.ComboDataType
@@ -87,6 +86,7 @@ import io.github.aryeh95.radarcount.datatypes.VehiclesPerHourDataType
 import io.github.aryeh95.radarcount.datatypes.render.FieldColors
 import io.github.aryeh95.radarcount.datatypes.render.FieldViews
 import io.github.aryeh95.radarcount.datatypes.renderField
+import io.github.aryeh95.radarcount.engine.RadarStatus
 import io.github.aryeh95.radarcount.ui.theme.BackButton
 import io.github.aryeh95.radarcount.ui.theme.RadarColors
 import io.hammerhead.karooext.models.ViewConfig
@@ -193,7 +193,7 @@ fun FieldsTab(repository: SettingsRepository, extension: RadarCountExtension?) {
     }
 
     val approaching = FieldDataType.PREVIEW_INPUT.copy(settings = settings, useImperial = imperial)
-    val clear = approaching.copy(state = WidgetState.Clear, closingSpeedMps = null)
+    val clear = approaching.copy(state = RadarStatus.Live.CLEAR, closingSpeedMps = null)
     val passed = clear.copy(lastPass = PREVIEW_PASS)
 
     TabColumn {

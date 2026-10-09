@@ -1,56 +1,51 @@
 package io.github.aryeh95.radarcount.engine
 
 import com.google.common.truth.Truth.assertThat
-import io.github.aryeh95.radarcount.data.models.ThreatLevel
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
 @DisplayName("RadarParser")
 class RadarParserTest {
 
-    private val ranges = (1..8).map { "range$it" }
-    private val parser = RadarParser("threat", "error", ranges)
+    private val parser = RadarParser("threat", "error", (1..8).map { "range$it" })
 
     @Test
-    @DisplayName("empty map is a clear snapshot with no targets")
+    @DisplayName("an empty data point is level 0 with no targets")
     fun emptyMap() {
-        val result = parser.parse(emptyMap<String, Double>()) as RadarParseResult.Data
-        assertThat(result.snapshot.threatLevel).isEqualTo(ThreatLevel.CLEAR)
-        assertThat(result.snapshot.targetDistancesM).isEmpty()
-        assertThat(result.snapshot.vehicleCount).isEqualTo(0)
-        assertThat(result.snapshot.nearestDistanceM).isEqualTo(0)
+        assertThat(parser.errorCode(emptyMap<String, Double>())).isNull()
+        assertThat(parser.parse(emptyMap<String, Double>())).isEqualTo(RadarPacket(0, emptyList()))
     }
 
     @Test
-    @DisplayName("error field wins over everything else")
+    @DisplayName("a positive error is reported whatever else the packet holds")
     fun errorField() {
-        val result = parser.parse(mapOf("error" to 2.0, "threat" to 3.0, "range1" to 10.0))
-        assertThat(result).isEqualTo(RadarParseResult.Error(2))
+        assertThat(parser.errorCode(mapOf("error" to 2.0, "threat" to 3.0, "range1" to 10.0))).isEqualTo(2)
     }
 
     @Test
-    @DisplayName("zero error is not an error")
+    @DisplayName("an error of 0 is no error")
     fun zeroError() {
-        val result = parser.parse(mapOf("error" to 0.0, "threat" to 1.0))
-        assertThat(result).isInstanceOf(RadarParseResult.Data::class.java)
+        assertThat(parser.errorCode(mapOf("error" to 0.0, "threat" to 1.0))).isNull()
     }
 
     @Test
-    @DisplayName("collects only positive ranges, keeps order, nearest is min")
+    @DisplayName("keeps positive ranges only, in the radar's order")
     fun ranges() {
-        val result = parser.parse(
+        val packet = parser.parse(
             mapOf("threat" to 2.0, "range1" to 80.0, "range2" to 0.0, "range3" to 35.5, "range5" to -1.0, "range8" to 120.0)
-        ) as RadarParseResult.Data
-        assertThat(result.snapshot.threatLevel).isEqualTo(ThreatLevel.WARNING)
-        assertThat(result.snapshot.targetDistancesM).containsExactly(80, 35, 120).inOrder()
-        assertThat(result.snapshot.vehicleCount).isEqualTo(3)
-        assertThat(result.snapshot.nearestDistanceM).isEqualTo(35)
+        )
+        assertThat(packet.level).isEqualTo(2)
+        assertThat(packet.rangesM).containsExactly(80, 35, 120).inOrder()
     }
 
     @Test
-    @DisplayName("unknown threat level maps to CLEAR")
-    fun unknownThreat() {
-        assertThat(RadarParser.mapThreatLevel(7)).isEqualTo(ThreatLevel.CLEAR)
-        assertThat(RadarParser.mapThreatLevel(-1)).isEqualTo(ThreatLevel.CLEAR)
+    @DisplayName("levels 0 to 3 pass through, anything else reads as 0")
+    fun levels() {
+        fun level(v: Double) = parser.parse(mapOf("threat" to v)).level
+        assertThat((0..3).map { level(it.toDouble()) }).containsExactly(0, 1, 2, 3).inOrder()
+        assertThat(level(2.9)).isEqualTo(2)
+        assertThat(level(4.0)).isEqualTo(0)
+        assertThat(level(7.0)).isEqualTo(0)
+        assertThat(level(-1.0)).isEqualTo(0)
     }
 }

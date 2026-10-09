@@ -4,10 +4,9 @@ import android.content.Context
 import io.github.aryeh95.radarcount.RadarCountExtension
 import io.github.aryeh95.radarcount.data.PassHoldSetting
 import io.github.aryeh95.radarcount.data.Settings
-import io.github.aryeh95.radarcount.data.models.ThreatLevel
-import io.github.aryeh95.radarcount.data.models.WidgetState
 import io.github.aryeh95.radarcount.datatypes.render.FieldColors
 import io.github.aryeh95.radarcount.datatypes.render.FieldFrame
+import io.github.aryeh95.radarcount.engine.RadarStatus
 import io.github.aryeh95.radarcount.engine.TargetTracker
 import io.hammerhead.karooext.extension.DataTypeImpl
 import io.hammerhead.karooext.internal.Emitter
@@ -58,7 +57,7 @@ abstract class FieldDataType(
         private const val PREVIEW_CYCLE_MS = 2000L
 
         val PREVIEW_INPUT = RenderInput(
-            state = WidgetState.Threat(ThreatLevel.WARNING, vehicleCount = 2, nearestDistanceM = 174),
+            state = RadarStatus.Live(level = 2, vehicles = 2, nearestM = 174),
             passCount = 48,
             closingSpeedMps = 20.0,
             riderSpeedMps = 7.0,
@@ -73,7 +72,7 @@ abstract class FieldDataType(
          * just after it passed at [nowMs]. [seq] tells repeated passes apart.
          */
         fun previewStates(hold: PassHoldSetting, seq: Int, nowMs: Long): List<RenderInput> {
-            val clear = PREVIEW_INPUT.copy(state = WidgetState.Clear, closingSpeedMps = null)
+            val clear = PREVIEW_INPUT.copy(state = RadarStatus.Live.CLEAR, closingSpeedMps = null)
             return buildList {
                 add(PREVIEW_INPUT)
                 add(clear)
@@ -88,7 +87,7 @@ abstract class FieldDataType(
 
     /** Everything a field render depends on. */
     data class RenderInput(
-        val state: WidgetState,
+        val state: RadarStatus,
         val passCount: Int,
         val closingSpeedMps: Double?,
         val riderSpeedMps: Double,
@@ -99,7 +98,7 @@ abstract class FieldDataType(
         val lastPass: TargetTracker.Pass? = null
     ) {
         val connected: Boolean
-            get() = state is WidgetState.Clear || state is WidgetState.Threat
+            get() = state is RadarStatus.Live
     }
 
     /** Screen density, captured from the first view so sizes can be computed in dp. */
@@ -137,7 +136,7 @@ abstract class FieldDataType(
     private fun liveInputs(): Flow<RenderInput> {
         val engine = radarExtension.radarEngine
         return combine(
-            engine.widgetState,
+            engine.status,
             engine.passCount,
             engine.closingSpeedMps,
             radarExtension.riderSpeedMps,
@@ -147,7 +146,7 @@ abstract class FieldDataType(
             engine.lastPass
         ) { values ->
             RenderInput(
-                state = values[0] as WidgetState,
+                state = values[0] as RadarStatus,
                 passCount = values[1] as Int,
                 closingSpeedMps = values[2] as Double?,
                 riderSpeedMps = values[3] as Double,

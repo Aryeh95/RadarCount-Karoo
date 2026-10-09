@@ -15,8 +15,6 @@ import io.github.aryeh95.radarcount.data.ComboIdleSetting
 import io.github.aryeh95.radarcount.data.PassHoldSetting
 import io.github.aryeh95.radarcount.data.SpeedSetting
 import io.github.aryeh95.radarcount.data.ThemeSetting
-import io.github.aryeh95.radarcount.data.models.ThreatLevel
-import io.github.aryeh95.radarcount.data.models.WidgetState
 import io.github.aryeh95.radarcount.datatypes.ApproachSpeedDataType
 import io.github.aryeh95.radarcount.datatypes.ClosestDistanceDataType
 import io.github.aryeh95.radarcount.datatypes.ComboDataType
@@ -24,6 +22,7 @@ import io.github.aryeh95.radarcount.datatypes.FieldDataType
 import io.github.aryeh95.radarcount.datatypes.VehicleCountDataType
 import io.github.aryeh95.radarcount.datatypes.VehiclesPerHourDataType
 import io.github.aryeh95.radarcount.datatypes.render.FieldColors
+import io.github.aryeh95.radarcount.engine.RadarStatus
 import io.github.aryeh95.radarcount.engine.TargetTracker
 import io.hammerhead.karooext.models.ViewConfig
 import java.io.File
@@ -101,7 +100,7 @@ class RenderOnDeviceTest {
 
     private fun cases(): List<Case> {
         val threat = FieldDataType.PREVIEW_INPUT
-        val clear = threat.copy(state = WidgetState.Clear, closingSpeedMps = null)
+        val clear = threat.copy(state = RadarStatus.Live.CLEAR, closingSpeedMps = null)
         val all = threat.settings.copy(comboIdle = ComboIdleSetting.ALL, comboActive = ComboActiveSetting.ALL)
         val bare = threat.settings.copy(comboHeader = false, comboCaptions = false)
         val glued = threat.settings.copy(comboUnitsInCaptions = false)
@@ -117,7 +116,7 @@ class RenderOnDeviceTest {
             Case("approaching", listOf(threat)),
             Case("clear", listOf(clear)),
             Case("held", listOf(threat, clear)),
-            Case("no-radar", listOf(threat.copy(state = WidgetState.NotConnected, closingSpeedMps = null))),
+            Case("no-radar", listOf(threat.copy(state = RadarStatus.Off, closingSpeedMps = null))),
             Case("imperial", listOf(threat.copy(useImperial = true))),
             Case("absolute", listOf(threat.copy(settings = threat.settings.copy(speedMode = SpeedSetting.ABSOLUTE, comboSpeedMode = SpeedSetting.ABSOLUTE)))),
             // Relative speed: Vehicle Speed's header reads VEHICLE REL SPEED, the longest field name.
@@ -134,7 +133,7 @@ class RenderOnDeviceTest {
             Case("tint-bare-clear", listOf(clear.copy(settings = bare.copy(debugFieldBounds = true)))),
             // The single fields with their header turned off: the value has the whole tile.
             Case("no-header", listOf(threat.copy(settings = threat.settings.copy(countHeader = false, speedHeader = false, distanceHeader = false, rateHeader = false)))),
-            Case("no-header-no-radar", listOf(threat.copy(state = WidgetState.NotConnected, closingSpeedMps = null, settings = threat.settings.copy(countHeader = false, speedHeader = false, distanceHeader = false, rateHeader = false)))),
+            Case("no-header-no-radar", listOf(threat.copy(state = RadarStatus.Off, closingSpeedMps = null, settings = threat.settings.copy(countHeader = false, speedHeader = false, distanceHeader = false, rateHeader = false)))),
             // A passed car's speed held after it has gone by: grey and marked PASSED.
             Case("pass-held", listOf(threat.copy(settings = hold), held)),
             Case("pass-held-absolute", listOf(held.copy(settings = hold.copy(speedMode = SpeedSetting.ABSOLUTE, comboSpeedMode = SpeedSetting.ABSOLUTE)))),
@@ -144,7 +143,7 @@ class RenderOnDeviceTest {
             Case("pass-held-glued-imperial", listOf(held.copy(useImperial = true, settings = hold.copy(comboUnitsInCaptions = false)))),
             Case("pass-held-all", listOf(held.copy(settings = hold.copy(comboIdle = ComboIdleSetting.ALL, comboActive = ComboActiveSetting.ALL)))),
             // The next car is on the radar but its speed is not measured yet: its live distance beside the held speed.
-            Case("pass-held-next-car-no-speed", listOf(held.copy(state = WidgetState.Threat(ThreatLevel.APPROACHING, vehicleCount = 1, nearestDistanceM = 96)))),
+            Case("pass-held-next-car-no-speed", listOf(held.copy(state = RadarStatus.Live(level = 1, vehicles = 1, nearestM = 96)))),
             Case("pass-held-fast", listOf(fast)),
             Case("pass-held-fast-imperial-glued", listOf(fast.copy(useImperial = true, settings = fast.settings.copy(comboUnitsInCaptions = false)))),
             Case("pass-held-fast-all", listOf(fast.copy(settings = fast.settings.copy(comboIdle = ComboIdleSetting.ALL, comboActive = ComboActiveSetting.ALL)))),

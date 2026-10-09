@@ -1,91 +1,86 @@
 package io.github.aryeh95.radarcount.engine
 
-import io.github.aryeh95.radarcount.data.models.ThreatLevel
-import io.github.aryeh95.radarcount.data.models.WidgetState
+import android.util.Log
 import io.hammerhead.karooext.KarooSystemService
 import io.hammerhead.karooext.models.DataType
 import io.hammerhead.karooext.models.OnStreamState
 import io.hammerhead.karooext.models.StreamState
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 /**
- * Core radar data processing engine.
+ * Listens to the Karoo's RADAR stream and turns each packet into the
+ * [status] the fields show, the ride's pass count and the nearest car's
+ * closing speed, with [TargetTracker] deciding what counts as a pass.
  *
- * Streams radar data from KarooSystemService using DataType.Type.RADAR
- * and transforms it into [WidgetState] for UI consumption. Also counts
- * vehicles that pass the rider (see [TargetTracker]).
- *
- * Karoo SDK provides a single RADAR data type with fields:
- * - Field.RADAR_THREAT_LEVEL (required)
- * - Field.RADAR_TARGET_1_RANGE through RADAR_TARGET_8_RANGE (optional)
- *
- * Packets are processed synchronously on the SDK callback thread and
- * serialised with a lock, so state never goes backwards even if the SDK
- * delivers two packets close together.
+ * Every stream event is handled on the SDK's callback thread under one
+ * lock, so two packets delivered back to back can never be applied out
+ * of order or half-applied.
  */
 class RadarEngine(private val karooSystem: KarooSystemService) {
 
-    companion object {
-        private const val TAG = "RadarEngine"
-
-        /** All target range fields for up to 8 vehicles */
-        private val TARGET_RANGE_FIELDS = listOf(
-            DataType.Field.RADAR_TARGET_1_RANGE,
-            DataType.Field.RADAR_TARGET_2_RANGE,
-            DataType.Field.RADAR_TARGET_3_RANGE,
-            DataType.Field.RADAR_TARGET_4_RANGE,
-            DataType.Field.RADAR_TARGET_5_RANGE,
-            DataType.Field.RADAR_TARGET_6_RANGE,
-            DataType.Field.RADAR_TARGET_7_RANGE,
-            DataType.Field.RADAR_TARGET_8_RANGE,
-        )
-
-        internal fun toWidgetState(snapshot: RadarSnapshot): WidgetState {
-            return if (snapshot.vehicleCount > 0) {
-                WidgetState.Threat(
-                    level = snapshot.threatLevel,
-                    vehicleCount = snapshot.vehicleCount,
-                    nearestDistanceM = snapshot.nearestDistanceM,
-                )
-            } else if (snapshot.threatLevel != ThreatLevel.CLEAR) {
-                // Radar reports a threat but no individual target ranges yet.
-                // This can happen when a vehicle is first detected before
-                // range data resolves. Treat as 1 approaching vehicle.
-                WidgetState.Threat(
-                    level = snapshot.threatLevel,
-                    vehicleCount = 1,
-                    nearestDistanceM = 0,
-                )
-            } else {
-                WidgetState.Clear
-            }
-        }
+    private companion object {
+        const val TAG = "RadarEngine"
     }
 
     private val parser = RadarParser(
-        threatLevelField = DataType.Field.RADAR_THREAT_LEVEL,
-        errorField = DataType.Field.RADAR_ERROR,
-        targetRangeFields = TARGET_RANGE_FIELDS
+        levelKey = DataType.Field.RADAR_THREAT_LEVEL,
+        errorKey = DataType.Field.RADAR_ERROR,
+        rangeKeys = with(DataType.Field) {
+            listOf(
+                RADAR_TARGET_1_RANGE, RADAR_TARGET_2_RANGE, RADAR_TARGET_3_RANGE, RADAR_TARGET_4_RANGE,
+                RADAR_TARGET_5_RANGE, RADAR_TARGET_6_RANGE, RADAR_TARGET_7_RANGE, RADAR_TARGET_8_RANGE,
+            )
+        },
     )
-
     private val targetTracker = TargetTracker()
-    private var passTotal = 0
+    private val lock = Any()
+    /** The RADAR stream's consumer id while it is open. */
+    private val consumer = AtomicReference<String?>(null)
+    /** Set by the first packet and never cleared, so a later dropout reads as Lost rather than Off. */
+    private var heardRadar = false
     /** False while the ride is paused: passes are still tracked but not counted, since the FIT file cannot carry them. */
     @Volatile private var countingEnabled = true
+
+    private val _status = MutableStateFlow<RadarStatus>(RadarStatus.Off)
+    val status: StateFlow<RadarStatus> = _status.asStateFlow()
+
+    /**
+     * The last packet while the radar is up, for the FIT file; null after
+     * an error, a dropout or [stop]. A Searching spell keeps it.
+     */
+    @Volatile var packet: RadarPacket? = null
+        private set
+
+    /** Vehicles that have passed the rider this ride. */
+    private val _passCount = MutableStateFlow(0)
+    val passCount: StateFlow<Int> = _passCount.asStateFlow()
+
+    /**
+     * How fast the nearest target is closing in m/s, from its range history
+     * (the Karoo does not report target speed). Null while no target has
+     * been tracked long enough to tell.
+     */
+    private val _closingSpeedMps = MutableStateFlow<Double?>(null)
+    val closingSpeedMps: StateFlow<Double?> = _closingSpeedMps.asStateFlow()
+
+    /**
+     * The last pass and its speed (see [TargetTracker.lastPass]), or null.
+     * Published while the ride is paused too; null after a radar error,
+     * disconnect, search, stop or ride reset.
+     */
+    private val _lastPass = MutableStateFlow<TargetTracker.Pass?>(null)
+    val lastPass: StateFlow<TargetTracker.Pass?> = _lastPass.asStateFlow()
 
     // Diagnostics written to the FIT file in beta builds so a missed count can
     // be explained from the ride file rather than reconstructed.
     /** Times the tracker was wiped by a radar error or disconnect this ride. */
     @Volatile var trackerClears = 0
         private set
-    /** Radar packets since the FIT writer last asked. */
-    private val packetsSinceRead = java.util.concurrent.atomic.AtomicInteger(0)
+    private val packetsSinceRead = AtomicInteger(0)
     /** The rider's speed in m/s, recorded with each pass so a held absolute speed does not drift. */
     @Volatile var riderSpeedMps = 0.0
     /** Last heading fed to the tracker, or -1 if none yet. */
@@ -104,159 +99,66 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
         targetTracker.trace = sink
     }
 
-    private fun clearTracksOnFault() {
-        targetTracker.clear()
-        trackerClears++
-    }
-    private val lock = Any()
-
-    // Consumer ID for cleanup
-    private val radarConsumerId = AtomicReference<String?>(null)
-
-    // Raw radar data
-    private val _vehicleCount = MutableStateFlow(0)
-    val vehicleCount: StateFlow<Int> = _vehicleCount.asStateFlow()
-
-    private val _nearestDistanceM = MutableStateFlow(0)
-    val nearestDistanceM: StateFlow<Int> = _nearestDistanceM.asStateFlow()
-
-    private val _threatLevel = MutableStateFlow(ThreatLevel.CLEAR)
-    val threatLevel: StateFlow<ThreatLevel> = _threatLevel.asStateFlow()
-
-    // Per-target distances (up to 8)
-    private val _targetDistances = MutableStateFlow<List<Int>>(emptyList())
-    val targetDistances: StateFlow<List<Int>> = _targetDistances.asStateFlow()
-
-    // Vehicles that have passed the rider this ride
-    private val _passCount = MutableStateFlow(0)
-    val passCount: StateFlow<Int> = _passCount.asStateFlow()
-
-    /**
-     * Estimated closing speed of the nearest target in m/s, derived from
-     * consecutive range samples (the Karoo SDK does not expose target speed).
-     * 0 when no target is tracked or the target is holding/receding.
-     */
-    private val _closingSpeedMps = MutableStateFlow<Double?>(null)
-    val closingSpeedMps: StateFlow<Double?> = _closingSpeedMps.asStateFlow()
-
-    /**
-     * The last pass and its speed (see [TargetTracker.lastPass]), or null.
-     * Published while the ride is paused too; null after a radar error,
-     * disconnect, search, stop or ride reset.
-     */
-    private val _lastPass = MutableStateFlow<TargetTracker.Pass?>(null)
-    val lastPass: StateFlow<TargetTracker.Pass?> = _lastPass.asStateFlow()
-
-    // Computed widget state (deduplicated: only changes are emitted)
-    private val _widgetState = MutableStateFlow<WidgetState>(WidgetState.NotConnected)
-    val widgetState: StateFlow<WidgetState> = _widgetState.asStateFlow()
-
-    /**
-     * Every processed packet, including repeats of an unchanged state.
-     * Use this for time-based trackers that need one sample per packet.
-     */
-    private val _packets = MutableSharedFlow<WidgetState>(extraBufferCapacity = 32)
-    val packets: SharedFlow<WidgetState> = _packets.asSharedFlow()
-
-    // Connection tracking
-    private val _isRadarConnected = MutableStateFlow(false)
-    val isRadarConnected: StateFlow<Boolean> = _isRadarConnected.asStateFlow()
-
-    private var wasEverConnected = false
-
-    /**
-     * Start streaming radar data from Karoo.
-     */
-    fun startStreaming() {
-        android.util.Log.i(TAG, "Starting radar data stream")
-
-        radarConsumerId.set(karooSystem.addConsumer(
-            OnStreamState.StartStreaming(DataType.Type.RADAR)
-        ) { event: OnStreamState ->
-            handleStreamState(event.state)
+    /** Open the RADAR stream. Paired with [stop] by the extension's sensor demand count. */
+    fun start() {
+        Log.i(TAG, "Opening the RADAR stream")
+        consumer.set(karooSystem.addConsumer(OnStreamState.StartStreaming(DataType.Type.RADAR)) { event: OnStreamState ->
+            synchronized(lock) { onStreamState(event.state) }
         })
     }
 
-    private fun handleStreamState(state: StreamState) {
-        synchronized(lock) {
-            when (state) {
-                is StreamState.Streaming -> processRadarData(state.dataPoint.values)
-                is StreamState.NotAvailable -> handleDisconnection()
-                is StreamState.Searching -> {
-                    // Passes during the dropout go unrecorded: no stale held speed after it.
-                    targetTracker.dropPass()
-                    _lastPass.value = null
-                    _widgetState.value = WidgetState.Connecting
-                }
-                is StreamState.Idle -> android.util.Log.d(TAG, "Radar stream idle")
-            }
-        }
+    /** Close the RADAR stream and forget every target; the pass count stays. */
+    fun stop() {
+        Log.i(TAG, "Closing the RADAR stream")
+        consumer.getAndSet(null)?.let { karooSystem.removeConsumer(it) }
+        synchronized(lock) { forgetTargets(RadarStatus.Off, fault = false) }
     }
 
-    /**
-     * Stop streaming radar data.
-     */
-    fun stopStreaming() {
-        android.util.Log.i(TAG, "Stopping radar data stream")
-        radarConsumerId.getAndSet(null)?.let { karooSystem.removeConsumer(it) }
-        synchronized(lock) {
-            _isRadarConnected.value = false
-            targetTracker.clear()
-            _closingSpeedMps.value = null
-            _lastPass.value = null
-            _widgetState.value = WidgetState.NotConnected
-        }
-    }
-
-    private fun processRadarData(values: Map<String, Double>) {
-        packetsSinceRead.incrementAndGet()
-        val snapshot = when (val result = parser.parse(values)) {
-            is RadarParseResult.Error -> {
-                android.util.Log.w(TAG, "Radar error reported: ${result.code}")
-                _isRadarConnected.value = false
-                clearTracksOnFault()
-                _closingSpeedMps.value = null
+    private fun onStreamState(state: StreamState) {
+        when (state) {
+            is StreamState.Streaming -> onPacket(state.dataPoint.values)
+            is StreamState.NotAvailable -> forgetTargets(if (heardRadar) RadarStatus.Lost else RadarStatus.Off, fault = true)
+            is StreamState.Searching -> {
+                // Passes during the dropout go unrecorded: no stale held speed after it.
+                targetTracker.dropPass()
                 _lastPass.value = null
-                _widgetState.value = WidgetState.ConnectionLost
-                _packets.tryEmit(WidgetState.ConnectionLost)
-                return
+                _status.value = RadarStatus.Searching
             }
-            is RadarParseResult.Data -> result.snapshot
+            is StreamState.Idle -> Log.d(TAG, "RADAR stream idle")
         }
+    }
 
-        _threatLevel.value = snapshot.threatLevel
-        _targetDistances.value = snapshot.targetDistancesM
-        _vehicleCount.value = snapshot.vehicleCount
-        _nearestDistanceM.value = snapshot.nearestDistanceM
-
-        val widgetState = toWidgetState(snapshot)
-
-        val passed = targetTracker.update(
-            snapshot.targetDistancesM, System.currentTimeMillis(), snapshot.threatLevel.ordinal, riderMps = riderSpeedMps
-        )
+    private fun onPacket(values: Map<String, Double>) {
+        packetsSinceRead.incrementAndGet()
+        parser.errorCode(values)?.let { code ->
+            Log.w(TAG, "Radar sent error code $code")
+            forgetTargets(RadarStatus.Lost, fault = true)
+            return
+        }
+        val next = parser.parse(values)
+        val passed = targetTracker.update(next.rangesM, System.currentTimeMillis(), next.level, riderMps = riderSpeedMps)
         if (passed > 0 && countingEnabled) {
-            passTotal += passed
-            android.util.Log.d(TAG, "$passed vehicle(s) passed, total=$passTotal")
-            _passCount.value = passTotal
+            _passCount.value += passed
+            Log.d(TAG, "Counted $passed, ride total ${_passCount.value}")
         }
         _closingSpeedMps.value = targetTracker.nearestClosingSpeedMps()
         _lastPass.value = targetTracker.lastPass
-
-        _isRadarConnected.value = true
-        wasEverConnected = true
-
-        _widgetState.value = widgetState
-        _packets.tryEmit(widgetState)
+        packet = next
+        heardRadar = true
+        _status.value = RadarStatus.Live.of(next)
     }
 
-    private fun handleDisconnection() {
-        _isRadarConnected.value = false
-        clearTracksOnFault()
+    /**
+     * Drop every tracked target and what was shown from them. [fault] marks
+     * an error or dropout, which the FIT diagnostics count.
+     */
+    private fun forgetTargets(status: RadarStatus, fault: Boolean) {
+        packet = null
+        targetTracker.clear()
+        if (fault) trackerClears++
         _closingSpeedMps.value = null
         _lastPass.value = null
-        val state = if (wasEverConnected) WidgetState.ConnectionLost else WidgetState.NotConnected
-        _widgetState.value = state
-        _packets.tryEmit(state)
+        _status.value = status
     }
 
     /** Count passes (true) or only track them (false, while the ride is paused). */
@@ -282,16 +184,8 @@ class RadarEngine(private val karooSystem: KarooSystemService) {
             targetTracker.resetHeading()
             targetTracker.resetDiagnostics()
             trackerClears = 0
-            passTotal = 0
             _passCount.value = 0
             _lastPass.value = null
         }
-    }
-
-    /**
-     * Clean up resources.
-     */
-    fun destroy() {
-        stopStreaming()
     }
 }

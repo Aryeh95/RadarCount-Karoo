@@ -26,8 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.aryeh95.radarcount.R
 import io.github.aryeh95.radarcount.RadarCountExtension
-import io.github.aryeh95.radarcount.data.models.ThreatLevel
-import io.github.aryeh95.radarcount.data.models.WidgetState
+import io.github.aryeh95.radarcount.engine.RadarStatus
 import io.github.aryeh95.radarcount.engine.Units
 import io.github.aryeh95.radarcount.ui.theme.RadarColors
 
@@ -37,31 +36,29 @@ import io.github.aryeh95.radarcount.ui.theme.RadarColors
  */
 @Composable
 fun DashboardScreen(extension: RadarCountExtension?, onResetCount: () -> Unit) {
-    val state = extension?.radarEngine?.widgetState?.collectAsState()?.value ?: WidgetState.NotConnected
+    val state = extension?.radarEngine?.status?.collectAsState()?.value ?: RadarStatus.Off
     val passCount = extension?.radarEngine?.passCount?.collectAsState()?.value ?: 0
     val closing = extension?.radarEngine?.closingSpeedMps?.collectAsState()?.value
     val rider = extension?.riderSpeedMps?.collectAsState()?.value ?: 0.0
     val imperial = extension?.useImperial?.collectAsState()?.value ?: false
 
     val statusColor = when (state) {
-        is WidgetState.Clear -> RadarColors.safe
-        is WidgetState.Threat -> when (state.level) {
-            ThreatLevel.CRITICAL -> RadarColors.danger
-            ThreatLevel.CLEAR -> RadarColors.safe
+        is RadarStatus.Live -> when (state.level) {
+            3 -> RadarColors.danger
+            0 -> RadarColors.safe
             else -> RadarColors.caution
         }
         else -> RadarColors.neutral
     }
     val statusText = when (state) {
-        is WidgetState.NotConnected -> stringResource(R.string.dashboard_not_connected)
-        is WidgetState.Connecting -> stringResource(R.string.dashboard_searching)
-        is WidgetState.Clear -> stringResource(R.string.dashboard_clear)
-        is WidgetState.Threat -> if (state.nearestDistanceM > 0) {
-            Units.formatDistance(state.nearestDistanceM, imperial)
-        } else {
-            stringResource(R.string.widget_behind)
+        RadarStatus.Off -> stringResource(R.string.dashboard_not_connected)
+        RadarStatus.Searching -> stringResource(R.string.dashboard_searching)
+        RadarStatus.Lost -> stringResource(R.string.dashboard_connection_lost)
+        is RadarStatus.Live -> when {
+            state.vehicles == 0 -> stringResource(R.string.dashboard_clear)
+            state.nearestM > 0 -> Units.distanceLabel(state.nearestM, imperial)
+            else -> stringResource(R.string.widget_behind)
         }
-        is WidgetState.ConnectionLost -> stringResource(R.string.dashboard_connection_lost)
     }
 
     val relative = closing?.let { RadarCountExtension.toUserSpeedUnits(it, imperial) }
@@ -88,8 +85,8 @@ fun DashboardScreen(extension: RadarCountExtension?, onResetCount: () -> Unit) {
             Stat(stringResource(R.string.widget_count_label), passCount.toString(), "")
             Stat(
                 stringResource(R.string.widget_approach_label, unit),
-                if (state is WidgetState.Threat && relative != null) relative.toString() else "--",
-                if (state is WidgetState.Threat && absolute != null) stringResource(R.string.widget_absolute_label, absolute, unit) else ""
+                if (state.traffic != null && relative != null) relative.toString() else "--",
+                if (state.traffic != null && absolute != null) stringResource(R.string.widget_absolute_label, absolute, unit) else ""
             )
         }
         Spacer(modifier = Modifier.height(12.dp))

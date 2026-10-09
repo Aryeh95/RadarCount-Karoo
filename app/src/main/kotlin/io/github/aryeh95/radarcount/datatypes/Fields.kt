@@ -6,7 +6,6 @@ import io.github.aryeh95.radarcount.RadarCountExtension
 import io.github.aryeh95.radarcount.data.PassHoldSetting
 import io.github.aryeh95.radarcount.data.Settings
 import io.github.aryeh95.radarcount.data.SpeedSetting
-import io.github.aryeh95.radarcount.data.models.WidgetState
 import io.github.aryeh95.radarcount.datatypes.render.FieldBitmaps
 import io.github.aryeh95.radarcount.datatypes.render.FieldColors
 import io.github.aryeh95.radarcount.datatypes.render.FieldFrame
@@ -94,8 +93,8 @@ private data class Derived(
 )
 
 private fun derive(input: FieldDataType.RenderInput, mode: SpeedSetting = SpeedSetting.ABSOLUTE): Derived {
-    val threat = input.state as? WidgetState.Threat
-    val tracked = threat != null
+    val traffic = input.state.traffic
+    val tracked = traffic != null
     // A known 0 (car holding station) is not the same as no estimate yet.
     // Absolute is the car's road speed, so it adds the rider's speed even
     // when the car is not gaining.
@@ -105,14 +104,10 @@ private fun derive(input: FieldDataType.RenderInput, mode: SpeedSetting = SpeedS
     val absolute = relative?.plus(
         RadarCountExtension.toUserSpeedUnits(input.riderSpeedMps, input.useImperial)
     )
-    val distance = if (threat != null && threat.nearestDistanceM > 0) {
-        Units.formatDistance(threat.nearestDistanceM, input.useImperial)
-    } else {
-        null
-    }
+    val distance = traffic?.nearestM?.takeIf { it > 0 }?.let { Units.distanceLabel(it, input.useImperial) }
     val showsAbsolute = mode == SpeedSetting.ABSOLUTE
     return Derived(
-        tracked, relative, absolute, Units.speedUnitLabel(input.useImperial), distance, threat?.vehicleCount ?: 0,
+        tracked, relative, absolute, Units.speedUnitLabel(input.useImperial), distance, traffic?.vehicles ?: 0,
         shownSpeed = if (showsAbsolute) absolute else relative,
         showsAbsolute = showsAbsolute
     )
@@ -238,7 +233,7 @@ class ClosestDistanceDataType(
             if (!input.connected) return noRadarFrame(context, config, density, input.settings, header)
             return valueFrame(
                 context, config, density, input.settings, header, derive(input).distance ?: "--",
-                layoutSample = Units.formatDistance(888, input.useImperial)
+                layoutSample = Units.distanceLabel(888, input.useImperial)
             )
         }
     }
@@ -289,7 +284,7 @@ class ComboDataType(
                 count = input.passCount,
                 speed = live ?: held?.let { PassHold.shownSpeed(it, input.useImperial, d.showsAbsolute) },
                 // Always the live distance, never held: "--" once the radar is clear.
-                distance = (input.state as? WidgetState.Threat)?.nearestDistanceM?.takeIf { it > 0 }
+                distance = input.state.traffic?.nearestM?.takeIf { it > 0 }
                     ?.let { Units.distanceValue(it, input.useImperial) },
                 showsAbsolute = d.showsAbsolute,
                 settings = input.settings,
@@ -311,7 +306,7 @@ class ComboDataType(
      * or was a moment ago, or a passed car's speed is held.
      */
     private fun active(input: RenderInput, config: ViewConfig, now: Long, held: TargetTracker.Pass?): Boolean {
-        val tracked = input.state is WidgetState.Threat
+        val tracked = input.state.traffic != null
         if (tracked) lastTrackedMs = now
         return tracked || (!config.preview && now - lastTrackedMs < ACTIVE_HOLD_MS) || held != null
     }
@@ -339,7 +334,7 @@ fun renderField(typeId: String, context: Context, input: FieldDataType.RenderInp
     when (typeId) {
         ComboDataType.TYPE_ID -> {
             val held = ComboDataType.held(input, nowMs)
-            ComboDataType.render(context, input, config, density, active = input.state is WidgetState.Threat || held != null, held = held)
+            ComboDataType.render(context, input, config, density, active = input.state.traffic != null || held != null, held = held)
         }
         VehicleCountDataType.TYPE_ID -> VehicleCountDataType.render(context, input, config, density)
         ApproachSpeedDataType.TYPE_ID -> ApproachSpeedDataType.render(context, input, config, density, nowMs)
