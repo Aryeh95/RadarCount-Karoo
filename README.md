@@ -227,20 +227,24 @@ installed after uninstalling the old version.
 
 ## Build
 
-Needs Android Studio (or JDK 17 + the Android SDK) and access to the Karoo SDK
-on GitHub Packages. Put a GitHub personal access token with `read:packages`
-in `~/.gradle/gradle.properties`:
+The Karoo SDK (karoo-ext) is published on GitHub Packages, which wants a
+login even for public packages. Any GitHub account works: make a classic
+token that can `read:packages` and give Gradle both, either as
+`USERNAME`/`TOKEN` environment variables or in `~/.gradle/gradle.properties`:
 
 ```
-gpr.user=YOUR_GITHUB_USERNAME
-gpr.key=YOUR_GITHUB_TOKEN
+gpr.user=<github login>
+gpr.key=<token>
 ```
 
-Then:
+With JDK 17 and the Android SDK (Android Studio brings both):
 
 ```
 ./gradlew testDebugUnitTest assembleRelease
 ```
+
+The APK lands in `app/build/outputs/apk/release/` as
+`radarcount-karoo-<version>.apk`.
 
 ## Credits and license
 
