@@ -489,7 +489,7 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
     /**
      * Calls [write] once a second, the first time a second after the ride
      * file opens, on a background thread so a slow write never holds up the
-     * fields. It outlives [mainScope], so it goes quiet once the service is
+     * fields. It outlives [mainScope], so it stops by itself once the service is
      * destroyed rather than relying on the Karoo to cancel it. A second
      * that throws is logged and skipped, so one bad record does not end the
      * ride's radar data.
@@ -497,7 +497,7 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
     private fun everySecond(write: () -> Unit): Job = CoroutineScope(Dispatchers.Default).launch {
         while (true) {
             delay(FIT_WRITE_INTERVAL_MS)
-            if (destroyed) continue
+            if (destroyed) break
             runCatching(write).onFailure { e ->
                 if (e !is Exception || e is CancellationException) throw e
                 Log.w(TAG, "No FIT record this second", e)
@@ -514,6 +514,7 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
         synchronized(sensorLock) { sensorDemand = 0 }
         releaseKaroo()
         radarFeed.stop()
+        stopTrackTrace()
         destroyed = true
         mainScope.cancel()
         try {
