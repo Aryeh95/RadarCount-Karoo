@@ -75,9 +75,20 @@ class TargetTrackerTest {
     @DisplayName("a counted car that reappears alongside after a dropout is not counted twice")
     fun ghostAbsorbsDropout() {
         for (r in listOf(46, 34, 25, 12, 6)) feed(r)
-        var passed = feed()      // dropout: counted now
-        passed += feed(3)        // radar sees it again, right where it vanished
+        var passed = feed(dtMs = 800)    // dropout: counted now
+        passed += feed(3, dtMs = 700)    // radar sees it again, right where it vanished, 1.5 s on
         passed += feed(3)
+        passed += gone()
+        assertThat(passed).isEqualTo(1)
+    }
+
+    @Test
+    @DisplayName("after a stream gap longer than the ghost lasts, a car where the last one vanished is a new car")
+    fun ghostForgottenAfterStreamGap() {
+        assertThat(feed(6)).isEqualTo(0)
+        assertThat(feed(dtMs = 800)).isEqualTo(1)   // first car counted, ghost left behind
+        var passed = feed(6, dtMs = 4_200)          // no packets for 4.2 s, then a close echo
+        passed += feed(dtMs = 800)
         passed += gone()
         assertThat(passed).isEqualTo(1)
     }

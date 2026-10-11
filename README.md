@@ -96,14 +96,15 @@ pass when it drops off the radar after coming within 9 m, which is where the
 rear beam loses a car as it draws level with your back wheel and the same
 distance mybiketraffic.com uses. A car that got no closer than that has not
 passed: it stopped in a queue behind you, settled in to follow, turned off, or
-was lost because you turned. A car that has come within 9 m is counted on the
-first packet it is missing from, since the radar cannot see a car alongside
-you; it lingers as a ghost for two seconds so a range that reappears right
-where it vanished (a radar dropout) re-attaches without counting again. A
+was lost because you turned. A car that has come within 9 m is counted once it
+has been missing for 0.7 s, since the radar cannot see a car alongside you; it
+lingers as a ghost for 1.8 s so a range that reappears right where it vanished
+(a radar dropout) re-attaches without counting again. After that a new range
+starts a new track, even if the radar stream itself paused. A
 long vehicle's reading wobbles between the 3 m and 6 m bins as its body goes
 by, so within half a second the ghost also takes back a range one bin farther
 out; after a longer gap that is the next car in the queue. A target farther
-out that vanishes waits the full two seconds, because there a dropout and a
+out that vanishes waits the full 1.8 s, because there a dropout and a
 pass look alike, and one-packet blips far out are ignored.
 
 Two kinds of target are deliberately not counted:
@@ -112,7 +113,7 @@ Two kinds of target are deliberately not counted:
   radar without passing, because the radar only reports targets that are
   closing. A track has to have looked like a pass at some point: the radar
   flagged it as approaching fast, it was closing at 2.5 m/s (about 5.5 mph)
-  or more when last seen, or it was seen alongside at 3 m.
+  or more when last seen, or it came alongside (within 9 m).
 - **Turns.** Using the rider's heading, a car that was behind you before you
   turned off a road and vanishes as you turn is taken to have gone straight
   on, and a brief target first seen within 30 m just after a turn is a car

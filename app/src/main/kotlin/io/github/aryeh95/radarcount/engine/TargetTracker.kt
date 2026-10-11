@@ -284,6 +284,10 @@ class TargetTracker(
             var bestDelta = Double.MAX_VALUE
             for (t in tracks) {
                 if (t in matched || t.resolved != ghostPhase) continue
+                // Past lostMs a track is only waiting to be decided and
+                // removed below; after a stream gap that long a new range is
+                // a new car, even right where a counted one vanished.
+                if (nowMs - t.lastSeenMs > lostMs) continue
                 val dtSec = (nowMs - t.lastSeenMs).coerceAtLeast(0) / 1000.0
                 // A ghost only re-attaches a range right next to where the
                 // car vanished; a new car farther out must start a new track.
