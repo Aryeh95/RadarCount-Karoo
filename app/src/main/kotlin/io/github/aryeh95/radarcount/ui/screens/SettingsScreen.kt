@@ -160,7 +160,7 @@ fun GeneralSettingsTab(repository: SettingsRepository) {
         // Android. It holds diagnostics for ride-file analysis.
         var versionTaps by remember { mutableIntStateOf(0) }
         Text(
-            text = stringResource(R.string.settings_version, BuildConfig.VERSION_NAME),
+            text = stringResource(R.string.settings_version, if (BuildConfig.DEBUG) BuildConfig.VERSION_NAME else "${BuildConfig.VERSION_NAME} (${BuildConfig.COMMIT})"),
             style = MaterialTheme.typography.bodySmall,
             color = IdleGrey,
             modifier = Modifier

@@ -14,12 +14,23 @@ android {
     namespace = "io.github.aryeh95.radarcount"
     compileSdk = 35
 
+    // The commit a build came from, shown in the app so a test build on the
+    // Karoo can be told apart from the release it replaces. Outside a git
+    // checkout (a source archive) or without git, "dev".
+    val commit = runCatching {
+        providers.exec {
+            commandLine("git", "rev-parse", "--short", "HEAD")
+            isIgnoreExitValue = true
+        }.standardOutput.asText.get().trim()
+    }.getOrNull()?.takeIf { it.isNotEmpty() } ?: "dev"
+
     defaultConfig {
         applicationId = "io.github.aryeh95.radarcount"
         minSdk = 26
         targetSdk = 35
-        versionCode = 37
-        versionName = "0.4.0"
+        versionCode = 38
+        versionName = "0.4.1"
+        buildConfigField("String", "COMMIT", "\"$commit\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -41,17 +52,9 @@ android {
     }
 
     buildTypes {
-        // Debug builds carry the commit in their version, so a test build on
-        // the Karoo can be told apart from the release it replaces.
+        // Debug builds also carry the commit in their version name.
         debug {
-            // Outside a git checkout (a source archive) or without git, "dev".
-            val sha = runCatching {
-                providers.exec {
-                    commandLine("git", "rev-parse", "--short", "HEAD")
-                    isIgnoreExitValue = true
-                }.standardOutput.asText.get().trim()
-            }.getOrNull()?.takeIf { it.isNotEmpty() } ?: "dev"
-            versionNameSuffix = "-$sha"
+            versionNameSuffix = "-$commit"
         }
         release {
             isMinifyEnabled = true
