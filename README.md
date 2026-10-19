@@ -23,7 +23,7 @@ Add any of these to a ride page from the Karoo's data field picker under **Radar
 | **Radar** | The combined field. With nothing on the radar it shows the pass count, large. When a vehicle is on the radar it shows the vehicle's speed and distance large with the count small beside them, and holds that for two seconds after the vehicle is gone so a pass ends with the new count showing. Both layouts, the header and the captions are configurable, and it can keep a passed car's speed for a few seconds (see Settings) |
 | **Vehicles** | Vehicles that have passed you this ride |
 | **Vehicles per Hour** | Pass count divided by recording time (paused time excluded). Shows `--` for the first two minutes of a ride |
-| **Vehicle Speed** | Speed of the nearest vehicle, with its unit (for example `36mph` or `58km/h`): its road speed by default, or how fast it is closing on you, when the header reads VEHICLE REL SPEED (set on its card). Shows `--` for the first two seconds, until there is enough range history to estimate a speed; a shown `0` means the vehicle is not gaining on you. Can keep a passed car's speed for a few seconds (see below) |
+| **Vehicle Speed** | Speed of the nearest vehicle, with its unit (for example `36mph` or `58km/h`): its road speed by default, or how fast it is closing on you, when the header reads VEHICLE REL SPEED (set on its card). Shows `--` for the first second, until there is enough range history to estimate a speed; a shown `0` means the vehicle is not gaining on you. Can keep a passed car's speed for a few seconds (see below) |
 | **Vehicle Distance** | Distance to the nearest vehicle, with its unit (for example `148ft` or `45m`) |
 
 The single-value fields look like the Karoo's own: a header with the icon and
@@ -59,7 +59,7 @@ has gone, once the radar has decided the car passed, also while the ride is
 paused, when the count does not advance.
 As soon as another car's speed is measured, the live value replaces it; until
 then the Radar field shows that car's distance beside the held speed. A car
-seen for under two seconds before it passed has no measured speed, so nothing
+seen for under a second before it passed has no measured speed, so nothing
 is held for it and a later pass without a speed ends an earlier hold. Like
 every speed here it is a ballpark figure.
 
@@ -180,11 +180,13 @@ Two differences from the Garmin file, both imposed by the Karoo SDK:
   lap-message API.
 
 The Karoo SDK also does not expose radar target speed, so speeds are estimated
-from how fast the range shrinks, as a least-squares slope over the last 3
+from how fast the range shrinks: over its first two seconds on the radar from
+the first range to the latest, then as a least-squares slope over the last 3
 seconds of samples. The estimate freezes once the car is inside 10 m, because
 the last few samples before a pass are the noisiest, so the recorded passing
 speed is the approach speed. Treat them as ballpark figures: a car reads `--`
-for its first two seconds on the radar, and a car still accelerating toward you
+for its first second on the radar (a 0 in the FIT file, which
+mybiketraffic.com shows as the rider's speed), and a car still accelerating toward you
 reads a little low.
 
 ## Install

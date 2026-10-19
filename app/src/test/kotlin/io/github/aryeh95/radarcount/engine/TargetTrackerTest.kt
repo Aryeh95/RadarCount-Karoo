@@ -265,7 +265,7 @@ class TargetTrackerTest {
     }
 
     @Test
-    @DisplayName("closing speed is unknown with less than 2 s of history")
+    @DisplayName("closing speed is unknown with fewer than three samples")
     fun speedNeedsHistory() {
         feed(84)
         assertThat(tracker.nearestClosingSpeedMps()).isNull()
@@ -294,6 +294,22 @@ class TargetTrackerTest {
     }
 
     @Test
+    @DisplayName("at the Karoo's packet rate the speed is known after one second")
+    fun speedKnownAfterOneSecondOfPackets() {
+        // 8 packets a second, a car closing at 12 m/s, ranges in 3.125 m bins
+        var range = 80.0
+        feed(80)
+        repeat(7) {
+            range -= 1.5
+            feed((Math.round(range / 3.125) * 3.125).toInt(), dtMs = 125)
+        }
+        assertThat(tracker.nearestClosingSpeedMps()).isNull() // 0.875 s
+        range -= 1.5
+        feed((Math.round(range / 3.125) * 3.125).toInt(), dtMs = 125) // 1.0 s
+        assertThat(tracker.nearestClosingSpeedMps()!!).isWithin(3.5).of(12.0)
+    }
+
+    @Test
     @DisplayName("the estimate becomes known once the history spans two seconds")
     fun estimateKnownAfterTwoSeconds() {
         feed(84)
@@ -312,9 +328,10 @@ class TargetTrackerTest {
         feed(68)
         feed(68, dtMs = 150)
         feed(65, dtMs = 150)
+        assertThat(tracker.nearestClosingSpeedMps()).isNull() // 0.3 s: too little history
         feed(62, dtMs = 150)
-        feed(62, dtMs = 550)          // 1.0 s of history: previously shown, ~20 m/s
-        assertThat(tracker.nearestClosingSpeedMps()).isNull()
+        feed(62, dtMs = 550)          // 1.0 s of history: start to end, 6 m/s, not the burst's 20
+        assertThat(tracker.nearestClosingSpeedMps()!!).isWithin(0.5).of(6.0)
         feed(59, dtMs = 500)
         feed(56, dtMs = 500)          // 2.0 s: shown, and the slope has settled
         val v = tracker.nearestClosingSpeedMps()
