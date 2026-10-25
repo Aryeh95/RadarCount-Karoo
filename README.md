@@ -23,7 +23,7 @@ Add any of these to a ride page from the Karoo's data field picker under **Radar
 | **Radar** | The combined field. With nothing on the radar it shows the pass count, large. When a vehicle is on the radar it shows the vehicle's speed and distance large with the count small beside them, and holds that for two seconds after the vehicle is gone so a pass ends with the new count showing. Both layouts, the header and the captions are configurable, and it can keep a passed car's speed for a few seconds (see Settings) |
 | **Vehicles** | Vehicles that have passed you this ride |
 | **Vehicles per Hour** | Pass count divided by recording time (paused time excluded). Shows `--` for the first two minutes of a ride |
-| **Vehicle Speed** | Speed of the nearest vehicle, with its unit (for example `36mph` or `58km/h`): its road speed by default, or how fast it is closing on you, when the header reads VEHICLE REL SPEED (set on its card). Shows `--` for the first two seconds, until there is enough range history to estimate a speed; a shown `0` means the vehicle is not gaining on you. Can keep a passed car's speed for a few seconds (see below) |
+| **Vehicle Speed** | Speed of the nearest vehicle, with its unit (for example `36mph` or `58km/h`): its road speed by default, or how fast it is closing on you, when the header reads VEHICLE REL SPEED (set on its card). Shows `--` for the first second, until there is enough range history to estimate a speed; a shown `0` means the vehicle is not gaining on you. Can keep a passed car's speed for a few seconds (see below) |
 | **Vehicle Distance** | Distance to the nearest vehicle, with its unit (for example `148ft` or `45m`) |
 
 The single-value fields look like the Karoo's own: a header with the icon and
@@ -59,7 +59,7 @@ has gone, once the radar has decided the car passed, also while the ride is
 paused, when the count does not advance.
 As soon as another car's speed is measured, the live value replaces it; until
 then the Radar field shows that car's distance beside the held speed. A car
-seen for under two seconds before it passed has no measured speed, so nothing
+seen for under a second before it passed has no measured speed, so nothing
 is held for it and a later pass without a speed ends an earlier hold. Like
 every speed here it is a ballpark figure.
 
@@ -96,14 +96,15 @@ pass when it drops off the radar after coming within 9 m, which is where the
 rear beam loses a car as it draws level with your back wheel and the same
 distance mybiketraffic.com uses. A car that got no closer than that has not
 passed: it stopped in a queue behind you, settled in to follow, turned off, or
-was lost because you turned. A car that has come within 9 m is counted on the
-first packet it is missing from, since the radar cannot see a car alongside
-you; it lingers as a ghost for two seconds so a range that reappears right
-where it vanished (a radar dropout) re-attaches without counting again. A
+was lost because you turned. A car that has come within 9 m is counted once it
+has been missing for 0.7 s, since the radar cannot see a car alongside you; it
+lingers as a ghost for 1.8 s so a range that reappears right where it vanished
+(a radar dropout) re-attaches without counting again. After that a new range
+starts a new track, even if the radar stream itself paused. A
 long vehicle's reading wobbles between the 3 m and 6 m bins as its body goes
 by, so within half a second the ghost also takes back a range one bin farther
 out; after a longer gap that is the next car in the queue. A target farther
-out that vanishes waits the full two seconds, because there a dropout and a
+out that vanishes waits the full 1.8 s, because there a dropout and a
 pass look alike, and one-packet blips far out are ignored.
 
 Two kinds of target are deliberately not counted:
@@ -112,7 +113,7 @@ Two kinds of target are deliberately not counted:
   radar without passing, because the radar only reports targets that are
   closing. A track has to have looked like a pass at some point: the radar
   flagged it as approaching fast, it was closing at 2.5 m/s (about 5.5 mph)
-  or more when last seen, or it was seen alongside at 3 m.
+  or more when last seen, or it came alongside (within 9 m).
 - **Turns.** Using the rider's heading, a car that was behind you before you
   turned off a road and vanishes as you turn is taken to have gone straight
   on, and a brief target first seen within 30 m just after a turn is a car
@@ -179,11 +180,13 @@ Two differences from the Garmin file, both imposed by the Karoo SDK:
   lap-message API.
 
 The Karoo SDK also does not expose radar target speed, so speeds are estimated
-from how fast the range shrinks, as a least-squares slope over the last 3
+from how fast the range shrinks: over its first two seconds on the radar from
+the first range to the latest, then as a least-squares slope over the last 3
 seconds of samples. The estimate freezes once the car is inside 10 m, because
 the last few samples before a pass are the noisiest, so the recorded passing
 speed is the approach speed. Treat them as ballpark figures: a car reads `--`
-for its first two seconds on the radar, and a car still accelerating toward you
+for its first second on the radar (a 0 in the FIT file, which
+mybiketraffic.com shows as the rider's speed), and a car still accelerating toward you
 reads a little low.
 
 ## Install
@@ -227,20 +230,24 @@ installed after uninstalling the old version.
 
 ## Build
 
-Needs Android Studio (or JDK 17 + the Android SDK) and access to the Karoo SDK
-on GitHub Packages. Put a GitHub personal access token with `read:packages`
-in `~/.gradle/gradle.properties`:
+The Karoo SDK (karoo-ext) is published on GitHub Packages, which wants a
+login even for public packages. Any GitHub account works: make a classic
+token that can `read:packages` and give Gradle both, either as
+`USERNAME`/`TOKEN` environment variables or in `~/.gradle/gradle.properties`:
 
 ```
-gpr.user=YOUR_GITHUB_USERNAME
-gpr.key=YOUR_GITHUB_TOKEN
+gpr.user=<github login>
+gpr.key=<token>
 ```
 
-Then:
+With JDK 17 and the Android SDK (Android Studio brings both):
 
 ```
 ./gradlew testDebugUnitTest assembleRelease
 ```
+
+The APK lands in `app/build/outputs/apk/release/` as
+`radarcount-karoo-<version>.apk`.
 
 ## Credits and license
 

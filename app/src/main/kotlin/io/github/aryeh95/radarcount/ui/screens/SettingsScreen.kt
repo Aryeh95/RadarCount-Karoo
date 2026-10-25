@@ -77,7 +77,6 @@ import io.github.aryeh95.radarcount.data.Settings
 import io.github.aryeh95.radarcount.data.SpeedSetting
 import io.github.aryeh95.radarcount.data.SettingsRepository
 import io.github.aryeh95.radarcount.data.UnitsSetting
-import io.github.aryeh95.radarcount.data.models.WidgetState
 import io.github.aryeh95.radarcount.datatypes.ApproachSpeedDataType
 import io.github.aryeh95.radarcount.datatypes.ClosestDistanceDataType
 import io.github.aryeh95.radarcount.datatypes.ComboDataType
@@ -87,8 +86,14 @@ import io.github.aryeh95.radarcount.datatypes.VehiclesPerHourDataType
 import io.github.aryeh95.radarcount.datatypes.render.FieldColors
 import io.github.aryeh95.radarcount.datatypes.render.FieldViews
 import io.github.aryeh95.radarcount.datatypes.renderField
+import io.github.aryeh95.radarcount.engine.RadarStatus
 import io.github.aryeh95.radarcount.ui.theme.BackButton
-import io.github.aryeh95.radarcount.ui.theme.RadarColors
+import io.github.aryeh95.radarcount.ui.theme.CardInside
+import io.github.aryeh95.radarcount.ui.theme.CardWhite
+import io.github.aryeh95.radarcount.ui.theme.IdleGrey
+import io.github.aryeh95.radarcount.ui.theme.Ink
+import io.github.aryeh95.radarcount.ui.theme.InkMuted
+import io.github.aryeh95.radarcount.ui.theme.KarooSlate
 import io.hammerhead.karooext.models.ViewConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -148,16 +153,16 @@ fun GeneralSettingsTab(repository: SettingsRepository) {
         }
 
         Spacer(modifier = Modifier.height(12.dp))
-        TextButton(onClick = { scope.launch { repository.resetToDefaults() } }) {
+        TextButton(onClick = { scope.launch { repository.resetChoices() } }) {
             Text(stringResource(R.string.settings_reset_defaults), color = MaterialTheme.colorScheme.primary)
         }
         // Five taps on the version line unlock a Developer tab, as on
         // Android. It holds diagnostics for ride-file analysis.
         var versionTaps by remember { mutableIntStateOf(0) }
         Text(
-            text = stringResource(R.string.settings_version, BuildConfig.VERSION_NAME),
+            text = stringResource(R.string.settings_version, if (BuildConfig.DEBUG) BuildConfig.VERSION_NAME else "${BuildConfig.VERSION_NAME} (${BuildConfig.COMMIT})"),
             style = MaterialTheme.typography.bodySmall,
-            color = RadarColors.neutral,
+            color = IdleGrey,
             modifier = Modifier
                 .padding(4.dp)
                 .clickable {
@@ -183,7 +188,7 @@ fun FieldsTab(repository: SettingsRepository, extension: RadarCountExtension?) {
     val scope = rememberCoroutineScope()
     fun save(s: Settings) = scope.launch { repository.update(s) }
     // Without a running extension, follow the units setting itself.
-    val imperial = extension?.useImperial?.collectAsState()?.value ?: (settings.units == UnitsSetting.IMPERIAL)
+    val imperial = extension?.imperialUnits?.collectAsState()?.value ?: (settings.units == UnitsSetting.IMPERIAL)
     val noConfigs = remember { MutableStateFlow(emptyMap<String, ViewConfig>()) }
     val liveConfigs by (extension?.fieldViewConfigs ?: noConfigs).collectAsState()
     fun config(typeId: String): ViewConfig? = liveConfigs[typeId] ?: FieldSizes.saved(settings, typeId)
@@ -193,7 +198,7 @@ fun FieldsTab(repository: SettingsRepository, extension: RadarCountExtension?) {
     }
 
     val approaching = FieldDataType.PREVIEW_INPUT.copy(settings = settings, useImperial = imperial)
-    val clear = approaching.copy(state = WidgetState.Clear, closingSpeedMps = null)
+    val clear = approaching.copy(state = RadarStatus.Live.CLEAR, closingSpeedMps = null)
     val passed = clear.copy(lastPass = PREVIEW_PASS)
 
     TabColumn {
@@ -321,7 +326,7 @@ private fun FieldCard(title: Int, description: Int, icon: Int, expanded: Boolean
             .fillMaxWidth()
             .clip(shape)
             .border(1.dp, CARD_BORDER, shape)
-            .background(RadarColors.background)
+            .background(CardWhite)
     ) {
         Row(
             modifier = Modifier
@@ -330,16 +335,16 @@ private fun FieldCard(title: Int, description: Int, icon: Int, expanded: Boolean
                 .padding(horizontal = 10.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(painterResource(icon), contentDescription = null, tint = RadarColors.accent, modifier = Modifier.size(24.dp))
+            Icon(painterResource(icon), contentDescription = null, tint = KarooSlate, modifier = Modifier.size(24.dp))
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(stringResource(title).uppercase(), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = RadarColors.textPrimary)
-                Text(stringResource(description), style = MaterialTheme.typography.bodySmall, color = RadarColors.textSecondary)
+                Text(stringResource(title).uppercase(), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = Ink)
+                Text(stringResource(description), style = MaterialTheme.typography.bodySmall, color = InkMuted)
             }
             Icon(
                 if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
                 contentDescription = stringResource(if (expanded) R.string.settings_collapse else R.string.settings_expand),
-                tint = RadarColors.textSecondary,
+                tint = InkMuted,
                 modifier = Modifier.size(28.dp)
             )
         }
@@ -347,7 +352,7 @@ private fun FieldCard(title: Int, description: Int, icon: Int, expanded: Boolean
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(RadarColors.surface)
+                    .background(CardInside)
                     .padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
                 content = content
@@ -374,7 +379,7 @@ private fun FieldPreviews(typeId: String, config: ViewConfig?, settings: Setting
     ) {
         for ((caption, input) in samples) {
             FieldPreview(typeId, input, dark, config)
-            if (caption != null) Text(stringResource(caption), style = MaterialTheme.typography.bodySmall, color = RadarColors.textSecondary)
+            if (caption != null) Text(stringResource(caption), style = MaterialTheme.typography.bodySmall, color = InkMuted)
         }
     }
 }
@@ -476,18 +481,13 @@ private fun Hint(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.bodySmall,
-        color = RadarColors.textSecondary,
+        color = InkMuted,
         modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
     )
 }
 
 /** Rounded to the nearest 5 ft so the description reads like a rule, not a conversion. */
 private fun metersToFeet(m: Int): Int = (Math.round(m * 3.28084 / 5.0) * 5).toInt()
-
-private inline fun <reified T : Enum<T>> next(current: T): T {
-    val values = enumValues<T>()
-    return values[(current.ordinal + 1) % values.size]
-}
 
 /**
  * A setting with a few options, drawn as the Karoo's outlined dropdown with a
@@ -542,6 +542,6 @@ private fun ToggleRow(title: String, checked: Boolean, onChange: (Boolean) -> Un
     ) {
         Switch(checked = checked, onCheckedChange = onChange)
         Spacer(modifier = Modifier.width(12.dp))
-        Text(title, style = MaterialTheme.typography.bodyLarge, color = RadarColors.textPrimary, modifier = Modifier.weight(1f))
+        Text(title, style = MaterialTheme.typography.bodyLarge, color = Ink, modifier = Modifier.weight(1f))
     }
 }

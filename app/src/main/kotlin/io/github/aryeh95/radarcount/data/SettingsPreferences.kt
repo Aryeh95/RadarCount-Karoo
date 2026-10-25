@@ -44,24 +44,24 @@ internal object SettingsPreferences {
     private fun fieldSizeKey(typeId: String) = stringPreferencesKey(FIELD_SIZE_PREFIX + typeId)
 
     fun read(p: Preferences): Settings = Settings(
-        units = parseEnum(p[KEY_UNITS], UnitsSetting.AUTO),
-        theme = parseEnum(p[KEY_THEME], ThemeSetting.AUTO),
-        sensitivity = parseEnum(p[KEY_SENSITIVITY], SensitivitySetting.NORMAL),
-        speedMode = parseEnum(p[KEY_SPEED_MODE] ?: p[KEY_LEGACY_SPEED], SpeedSetting.ABSOLUTE),
-        comboSpeedMode = parseEnum(p[KEY_COMBO_SPEED_MODE] ?: p[KEY_LEGACY_SPEED], SpeedSetting.ABSOLUTE),
-        speedPassHold = parseEnum(p[KEY_SPEED_PASS_HOLD], PassHoldSetting.OFF),
+        units = p[KEY_UNITS].enumOr(UnitsSetting.AUTO),
+        theme = p[KEY_THEME].enumOr(ThemeSetting.AUTO),
+        sensitivity = p[KEY_SENSITIVITY].enumOr(SensitivitySetting.NORMAL),
+        speedMode = (p[KEY_SPEED_MODE] ?: p[KEY_LEGACY_SPEED]).enumOr(SpeedSetting.ABSOLUTE),
+        comboSpeedMode = (p[KEY_COMBO_SPEED_MODE] ?: p[KEY_LEGACY_SPEED]).enumOr(SpeedSetting.ABSOLUTE),
+        speedPassHold = p[KEY_SPEED_PASS_HOLD].enumOr(PassHoldSetting.OFF),
         countHeader = p[KEY_COUNT_HEADER] ?: true,
         speedHeader = p[KEY_SPEED_HEADER] ?: true,
         distanceHeader = p[KEY_DISTANCE_HEADER] ?: true,
         rateHeader = p[KEY_RATE_HEADER] ?: true,
         resetOnRideStart = p[KEY_RESET_ON_RIDE_START] ?: true,
-        comboIdle = parseEnum(p[KEY_COMBO_IDLE], ComboIdleSetting.COUNT),
-        comboActive = parseEnum(p[KEY_COMBO_ACTIVE], ComboActiveSetting.SPEED_DISTANCE),
+        comboIdle = p[KEY_COMBO_IDLE].enumOr(ComboIdleSetting.COUNT),
+        comboActive = p[KEY_COMBO_ACTIVE].enumOr(ComboActiveSetting.SPEED_DISTANCE),
         comboBadge = p[KEY_COMBO_BADGE] ?: true,
         comboUnitsInCaptions = p[KEY_COMBO_UNITS_IN_CAPTIONS] ?: true,
         comboCaptions = p[KEY_COMBO_CAPTIONS] ?: true,
         comboHeader = p[KEY_COMBO_HEADER] ?: true,
-        comboPassHold = parseEnum(p[KEY_COMBO_PASS_HOLD], PassHoldSetting.OFF),
+        comboPassHold = p[KEY_COMBO_PASS_HOLD].enumOr(PassHoldSetting.OFF),
         developerMode = p[KEY_DEVELOPER_MODE] ?: false,
         traceTracks = p[KEY_TRACE_TRACKS] ?: false,
         debugFieldBounds = p[KEY_DEBUG_FIELD_BOUNDS] ?: false,
@@ -119,11 +119,7 @@ internal object SettingsPreferences {
         }
     }
 
-    private inline fun <reified T : Enum<T>> parseEnum(value: String?, default: T): T {
-        return try {
-            value?.let { enumValueOf<T>(it) } ?: default
-        } catch (e: IllegalArgumentException) {
-            default
-        }
-    }
+    /** The constant this stored name spells, or [default] when unset or not a name this version knows. */
+    private inline fun <reified T : Enum<T>> String?.enumOr(default: T): T =
+        enumValues<T>().firstOrNull { it.name == this } ?: default
 }

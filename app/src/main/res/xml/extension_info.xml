@@ -2,7 +2,7 @@
 <ExtensionInfo
     id="radarcount"
     displayName="@string/extension_name"
-    icon="@drawable/ic_radar"
+    icon="@drawable/ic_extension"
     configurable="true"
     fitFile="true">
 

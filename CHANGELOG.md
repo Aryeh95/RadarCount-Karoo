@@ -3,6 +3,37 @@
 Release notes for RadarCount for Karoo. Each GitHub release carries the
 matching section below as its description.
 
+## 0.4.1 — 2026-10-25
+
+Passing cars get a speed a second sooner, a car seen again after a radar
+dropout is no longer lost, and the app has a new icon.
+
+### Changed
+- **Speed after one second instead of two.** A car's closing speed is now
+  known one second after it appears on the radar, from the range change over
+  that second, and the fitted slope takes over at two seconds as before. The
+  Vehicle Speed and Radar fields show the dash for one second instead of two,
+  and the FIT file writes a 0 speed for one second instead of two or three,
+  so mybiketraffic.com no longer shows the start of almost every car at your
+  own speed. The one-second figure measures over the whole second, so the
+  80 mph flash fixed in 0.3.1 does not come back.
+- **New icon.** A road bike with a pass counter and radar tail-light, on teal.
+  The Karoo's data field picker gets a dark version, so RadarCount's row there
+  is no longer blank.
+- **Settings shows the build.** The version line names the commit, for
+  example Version 0.4.1 (ae68ecd), so a ride can be traced to the build that
+  recorded it.
+- The app no longer flashes dark before its light screens appear.
+- The app no longer declares foreground service permissions it never used.
+
+### Fixed
+- **A car missed after a radar dropout.** When the radar stream paused for
+  longer than a counted car is remembered, the next close car could be taken
+  for that old car and never counted.
+- **FIT writing kept running after the extension stopped** if the Karoo did
+  not end it, and the debug track trace was left open. Both now stop with the
+  extension.
+
 ## 0.4.0 — 2026-10-09
 
 Every field is redrawn so it looks the same on the Karoo 2 and the Karoo 3,

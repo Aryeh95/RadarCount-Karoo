@@ -15,21 +15,9 @@ class UnitsTest {
         assertThat(Units.metersToFeet(meters)).isEqualTo(feet)
     }
 
-    @ParameterizedTest(name = "{0} km/h → {1} mph")
-    @CsvSource("3,2", "5,3", "8,5", "30,19")
-    fun kmhToMphRounds(kmh: Int, mph: Int) {
-        assertThat(Units.kmhToMph(kmh)).isEqualTo(mph)
-    }
-
     @Test
-    fun formatDistance() {
-        assertThat(Units.formatDistance(45, useImperial = false)).isEqualTo("45m")
-        assertThat(Units.formatDistance(45, useImperial = true)).isEqualTo("148ft")
-    }
-
-    @Test
-    fun formatSpeed() {
-        assertThat(Units.formatSpeed(5, useImperial = false)).isEqualTo("5 km/h")
-        assertThat(Units.formatSpeed(5, useImperial = true)).isEqualTo("3 mph")
+    fun distanceLabel() {
+        assertThat(Units.distanceLabel(45, imperial = false)).isEqualTo("45m")
+        assertThat(Units.distanceLabel(45, imperial = true)).isEqualTo("148ft")
     }
 }

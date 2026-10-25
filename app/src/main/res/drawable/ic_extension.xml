@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Extension icon in the Karoo data field picker, which draws it untinted on a
+     light card: the app icon's bike and counter as a dark glyph with the coral
+     counter. Viewport 48 = 24 dp, badge edges on the 1.5x pixel grid. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <path
+        android:fillColor="#F2402F"
+        android:pathData="M8,1.33 H22.67 A4,4 0 0,1 26.67,5.33 V12 A4,4 0 0,1 22.67,16 H8 A4,4 0 0,1 4,12 V5.33 A4,4 0 0,1 8,1.33 Z M13.33,15 H17.33 V20.46 H13.33 Z" />
+    <path
+        android:strokeColor="#1B1F23"
+        android:strokeWidth="3.3"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M2.65,37.45 A6.76,6.76 0 1,1 16.17,37.45 A6.76,6.76 0 1,1 2.65,37.45 Z M31.82,37.45 A6.76,6.76 0 1,1 45.34,37.45 A6.76,6.76 0 1,1 31.82,37.45 Z" />
+    <path
+        android:strokeColor="#1B1F23"
+        android:strokeWidth="2.9"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M17.95,25.09 L9.41,37.45 L23.4,38.4 M23.4,38.4 L16.62,21.83 M17.95,25.09 L32.23,22.95 M23.4,38.4 L33.43,25.87 L38.58,37.45 M33.43,25.87 L32.1,21.75 L36.91,20.68" />
+    <path
+        android:strokeColor="#1B1F23"
+        android:strokeWidth="2.6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M36.91,20.68 L37.71,20.68 L38.31,20.76 L38.86,20.99 L39.34,21.35 L39.7,21.83 L39.93,22.38 L40.01,22.98 L39.93,23.58 L39.7,24.13 L39.34,24.61 L38.86,24.97" />
+    <path
+        android:strokeColor="#1B1F23"
+        android:strokeWidth="2.9"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M14.47,20.46 L20.91,20.46" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M10.86 2.67H13.08Q13.16 2.67 13.21 2.72Q13.27 2.77 13.27 2.85V13.15Q13.27 13.23 13.21 13.28Q13.16 13.33 13.08 13.33H10.92Q10.84 13.33 10.79 13.28Q10.74 13.23 10.74 13.15V5.09Q10.74 5 10.66 5.03L9.35 5.23H9.3Q9.15 5.23 9.15 5.06L9.12 3.46Q9.12 3.31 9.26 3.25L10.63 2.71Q10.74 2.67 10.86 2.67Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M17.55 11.17H21.02Q21.1 11.17 21.15 11.22Q21.21 11.28 21.21 11.35V13.15Q21.21 13.23 21.15 13.28Q21.1 13.33 21.02 13.33H14.45Q14.38 13.33 14.33 13.28Q14.27 13.23 14.27 13.15V11.38Q14.27 11.25 14.36 11.15Q16.27 9.11 17.43 7.7Q17.94 7.06 18.23 6.55Q18.51 6.05 18.51 5.64Q18.51 5.21 18.27 4.96Q18.04 4.71 17.64 4.71Q17.26 4.71 17.01 4.96Q16.77 5.21 16.77 5.61V6.13Q16.77 6.2 16.72 6.26Q16.66 6.31 16.59 6.31H14.39Q14.32 6.31 14.26 6.26Q14.21 6.2 14.21 6.13V5.36Q14.26 4.53 14.72 3.89Q15.19 3.25 15.96 2.9Q16.74 2.54 17.7 2.54Q18.71 2.54 19.47 2.95Q20.23 3.35 20.65 4.05Q21.07 4.75 21.07 5.62Q21.07 6.35 20.79 7.02Q20.5 7.68 19.93 8.43Q19.3 9.23 17.85 10.71L17.5 11.08Q17.47 11.11 17.49 11.14Q17.5 11.17 17.55 11.17Z" />
+
+</vector>

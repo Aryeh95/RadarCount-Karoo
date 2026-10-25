@@ -1,13 +1,13 @@
 package io.github.aryeh95.radarcount.datatypes
 
 import android.content.Context
+import android.util.Log
 import io.github.aryeh95.radarcount.RadarCountExtension
 import io.github.aryeh95.radarcount.data.PassHoldSetting
 import io.github.aryeh95.radarcount.data.Settings
-import io.github.aryeh95.radarcount.data.models.ThreatLevel
-import io.github.aryeh95.radarcount.data.models.WidgetState
 import io.github.aryeh95.radarcount.datatypes.render.FieldColors
 import io.github.aryeh95.radarcount.datatypes.render.FieldFrame
+import io.github.aryeh95.radarcount.engine.RadarStatus
 import io.github.aryeh95.radarcount.engine.TargetTracker
 import io.hammerhead.karooext.extension.DataTypeImpl
 import io.hammerhead.karooext.internal.Emitter
@@ -17,16 +17,19 @@ import io.hammerhead.karooext.models.ShowCustomStreamState
 import io.hammerhead.karooext.models.StreamState
 import io.hammerhead.karooext.models.UpdateGraphicConfig
 import io.hammerhead.karooext.models.ViewConfig
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.plus
+
+private const val TAG = "RadarCountField"
 
 /**
  * Base class for the data fields. Each frame is drawn into a bitmap with
@@ -39,15 +42,13 @@ import kotlinx.coroutines.launch
  * [key]), and one identical to the one on screen is not sent again.
  */
 abstract class FieldDataType(
-    protected val radarExtension: RadarCountExtension,
+    protected val service: RadarCountExtension,
     typeId: String
 ) : DataTypeImpl(RadarCountExtension.EXTENSION_ID, typeId) {
 
     companion object {
-        private const val TAG = "FieldDataType"
-
-        /** Karoo SDK limitation: 1Hz updates */
-        private const val VIEW_UPDATE_INTERVAL_MS = 1000L
+        /** The Karoo takes at most one view update a second. */
+        private const val FRAME_PERIOD_MS = 1000L
         /**
          * ViewEmitter silently drops an update sent sooner than this after
          * the last one. Checked here too, so a frame is only taken as shown
@@ -57,8 +58,13 @@ abstract class FieldDataType(
         /** How long each state shows in the page-editor preview. */
         private const val PREVIEW_CYCLE_MS = 2000L
 
+        /**
+         * The sample the previews draw: two cars behind at threat level 2,
+         * the nearer 174 m back and closing at 20 m/s on a rider doing
+         * 7 m/s, 48 cars into an hour's ride.
+         */
         val PREVIEW_INPUT = RenderInput(
-            state = WidgetState.Threat(ThreatLevel.WARNING, vehicleCount = 2, nearestDistanceM = 174),
+            state = RadarStatus.Live(level = 2, vehicles = 2, nearestM = 174),
             passCount = 48,
             closingSpeedMps = 20.0,
             riderSpeedMps = 7.0,
@@ -73,7 +79,7 @@ abstract class FieldDataType(
          * just after it passed at [nowMs]. [seq] tells repeated passes apart.
          */
         fun previewStates(hold: PassHoldSetting, seq: Int, nowMs: Long): List<RenderInput> {
-            val clear = PREVIEW_INPUT.copy(state = WidgetState.Clear, closingSpeedMps = null)
+            val clear = PREVIEW_INPUT.copy(state = RadarStatus.Live.CLEAR, closingSpeedMps = null)
             return buildList {
                 add(PREVIEW_INPUT)
                 add(clear)
@@ -88,7 +94,7 @@ abstract class FieldDataType(
 
     /** Everything a field render depends on. */
     data class RenderInput(
-        val state: WidgetState,
+        val state: RadarStatus,
         val passCount: Int,
         val closingSpeedMps: Double?,
         val riderSpeedMps: Double,
@@ -99,7 +105,7 @@ abstract class FieldDataType(
         val lastPass: TargetTracker.Pass? = null
     ) {
         val connected: Boolean
-            get() = state is WidgetState.Clear || state is WidgetState.Threat
+            get() = state is RadarStatus.Live
     }
 
     /** Screen density, captured from the first view so sizes can be computed in dp. */
@@ -128,26 +134,24 @@ abstract class FieldDataType(
         return frame(context, input, config)
     }
 
-    override fun startStream(emitter: Emitter<StreamState>) {
-        emitter.onNext(StreamState.Streaming(
-            DataPoint(dataTypeId = dataTypeId, values = emptyMap())
-        ))
-    }
+    /** The fields are drawn, not numbers: their stream is streaming but carries no values. */
+    override fun startStream(emitter: Emitter<StreamState>) =
+        emitter.onNext(StreamState.Streaming(DataPoint(dataTypeId)))
 
     private fun liveInputs(): Flow<RenderInput> {
-        val engine = radarExtension.radarEngine
+        val feed = service.radarFeed
         return combine(
-            engine.widgetState,
-            engine.passCount,
-            engine.closingSpeedMps,
-            radarExtension.riderSpeedMps,
-            radarExtension.useImperial,
-            radarExtension.settings,
-            radarExtension.rideTimeMs,
-            engine.lastPass
+            feed.status,
+            feed.passCount,
+            feed.closingSpeedMps,
+            service.riderSpeedMps,
+            service.imperialUnits,
+            service.settings,
+            service.rideTimeMs,
+            feed.lastPass
         ) { values ->
             RenderInput(
-                state = values[0] as WidgetState,
+                state = values[0] as RadarStatus,
                 passCount = values[1] as Int,
                 closingSpeedMps = values[2] as Double?,
                 riderSpeedMps = values[3] as Double,
@@ -163,81 +167,98 @@ abstract class FieldDataType(
     protected open fun passHold(settings: Settings): PassHoldSetting = PassHoldSetting.OFF
 
     override fun startView(context: Context, config: ViewConfig, emitter: ViewEmitter) {
-        // The Karoo's header strip off: every field draws its own header (or,
-        // the Radar field, none) in the whole tile, so a long name is never
-        // wrapped onto a second line. And an empty custom stream state so
-        // the Karoo does not draw its own placeholder over the value area.
+        // Each field draws its own header (the Radar field none) over the
+        // whole tile, so the Karoo's header strip is off and a long name is
+        // never wrapped onto a second line. The empty custom stream state
+        // keeps the Karoo's own placeholder off the value area.
         emitter.onNext(UpdateGraphicConfig(showHeader = false))
         emitter.onNext(ShowCustomStreamState(message = "", color = null))
         density = context.resources.displayMetrics.density
-        radarExtension.reportViewConfig(typeId, config)
+        service.reportViewConfig(typeId, config)
+        Log.d(TAG, "$dataTypeId: ${if (config.preview) "page-editor view" else "view"} ${config.viewSize.first}x${config.viewSize.second} px, grid ${config.gridSize.first}x${config.gridSize.second}, text ${config.textSize} sp, density $density")
 
-        android.util.Log.d(TAG, "[$dataTypeId] Starting view: grid=${config.gridSize}, size=${config.viewSize}, text=${config.textSize}, density=$density, preview=${config.preview}")
+        val scope = MainScope() + Dispatchers.Main.immediate
+        val sender = FrameSender(context, config, emitter)
+        if (config.preview) {
+            scope.launch { cyclePreview(sender) }
+            emitter.setCancellable { scope.cancel() }
+        } else {
+            service.acquireRadar()
+            scope.launch { followRadar(sender) }
+            emitter.setCancellable {
+                scope.cancel()
+                service.releaseRadar()
+            }
+        }
+    }
 
-        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-        var shown: FieldFrame? = null
-        var shownKey: Any? = null
-        var sentMs = 0L
+    /**
+     * The page editor's preview: each of [previewStates] in turn, so both
+     * layouts of the Radar field show and, while this field holds a passed
+     * car's speed, the held frame too.
+     */
+    private suspend fun cyclePreview(sender: FrameSender) {
+        var step = 0
+        var passSeq = 0
+        while (true) {
+            val settings = service.settings.value
+            val hold = passHold(settings)
+            val states = previewStates(hold, ++passSeq, System.currentTimeMillis())
+            val i = step % states.size
+            Log.d(TAG, "$dataTypeId: preview ${i + 1}/${states.size}, pass hold $hold")
+            sender.send(states[i].copy(settings = settings, useImperial = service.imperialUnits.value))
+            step = (i + 1) % states.size
+            delay(PREVIEW_CYCLE_MS)
+        }
+    }
 
-        // The only caller of updateView, so updates are never closer than
-        // the emitter allows; a frame that could not be sent yet is drawn
-        // again on the next call, since its key is still not the shown one.
-        fun render(input: RenderInput) {
+    /**
+     * The live field: the latest inputs every [FRAME_PERIOD_MS], not only
+     * when they change, for what changes without them: the end of the
+     * Radar field's hold and of a held pass speed, and the night mode.
+     */
+    private suspend fun followRadar(sender: FrameSender) = coroutineScope {
+        val inputs = liveInputs()
+        var latest = inputs.first()
+        launch { inputs.collect { latest = it } }
+        while (true) {
+            sender.send(latest)
+            delay(FRAME_PERIOD_MS)
+        }
+    }
+
+    /**
+     * One view's frames. Its [send] is the view's only path to updateView,
+     * so updates are never closer together than the emitter accepts. A
+     * frame whose [key] is on screen is not drawn, one that draws the same
+     * as the screen is not sent, and one held back by the gap is drawn again
+     * on the next call, since its key is still not the shown one.
+     */
+    private inner class FrameSender(
+        private val context: Context,
+        private val config: ViewConfig,
+        private val emitter: ViewEmitter
+    ) {
+        private var onScreen: FieldFrame? = null
+        private var onScreenKey: Any? = null
+        private var sentAtMs = 0L
+
+        fun send(input: RenderInput) {
             try {
                 val key = key(context, input, config)
-                if (key == shownKey) return
+                if (key == onScreenKey) return
                 val now = System.currentTimeMillis()
-                if (now - sentMs < MIN_SEND_GAP_MS) return
+                if (now - sentAtMs < MIN_SEND_GAP_MS) return
                 val next = frame(context, input, config)
-                if (!next.looksLike(shown)) {
+                if (!next.looksLike(onScreen)) {
                     emitter.updateView(next.views)
-                    sentMs = now
-                    shown = next
+                    sentAtMs = now
+                    onScreen = next
                 }
-                shownKey = key
+                onScreenKey = key
             } catch (t: Throwable) {
-                android.util.Log.w(TAG, "[$dataTypeId] Render error: ${t.javaClass.simpleName}: ${t.message}")
+                Log.w(TAG, "$dataTypeId: frame not drawn: $t")
             }
-        }
-
-        if (config.preview) {
-            // Page-editor preview: cycle through the approaching and the
-            // no-vehicle state so both layouts of the combo field show, and,
-            // while this field holds a passed car's speed, the held frame too.
-            scope.launch {
-                var step = 0
-                var passSeq = 0
-                while (true) {
-                    val settings = radarExtension.settings.value
-                    val states = previewStates(passHold(settings), ++passSeq, System.currentTimeMillis())
-                    val base = states[step % states.size]
-                    android.util.Log.d(TAG, "[$dataTypeId] Preview frame ${step % states.size + 1} of ${states.size} (pass hold ${passHold(settings)})")
-                    render(base.copy(settings = settings, useImperial = radarExtension.useImperial.value))
-                    step = (step + 1) % states.size
-                    delay(PREVIEW_CYCLE_MS)
-                }
-            }
-            emitter.setCancellable { scope.cancel() }
-            return
-        }
-
-        radarExtension.acquireRadar()
-        scope.launch {
-            val inputs = liveInputs()
-            var latest = inputs.first()
-            launch { inputs.collect { latest = it } }
-            // Every second, not only on new input, for what changes without
-            // one: the end of the Radar field's hold, of a held pass speed,
-            // and the night mode.
-            while (true) {
-                render(latest)
-                delay(VIEW_UPDATE_INTERVAL_MS)
-            }
-        }
-
-        emitter.setCancellable {
-            scope.cancel()
-            radarExtension.releaseRadar()
         }
     }
 }

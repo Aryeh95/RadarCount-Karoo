@@ -74,7 +74,8 @@ import kotlin.math.abs
  * car that pulls out right behind a counted one still gets its own track.
  *
  * The closing speed of the nearest track is estimated from its range
- * history over at least [minSpeedSpanMs], which filters the burst-timing
+ * history once it spans [minSpeedSpanMs]: start to end at first, a
+ * least-squares slope from [slopeSpanMs], which filters the burst-timing
  * artefacts that produced nonsense speeds before. The estimate freezes
  * once the car is inside [speedFreezeRangeM]: the last few samples before
  * a pass are the noisiest, so the speed at the pass is the approach speed.
@@ -87,11 +88,16 @@ class TargetTracker(
     private val lostMs: Long = 1_800L,
     private val closeLostMs: Long = 700L,
     /**
-     * History a track needs before its closing speed is shown. One second
-     * was not enough: a new track's first few samples, quantised to 3 m bins
-     * and delivered in bursts, fitted slopes of 20 m/s for cars doing 8.
+     * History a track needs before its closing speed is known. Until
+     * [slopeSpanMs] the speed is the range change from the first sample to
+     * the last: a least-squares slope over one second fitted 20 m/s for a car
+     * doing 8, because a new track's first samples come in bursts and the
+     * fit weights the burst, while the two ends of the history do not care
+     * how the samples between them were spaced.
      */
-    private val minSpeedSpanMs: Long = 2_000L,
+    private val minSpeedSpanMs: Long = 1_000L,
+    /** History from which the least-squares slope is used instead. */
+    private val slopeSpanMs: Long = 2_000L,
     private val speedWindowMs: Long = 3_000L,
     private val maxSpeedMps: Double = 40.0,
     private val speedFreezeRangeM: Int = 10,
@@ -158,6 +164,8 @@ class TargetTracker(
 
     companion object {
         private const val MIN_SAMPLE_GAP_MS = 250L
+        /** Samples a speed needs at the least, so two packets of a burst never make one. */
+        private const val MIN_SPEED_SAMPLES = 3
         /** Heading drift that marks the start of a turn. */
         private const val TURN_START_DEG = 10.0
         /** Base matching tolerance; ranges are quantised to ~3 m */
@@ -284,6 +292,10 @@ class TargetTracker(
             var bestDelta = Double.MAX_VALUE
             for (t in tracks) {
                 if (t in matched || t.resolved != ghostPhase) continue
+                // Past lostMs a track is only waiting to be decided and
+                // removed below; after a stream gap that long a new range is
+                // a new car, even right where a counted one vanished.
+                if (nowMs - t.lastSeenMs > lostMs) continue
                 val dtSec = (nowMs - t.lastSeenMs).coerceAtLeast(0) / 1000.0
                 // A ghost only re-attaches a range right next to where the
                 // car vanished; a new car farther out must start a new track.
@@ -400,14 +412,17 @@ class TargetTracker(
         return estimateClosingSpeed(t.history)
     }
 
-    /** True once [h] spans enough time to fit a slope. */
+    /** True once [h] has enough samples over enough time for a speed. */
     private fun hasSpeedEstimate(h: ArrayDeque<Pair<Long, Int>>): Boolean =
-        h.size >= 2 && h.last().first - h.first().first >= minSpeedSpanMs
+        h.size >= MIN_SPEED_SAMPLES && h.last().first - h.first().first >= minSpeedSpanMs
 
     private fun estimateClosingSpeed(h: ArrayDeque<Pair<Long, Int>>): Double {
-        if (h.size < 2) return 0.0
+        if (!hasSpeedEstimate(h)) return 0.0
         val spanMs = h.last().first - h.first().first
-        if (spanMs < minSpeedSpanMs) return 0.0
+        if (spanMs < slopeSpanMs) {
+            val closing = (h.first().second - h.last().second) * 1000.0 / spanMs
+            return closing.coerceIn(0.0, maxSpeedMps) + 0.0
+        }
         // Least-squares slope of range over time; less sensitive to
         // per-sample jitter than the first/last endpoints.
         val t0 = h.first().first
