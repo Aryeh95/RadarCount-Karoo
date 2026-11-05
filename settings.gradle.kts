@@ -30,5 +30,11 @@ dependencyResolutionManagement {
                 password = credential("gpr.key", "TOKEN")
             }
         }
+
+        // karoo-ext-testing, test-only
+        exclusiveContent {
+            forRepository { maven("https://jitpack.io") }
+            filter { includeGroup("com.github.nikosavola.karoo-ext-testing") }
+        }
     }
 }
