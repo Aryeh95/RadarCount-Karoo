@@ -80,6 +80,10 @@ android {
         compose = true
         buildConfig = true
     }
+
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 
 // manifest.json's latestApkUrl and scripts/check_manifest.py expect this
@@ -119,6 +123,14 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter-params:$jupiter")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:$jupiter")
     testImplementation("com.google.truth:truth:1.4.4")
+
+    // Robolectric tests run the real extension service against a fake Karoo system. They are
+    // JUnit 4, so the vintage engine runs them next to the Jupiter tests.
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.17")
+    testImplementation("androidx.test:core:1.7.0")
+    testImplementation("com.github.nikosavola.karoo-ext-testing:karoo-ext-testing-robolectric:0.1.1")
+    testRuntimeOnly("org.junit.vintage:junit-vintage-engine:$jupiter")
 
     // On-device render checks and store screenshots
     androidTestImplementation(composeBom)
