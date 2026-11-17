@@ -28,8 +28,8 @@ android {
         applicationId = "io.github.aryeh95.radarcount"
         minSdk = 26
         targetSdk = 35
-        versionCode = 38
-        versionName = "0.4.1"
+        versionCode = 39
+        versionName = "0.4.2-beta1"
         buildConfigField("String", "COMMIT", "\"$commit\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
