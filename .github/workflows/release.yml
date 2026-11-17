@@ -34,6 +34,22 @@ jobs:
       - name: Extension manifest matches the build version
         run: python3 scripts/check_manifest.py
 
+      # A stable release is what the update manifest points every rider at, so
+      # it must carry the version its tag names and be signed with the release
+      # key: a debug-signed APK cannot install over an existing copy.
+      - name: Stable release is the tagged version and is signed
+        if: github.event.inputs.prerelease != 'true'
+        env:
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          version=$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' app/build.gradle.kts)
+          if [ "${TAG#v}" != "$version" ]; then
+            echo "Tag $TAG does not match versionName $version"; exit 1
+          fi
+          if [ "$HAS_SIGNING_KEY" != "true" ]; then
+            echo "No signing key: a stable release would be debug-signed"; exit 1
+          fi
+
       - name: Unit tests
         env:
           USERNAME: ${{ github.actor }}
