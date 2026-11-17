@@ -10,6 +10,7 @@ import io.github.aryeh95.radarcount.datatypes.ClosestDistanceDataType
 import io.github.aryeh95.radarcount.datatypes.ComboDataType
 import io.github.aryeh95.radarcount.datatypes.VehicleCountDataType
 import io.github.aryeh95.radarcount.datatypes.VehiclesPerHourDataType
+import io.github.aryeh95.radarcount.engine.Clock
 import io.github.aryeh95.radarcount.engine.FitRecordWriter
 import io.github.aryeh95.radarcount.engine.RadarFeed
 import io.hammerhead.karooext.KarooSystemService
@@ -355,10 +356,10 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
 
     private fun resumeRideTime() {
         if (rideTimeJob != null) return
-        recordingSinceMs = System.currentTimeMillis()
+        recordingSinceMs = Clock.nowMs()
         rideTimeJob = mainScope.launch {
             while (isActive) {
-                _rideTimeMs.value = rideTimeBaseMs + (System.currentTimeMillis() - recordingSinceMs)
+                _rideTimeMs.value = rideTimeBaseMs + (Clock.nowMs() - recordingSinceMs)
                 delay(1000L)
             }
         }
@@ -368,7 +369,7 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
         rideTimeJob?.let {
             it.cancel()
             rideTimeJob = null
-            rideTimeBaseMs += System.currentTimeMillis() - recordingSinceMs
+            rideTimeBaseMs += Clock.nowMs() - recordingSinceMs
             _rideTimeMs.value = rideTimeBaseMs
         }
     }
@@ -428,13 +429,17 @@ class RadarCountExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAM
         fun writeSecond() {
             val feed = radarFeed
             val packet = feed.packet
+            // The raw packet for the diagnostic fields; the tracked cars for the fields the site
+            // counts from, so a counted car's returning echo or an empty packet while a car is
+            // close does not split one car into two runs.
             val ranges = packet?.rangesM?.sorted().orEmpty()
+            val tracked = feed.trackedRangesM.sorted()
             val passTotal = feed.passCount.value
 
             val record = writer.next(FitRecordWriter.Sample(
                 connected = packet != null,
-                vehicleCount = ranges.size,
-                nearestM = ranges.firstOrNull() ?: 0,
+                vehicleCount = tracked.size,
+                nearestM = tracked.firstOrNull() ?: 0,
                 passTotal = passTotal,
                 // The FIT field has no "unknown", and the Garmin app writes 0
                 // for a non-closing target, so an unknown speed writes 0 too.

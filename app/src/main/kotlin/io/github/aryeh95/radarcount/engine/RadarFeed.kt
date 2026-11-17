@@ -54,6 +54,14 @@ class RadarFeed(private val karoo: KarooSystemService) {
     @Volatile var packet: RadarPacket? = null
         private set
 
+    /**
+     * The ranges of the cars being tracked after the last packet, counted cars' ghosts left out
+     * (see [TargetTracker.trackedRangesM]); empty with [packet]. The FIT file's range field
+     * comes from these rather than the raw packet, so the site counts each car once.
+     */
+    @Volatile var trackedRangesM: List<Int> = emptyList()
+        private set
+
     /** Vehicles that have passed the rider this ride. */
     private val _passCount = MutableStateFlow(0)
     val passCount: StateFlow<Int> = _passCount.asStateFlow()
@@ -138,7 +146,7 @@ class RadarFeed(private val karoo: KarooSystemService) {
             return
         }
         val next = parser.parse(values)
-        val passed = targetTracker.update(next.rangesM, System.currentTimeMillis(), next.level, riderMps = riderSpeedMps)
+        val passed = targetTracker.update(next.rangesM, Clock.nowMs(), next.level, riderMps = riderSpeedMps)
         if (passed > 0 && countingEnabled) {
             _passCount.value += passed
             Log.d(TAG, "Counted $passed, ride total ${_passCount.value}")
@@ -146,6 +154,7 @@ class RadarFeed(private val karoo: KarooSystemService) {
         _closingSpeedMps.value = targetTracker.nearestClosingSpeedMps()
         _lastPass.value = targetTracker.lastPass
         packet = next
+        trackedRangesM = targetTracker.trackedRangesM()
         heardRadar = true
         _status.value = RadarStatus.Live.of(next)
     }
@@ -156,6 +165,7 @@ class RadarFeed(private val karoo: KarooSystemService) {
      */
     private fun forgetTargets(status: RadarStatus, fault: Boolean) {
         packet = null
+        trackedRangesM = emptyList()
         targetTracker.clear()
         if (fault) trackerClears++
         _closingSpeedMps.value = null
@@ -171,7 +181,7 @@ class RadarFeed(private val karoo: KarooSystemService) {
     /** Feed the rider's heading so the tracker can tell a turn from a pass. */
     fun updateHeading(degrees: Double) {
         lastHeadingDeg = degrees
-        synchronized(lock) { targetTracker.updateHeading(degrees, System.currentTimeMillis()) }
+        synchronized(lock) { targetTracker.updateHeading(degrees, Clock.nowMs()) }
     }
 
     /** Change how eager the pass counter is. Takes effect on the next packet. */
@@ -183,6 +193,7 @@ class RadarFeed(private val karoo: KarooSystemService) {
     fun resetPassCounts() {
         synchronized(lock) {
             targetTracker.clear()
+            trackedRangesM = emptyList()
             targetTracker.resetHeading()
             targetTracker.resetDiagnostics()
             trackerClears = 0

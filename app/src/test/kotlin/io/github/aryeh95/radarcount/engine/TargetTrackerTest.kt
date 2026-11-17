@@ -483,6 +483,7 @@ class TargetTrackerTest {
     @Test
     @DisplayName("a car on the new road that passes as the rider completes a turn counts")
     fun passWhileMergingOntoBusyRoad() {
+        repeat(7) { heading(90.0); feed() }      // heading window full: steady road before the turn
         heading(90.0); feed()
         heading(120.0); feed()
         heading(150.0); feed(84, threat = 2)     // car on the new road appears mid-turn
@@ -491,15 +492,18 @@ class TargetTrackerTest {
         heading(180.0); feed(12, threat = 2)
         heading(180.0); feed(3, threat = 2)
         assertThat(gone()).isEqualTo(1)
+        assertThat(tracker.turnCount).isEqualTo(1)
     }
 
     @Test
     @DisplayName("a fast car first seen at normal range right after a turn counts even if brief")
     fun fastPassRightAfterTurn() {
-        heading(90.0); feed(); heading(180.0); feed()
+        repeat(7) { heading(90.0); feed() }      // heading window full: steady road before the turn
+        heading(180.0); feed()
         feed(); feed()
         feed(96, threat = 2); feed(46, threat = 2); feed(6, threat = 2)   // three samples from 96 m
         assertThat(gone()).isEqualTo(1)
+        assertThat(tracker.turnCount).isEqualTo(1)
     }
 
     @Test
@@ -512,10 +516,55 @@ class TargetTrackerTest {
     @Test
     @DisplayName("a pass well after a turn counts")
     fun passAfterTurn() {
-        heading(90.0); feed(); heading(180.0); feed()
+        repeat(7) { heading(90.0); feed() }      // heading window full: steady road before the turn
+        heading(180.0); feed()
         repeat(15) { feed(); heading(180.0) }
         for (r in listOf(84, 68, 59, 46, 34, 25, 12, 3)) { feed(r, threat = 2); heading(180.0) }
         assertThat(gone()).isEqualTo(1)
+        assertThat(tracker.turnCount).isEqualTo(1)
+    }
+
+    @Test
+    @DisplayName("one corner is one turn, however long the road after it")
+    fun oneCornerOneTurn() {
+        // The samples from before the corner used to stay in the window for 6 s, and the road
+        // after it read as a new turn every second: 4 or 5 turns for one corner on a real ride.
+        repeat(7) { heading(90.0); feed() }
+        heading(120.0); feed(); heading(150.0); feed(); heading(180.0); feed()
+        repeat(10) { heading(180.0); feed() }
+        assertThat(tracker.turnCount).isEqualTo(1)
+    }
+
+    @Test
+    @DisplayName("a car that follows the rider round a corner and passes after it counts")
+    fun followsRoundCornerThenPasses() {
+        // From a ride (25 Oct, 13:38): a car 21 m back as the rider turned 216 -> 303 degrees
+        // stayed on the radar through the corner, came alongside 3 s after it and was dropped as
+        // "turned away" because the straight after the corner kept reading as fresh turns.
+        for (r in listOf(21, 21, 18, 15, 12, 12, 9)) { heading(216.0); feed(r, threat = 1) }
+        heading(239.0); feed(12, threat = 1)
+        heading(268.0); feed(9, threat = 1)      // the turn is detected here
+        heading(290.0); feed(12, threat = 1)
+        heading(303.0); feed(6, threat = 1)
+        heading(303.0); feed(6, threat = 1)
+        heading(303.0); feed(3, threat = 2)
+        heading(303.0); feed(3, threat = 2)
+        heading(303.0)
+        assertThat(gone()).isEqualTo(1)
+        assertThat(tracker.rejectedTurnedAway).isEqualTo(0)
+    }
+
+    @Test
+    @DisplayName("the tracked ranges leave out a counted car's returning echo and bridge an empty packet")
+    fun trackedRangesSkipGhostsAndBridgeGaps() {
+        for (r in listOf(46, 34, 25, 12)) feed(r)
+        feed(dtMs = 250)                                   // an empty packet while the car is close
+        assertThat(tracker.trackedRangesM()).containsExactly(12)
+        feed(6, dtMs = 250)
+        assertThat(feed(dtMs = 800)).isEqualTo(1)          // counted
+        assertThat(tracker.trackedRangesM()).isEmpty()
+        feed(3, dtMs = 700)                                // its echo comes back alongside
+        assertThat(tracker.trackedRangesM()).isEmpty()
     }
 
     @Test

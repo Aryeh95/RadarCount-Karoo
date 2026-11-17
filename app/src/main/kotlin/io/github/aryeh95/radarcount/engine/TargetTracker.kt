@@ -1,5 +1,6 @@
 package io.github.aryeh95.radarcount.engine
 
+import java.util.Locale
 import kotlin.math.abs
 
 /**
@@ -222,6 +223,10 @@ class TargetTracker(
                 turns.addLast(Turn(start, nowMs))
                 turnCount++
             }
+            // Measure the next turn from here. Otherwise the samples from before this corner
+            // stay in the window for its whole length and the straight road after it keeps
+            // reading as a new turn every second, stretching the turn vetoes past the corner.
+            while (headings.size > 1) headings.removeFirst()
         }
         while (turns.isNotEmpty() && nowMs - turns.first().detectedMs > afterTurnMs + turnWindowMs + 60_000L) turns.removeFirst()
     }
@@ -240,6 +245,14 @@ class TargetTracker(
 
     /** Number of currently tracked targets (ghosts of counted cars excluded). */
     val activeCount: Int get() = tracks.count { !it.resolved }
+
+    /**
+     * The ranges of the cars still being tracked, ghosts of counted cars left out: what the FIT
+     * file's range field shows. A raw packet differs in two ways that each make
+     * mybiketraffic.com count a car twice: a counted car's echo that comes back alongside, which a
+     * ghost absorbs here, and an empty packet while a car is close, which a track bridges.
+     */
+    fun trackedRangesM(): List<Int> = tracks.filter { !it.resolved }.map { it.range }
 
     /**
      * The most recent pass decision, for showing a car's speed after it has
@@ -355,7 +368,7 @@ class TargetTracker(
                     val pass = !turnedAway && !crossingAfterTurn && looksLikePass
                     trace?.invoke(
                         "TRACK,${nowMs},${t.firstRange},${t.minRange},${t.range},${t.samples},${t.lastSeenMs - t.firstSeenMs}," +
-                            "${t.maxThreat},${"%.2f".format(t.lastSpeedMps)},${if (pass) "pass" else if (turnedAway) "turnedAway" else if (crossingAfterTurn) "crossing" else "notPass"}"
+                            "${t.maxThreat},${String.format(Locale.US, "%.2f", t.lastSpeedMps)},${if (pass) "pass" else if (turnedAway) "turnedAway" else if (crossingAfterTurn) "crossing" else "notPass"}"
                     )
                     if (pass) {
                         passed++

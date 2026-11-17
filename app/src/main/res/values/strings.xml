@@ -53,7 +53,7 @@
     <string name="settings_pass_hold_3">3 s</string>
     <string name="settings_pass_hold_5">5 s</string>
     <string name="settings_pass_hold_10">10 s</string>
-    <string name="settings_pass_hold_hint">After a car passes, keep its approach speed on screen, greyed and marked PASSED, for this long. A car whose speed is measured replaces it at once. Cars seen for under 2 s have no speed, and none is shown. Speeds are ballpark figures.</string>
+    <string name="settings_pass_hold_hint">After a car passes, keep its approach speed on screen, greyed and marked PASSED, for this long. A car whose speed is measured replaces it at once. Cars seen for under a second have no speed, and none is shown. Speeds are ballpark figures.</string>
     <string name="settings_field_header">Header</string>
     <string name="settings_field_header_hint">The field\'s icon and name at the top. Off gives the value the whole field.</string>
     <string name="settings_sensitivity">Count sensitivity</string>

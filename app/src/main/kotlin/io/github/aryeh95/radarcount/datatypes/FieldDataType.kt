@@ -7,6 +7,7 @@ import io.github.aryeh95.radarcount.data.PassHoldSetting
 import io.github.aryeh95.radarcount.data.Settings
 import io.github.aryeh95.radarcount.datatypes.render.FieldColors
 import io.github.aryeh95.radarcount.datatypes.render.FieldFrame
+import io.github.aryeh95.radarcount.engine.Clock
 import io.github.aryeh95.radarcount.engine.RadarStatus
 import io.github.aryeh95.radarcount.engine.TargetTracker
 import io.hammerhead.karooext.extension.DataTypeImpl
@@ -88,7 +89,7 @@ abstract class FieldDataType(
         }
 
         /** The sample car after it has gone by, as the page editor and the settings preview show it. [seq] tells repeated passes apart. */
-        fun previewPass(seq: Int, atMs: Long = System.currentTimeMillis()) =
+        fun previewPass(seq: Int, atMs: Long = Clock.nowMs()) =
             TargetTracker.Pass(seq = seq, atMs = atMs, closingMps = PREVIEW_INPUT.closingSpeedMps, riderMps = PREVIEW_INPUT.riderSpeedMps, cars = 1)
     }
 
@@ -203,7 +204,7 @@ abstract class FieldDataType(
         while (true) {
             val settings = service.settings.value
             val hold = passHold(settings)
-            val states = previewStates(hold, ++passSeq, System.currentTimeMillis())
+            val states = previewStates(hold, ++passSeq, Clock.nowMs())
             val i = step % states.size
             Log.d(TAG, "$dataTypeId: preview ${i + 1}/${states.size}, pass hold $hold")
             sender.send(states[i].copy(settings = settings, useImperial = service.imperialUnits.value))
@@ -247,7 +248,7 @@ abstract class FieldDataType(
             try {
                 val key = key(context, input, config)
                 if (key == onScreenKey) return
-                val now = System.currentTimeMillis()
+                val now = Clock.nowMs()
                 if (now - sentAtMs < MIN_SEND_GAP_MS) return
                 val next = frame(context, input, config)
                 if (!next.looksLike(onScreen)) {

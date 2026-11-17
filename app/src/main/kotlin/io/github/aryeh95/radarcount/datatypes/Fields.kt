@@ -12,6 +12,7 @@ import io.github.aryeh95.radarcount.datatypes.render.FieldFrame
 import io.github.aryeh95.radarcount.datatypes.render.FieldHeader
 import io.github.aryeh95.radarcount.datatypes.render.FieldImage
 import io.github.aryeh95.radarcount.datatypes.render.FieldViews
+import io.github.aryeh95.radarcount.engine.Clock
 import io.github.aryeh95.radarcount.engine.TargetTracker
 import io.github.aryeh95.radarcount.engine.Units
 import io.hammerhead.karooext.models.ViewConfig
@@ -181,11 +182,11 @@ class ApproachSpeedDataType(
     }
 
     override fun frame(context: Context, input: RenderInput, config: ViewConfig): FieldFrame =
-        render(context, input, config, density, System.currentTimeMillis())
+        render(context, input, config, density, Clock.nowMs())
 
     /** The held pass too: its end changes nothing in [input], so the frame would not be redrawn. */
     override fun key(context: Context, input: RenderInput, config: ViewConfig): Any =
-        listOf(super.key(context, input, config), held(input, System.currentTimeMillis())?.seq)
+        listOf(super.key(context, input, config), held(input, Clock.nowMs())?.seq)
 }
 
 /** Vehicles passed per hour of recording time. */
@@ -312,13 +313,13 @@ class ComboDataType(
     }
 
     override fun frame(context: Context, input: RenderInput, config: ViewConfig): FieldFrame {
-        val now = System.currentTimeMillis()
+        val now = Clock.nowMs()
         val held = held(input, now)
         return render(context, input, config, density, active(input, config, now, held), held)
     }
 
     override fun key(context: Context, input: RenderInput, config: ViewConfig): Any {
-        val now = System.currentTimeMillis()
+        val now = Clock.nowMs()
         val held = held(input, now)
         return listOf(super.key(context, input, config), active(input, config, now, held), held?.seq)
     }

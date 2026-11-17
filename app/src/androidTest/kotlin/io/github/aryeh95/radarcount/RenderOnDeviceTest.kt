@@ -193,8 +193,8 @@ class RenderOnDeviceTest {
             if (passOnly(case) && type !is ApproachSpeedDataType && type !is ComboDataType) continue
             val name = "${type.typeId}_${size.name}_${case.name}"
             try {
-                // A pass is decided just now, so its hold is running.
-                val now = System.currentTimeMillis()
+                // A pass is decided just now, on the fields' clock, so its hold is running.
+                val now = android.os.SystemClock.elapsedRealtime()
                 val inputs = case.inputs.map { it.copy(lastPass = it.lastPass?.copy(atMs = now)) }
                 if (passOnly(case)) {
                     val held = if (type is ComboDataType) ComboDataType.held(inputs.last(), now) else ApproachSpeedDataType.held(inputs.last(), now)
